@@ -133,7 +133,7 @@ const eliminarProducto = (req, res) => {
 // PEDIDOS (VENTAS)
 const listarPedidos = (req, res) => {
     const query = `
-        SELECT pe.idPedido, u.nombre AS nombreUsuario, pe.fecha
+        SELECT pe.idPedido, u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario, pe.fecha, pe.estado
         FROM pedidos pe
         JOIN usuarios u ON pe.idCliente = u.idUsuario
         ORDER BY pe.fecha DESC

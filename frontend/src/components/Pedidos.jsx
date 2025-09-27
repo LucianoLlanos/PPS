@@ -214,9 +214,11 @@ function Pedidos() {
                   <div className="mb-2">
                     <label>Usuario</label>
                     <select className={`form-select${fieldErrors.usuario ? ' is-invalid' : ''}`} name="usuario" value={addForm.usuario} onChange={handleAddChange} required>
-                      <option value="">Selecciona usuario</option>
-                      {usuarios.map(u => (
-                        <option key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</option>
+                      <option value="">Selecciona usuario (solo clientes)</option>
+                      {usuarios
+                        .filter(u => u.nombreRol && u.nombreRol.toLowerCase() === 'cliente')
+                        .map(u => (
+                          <option key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</option>
                       ))}
                     </select>
                     <div style={{minHeight: 18, fontSize: '0.85em'}}>

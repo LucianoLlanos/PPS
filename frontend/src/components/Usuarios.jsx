@@ -122,6 +122,22 @@ function Usuarios() {
       });
   };
 
+  const confirmDelete = async () => {
+    try {
+      await api.delete(`/usuarios/${deleteUser.idUsuario}`);
+      setSuccess('Usuario eliminado correctamente');
+      setDeleteUser(null);
+      setDeleteError(null);
+      setError(null);
+    } catch (err) {
+      let msg = 'Error al eliminar usuario';
+      if (err && err.response && err.response.data && err.response.data.message) {
+        msg = err.response.data.message;
+      }
+      setDeleteError(msg);
+    }
+  };
+
   const submitAdd = async (e) => {
     e.preventDefault();
     // Validación final antes de enviar

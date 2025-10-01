@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Usuarios from './components/Usuarios';
 import Productos from './components/Productos';
 import Pedidos from './components/Pedidos';
+import Clientes from './components/Clientes';
 import './App.css';
 
 function App() {
@@ -23,12 +24,16 @@ function App() {
             <li className="nav-item">
               <Link className="nav-link" to="/pedidos">Pedidos</Link>
             </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/clientes">Clientes</Link>
+            </li>
           </ul>
         </nav>
         <Routes>
           <Route path="/usuarios" element={<Usuarios />} />
           <Route path="/productos" element={<Productos />} />
           <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/clientes" element={<Clientes />} />
           <Route path="/" element={<Usuarios />} />
         </Routes>
       </div>

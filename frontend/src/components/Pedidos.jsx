@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../api/axios';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
+  const [filters, setFilters] = useState({ estado: '', fechaDesde: '', fechaHasta: '', priorizarPendientes: false, sort: '' });
+  const [headerFilterVisible, setHeaderFilterVisible] = useState(null); // e.g. 'estado' or 'fecha'
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [deletePedido, setDeletePedido] = useState(null);
@@ -14,10 +16,31 @@ function Pedidos() {
   const [usuarios, setUsuarios] = useState([]);
   const [productosList, setProductosList] = useState([]);
 
-  useEffect(() => {
-    api.get('/ventas')
+  const loadPedidos = useCallback((appliedFilters = null, sortOverride = null) => {
+    const useFilters = appliedFilters || filters || {};
+    const params = {};
+    if (useFilters.idPedido) params.idPedido = useFilters.idPedido;
+    if (useFilters.estado) params.estado = useFilters.estado;
+    if (useFilters.fechaDesde) params.fechaDesde = useFilters.fechaDesde;
+    if (useFilters.fechaHasta) params.fechaHasta = useFilters.fechaHasta;
+    if (useFilters.producto) params.producto = useFilters.producto;
+    if (useFilters.usuario) params.usuario = useFilters.usuario;
+    if (useFilters.totalMin) params.totalMin = useFilters.totalMin;
+    if (useFilters.totalMax) params.totalMax = useFilters.totalMax;
+    if (useFilters.cantidadMin) params.cantidadMin = useFilters.cantidadMin;
+    if (useFilters.cantidadMax) params.cantidadMax = useFilters.cantidadMax;
+    if (useFilters.priorizarPendientes) params.priorizarPendientes = '1';
+    const sortToUse = sortOverride || (filters && filters.sort) || null;
+    if (sortToUse === 'fecha_asc') params.sort = 'fecha_asc';
+    if (sortToUse === 'fecha_desc') params.sort = 'fecha_desc';
+
+    api.get('/ventas', { params })
       .then(res => setPedidos(res.data))
       .catch(() => setError('Error al obtener pedidos'));
+  }, [filters]);
+
+  useEffect(() => {
+    loadPedidos();
     api.get('/usuarios')
       .then(res => setUsuarios(res.data))
       .catch(() => {});
@@ -27,7 +50,24 @@ function Pedidos() {
     api.get('/sucursales')
       .then(res => setSucursales(res.data))
       .catch(() => {});
-  }, [success]);
+    const onUsuarioCreado = () => {
+      api.get('/usuarios').then(res => setUsuarios(res.data)).catch(() => {});
+    };
+    window.addEventListener('usuarioCreado', onUsuarioCreado);
+    // Cerrar paneles de filtro al clickear fuera
+    const handleDocClick = (e) => {
+      // si hay un panel abierto y el click no está dentro de ninguno de los .card de filtro ni en el botón que lo abre, cerrarlos
+      if (headerFilterVisible) {
+        const clickedCard = e.target.closest && e.target.closest('.card');
+        const clickedTrigger = e.target.closest && e.target.closest('.filter-trigger');
+        if (!clickedCard && !clickedTrigger) setHeaderFilterVisible(null);
+      }
+    };
+    document.addEventListener('click', handleDocClick);
+    return () => { window.removeEventListener('usuarioCreado', onUsuarioCreado); document.removeEventListener('click', handleDocClick); };
+  }, [success, loadPedidos, headerFilterVisible]);
+
+  // Los filtros ahora se manejan desde los controles en la cabecera y el badge Limpiar
   const handleAddChange = (e) => {
     setAddForm({ ...addForm, [e.target.name]: e.target.value });
   };
@@ -140,19 +180,119 @@ function Pedidos() {
           <i className="bi bi-plus-circle"></i> Registrar pedido
         </button>
       </div>
+      
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
       <div className="table-responsive">
+        {/* Indicador compacto de filtros activos */}
+        <div className="mb-2 d-flex gap-2 align-items-center">
+          {filters.estado && <span className="badge bg-info text-dark">Estado: {filters.estado}</span>}
+          {(filters.fechaDesde || filters.fechaHasta) && <span className="badge bg-info text-dark">Fecha: {filters.fechaDesde || '...'} - {filters.fechaHasta || '...'}</span>}
+          {filters.sort && <span className="badge bg-secondary">Orden: {filters.sort === 'fecha_asc' ? 'Fecha ↑' : 'Fecha ↓'}</span>}
+          {(filters.estado || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setFilters({ idPedido: '', producto: '', usuario: '', estado: '', fechaDesde: '', fechaHasta: '', totalMin: '', totalMax: '', cantidadMin: '', cantidadMax: '', priorizarPendientes: false, sort: '' }); loadPedidos({}); }}>Limpiar filtros</button>
+          )}
+        </div>
         <table className="table table-striped table-bordered">
           <thead className="table-dark">
             <tr>
-              <th>ID</th>
-              <th>Producto</th>
-              <th>Usuario</th>
-              <th>Cantidad</th>
-              <th>Fecha</th>
-              <th>Total</th>
-              <th>Estado</th>
+              <th>
+                ID
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'id' ? null : 'id'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro ID">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'id' && (
+                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="ID exacto" type="number" onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, idPedido: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                  </div>
+                )}
+              </th>
+              <th>
+                Producto
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'producto' ? null : 'producto'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro producto">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'producto' && (
+                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre producto" type="text" defaultValue={filters.producto || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, producto: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                  </div>
+                )}
+              </th>
+              <th>
+                Usuario
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'usuario' ? null : 'usuario'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro usuario">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'usuario' && (
+                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre, apellido o email" type="text" defaultValue={filters.usuario || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, usuario: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                  </div>
+                )}
+              </th>
+              <th>
+                Cantidad
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
+                  const nextOrder = filters.sort === 'cantidad_asc' ? 'cantidad_desc' : 'cantidad_asc';
+                  const newFilters = { ...filters, sort: nextOrder };
+                  setFilters(newFilters);
+                  loadPedidos(newFilters, nextOrder);
+                }} aria-label="Ordenar por cantidad">{filters.sort === 'cantidad_asc' ? '↑' : filters.sort === 'cantidad_desc' ? '↓' : '↕'}</button>
+                <button type="button" className="btn btn-sm btn-link text-primary ms-1 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'cantidad' ? null : 'cantidad'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro cantidad">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'cantidad' && (
+                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000', minWidth: 200}}>
+                    <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.cantidadMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.cantidadMax || ''} /></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.card'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, cantidadMin: min || '', cantidadMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, cantidadMin: '', cantidadMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                  </div>
+                )}
+              </th>
+              <th>
+                Fecha
+                <button type="button" className="btn btn-sm btn-link text-white ms-2 p-0" onClick={() => {
+                  // toggle sort for fecha in unified filters
+                  const nextOrder = filters.sort === 'fecha_asc' ? 'fecha_desc' : 'fecha_asc';
+                  const newFilters = { ...filters, sort: nextOrder };
+                  setFilters(newFilters);
+                  loadPedidos(newFilters, nextOrder);
+                }} aria-label="Ordenar por fecha">
+                  {filters.sort === 'fecha_asc' ? '↑' : filters.sort === 'fecha_desc' ? '↓' : '↕'}
+                </button>
+              </th>
+              <th>
+                Total
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'total' ? null : 'total'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro total">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'total' && (
+                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000', minWidth: 200}}>
+                    <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.totalMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.totalMax || ''} /></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.card'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, totalMin: min || '', totalMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, totalMin: '', totalMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                  </div>
+                )}
+              </th>
+              <th>
+                Estado
+                <div style={{display: 'inline-block', marginLeft: 6}}>
+                  <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => {
+                    const nextVisible = headerFilterVisible === 'estado' ? null : 'estado';
+                    setHeaderFilterVisible(nextVisible);
+                  }} aria-label="Filtro estado"><i className="bi bi-caret-down-fill text-primary"></i></button>
+                  {headerFilterVisible === 'estado' && (
+                    <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Todos</button></div>
+                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Pendiente' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Pendiente</button></div>
+                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'En Proceso' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>En Proceso</button></div>
+                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Enviado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Enviado</button></div>
+                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Entregado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Entregado</button></div>
+                      <div><button className="btn btn-sm btn-light w-100" onClick={() => { const nf = { ...filters, estado: 'Cancelado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Cancelado</button></div>
+                    </div>
+                  )}
+                </div>
+              </th>
               <th>Acciones</th>
             </tr>
           </thead>

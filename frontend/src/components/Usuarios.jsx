@@ -11,13 +11,17 @@ function Usuarios() {
   const [deleteUser, setDeleteUser] = useState(null);
   const [form, setForm] = useState({ nombre: '', apellido: '', email: '', idRol: '' });
   const [addUser, setAddUser] = useState(false);
-  const [addForm, setAddForm] = useState({ nombre: '', apellido: '', email: '', password: '', idRol: '' });
+  const [addForm, setAddForm] = useState({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
   const [success, setSuccess] = useState(null);
 
-  useEffect(() => {
+  const loadUsuarios = () => {
     api.get('/usuarios')
       .then(res => setUsuarios(res.data))
       .catch(() => setError('Error al obtener usuarios'));
+  };
+
+  useEffect(() => {
+    loadUsuarios();
     if (success) {
       const timer = setTimeout(() => {
         setSuccess(null);
@@ -29,7 +33,7 @@ function Usuarios() {
 
   const handleEdit = (user) => {
     setEditUser(user);
-    setForm({ nombre: user.nombre, apellido: user.apellido, email: user.email, idRol: user.idRol });
+    setForm({ nombre: user.nombre, apellido: user.apellido, email: user.email, idRol: user.idRol, direccion: user.direccion || '', telefono: user.telefono || '' });
   };
 
   const handleDelete = (user) => {
@@ -106,12 +110,13 @@ function Usuarios() {
     if (!form.idRol) errors.idRol = 'El rol es obligatorio';
     setEditFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    api.put(`/usuarios/${editUser.idUsuario}`, { ...form, nombre, apellido, idRol: form.idRol })
+    api.put(`/usuarios/${editUser.idUsuario}`, { ...form, nombre, apellido, idRol: form.idRol, direccion: form.direccion || null, telefono: form.telefono || null })
       .then(() => {
         setSuccess('Usuario actualizado correctamente');
         setEditUser(null);
         setEditFieldErrors({});
         setError(null);
+        loadUsuarios();
       })
       .catch((err) => {
         let msg = 'Error al actualizar usuario';
@@ -129,6 +134,7 @@ function Usuarios() {
       setDeleteUser(null);
       setDeleteError(null);
       setError(null);
+  loadUsuarios();
     } catch (err) {
       let msg = 'Error al eliminar usuario';
       if (err && err.response && err.response.data && err.response.data.message) {
@@ -160,15 +166,20 @@ function Usuarios() {
       ...addForm,
       nombre,
       apellido,
-      idRol: addForm.idRol
+      idRol: addForm.idRol,
+      direccion: addForm.direccion || null,
+      telefono: addForm.telefono || null
     };
     try {
-      await api.post('/usuarios', payload);
+      const res = await api.post('/usuarios', payload);
+      // Notify other components that a user was created (useful so Pedidos can refresh its users list)
+  try { window.dispatchEvent(new CustomEvent('usuarioCreado', { detail: res.data })); } catch { /* ignore in non-browser env */ }
       setSuccess('Usuario creado correctamente');
       setAddUser(false);
-      setAddForm({ nombre: '', apellido: '', email: '', password: '', idRol: '' });
+  setAddForm({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
       setFieldErrors({});
       setError(null);
+  loadUsuarios();
     } catch (err) {
       let msg = 'Error al crear usuario';
       if (err.response && err.response.data && err.response.data.message) {
@@ -197,6 +208,8 @@ function Usuarios() {
               <th>Apellido</th>
               <th>Email</th>
           <th>Rol</th>
+              <th>Dirección</th>
+              <th>Teléfono</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -208,6 +221,8 @@ function Usuarios() {
                 <td>{u.apellido}</td>
                 <td>{u.email}</td>
                 <td>{u.nombreRol || u.idRol}</td>
+                <td>{u.direccion || ''}</td>
+                <td>{u.telefono || ''}</td>
                 <td>
                   <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(u)}>
                     <i className="bi bi-pencil"></i> Editar
@@ -277,6 +292,20 @@ function Usuarios() {
                       {fieldErrors.idRol && <span className="invalid-feedback d-block">{fieldErrors.idRol}</span>}
                     </div>
                   </div>
+
+                  {/* Campos adicionales para Cliente */}
+                  {(addForm.idRol == 1) && (
+                    <>
+                      <div className="mb-2">
+                        <label>Dirección (opcional)</label>
+                        <input type="text" className={`form-control`} name="direccion" value={addForm.direccion} onChange={handleAddChange} />
+                      </div>
+                      <div className="mb-2">
+                        <label>Teléfono (opcional)</label>
+                        <input type="text" className={`form-control`} name="telefono" value={addForm.telefono} onChange={handleAddChange} />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button type="submit" className="btn btn-success">Crear usuario</button>
@@ -336,6 +365,19 @@ function Usuarios() {
                       {editFieldErrors.idRol && <span className="invalid-feedback d-block">{editFieldErrors.idRol}</span>}
                     </div>
                   </div>
+                  {/* Campos adicionales para Cliente en edición */}
+                  {(form.idRol == 1) && (
+                    <>
+                      <div className="mb-2">
+                        <label>Dirección (opcional)</label>
+                        <input type="text" className={`form-control`} name="direccion" value={form.direccion || ''} onChange={handleChange} />
+                      </div>
+                      <div className="mb-2">
+                        <label>Teléfono (opcional)</label>
+                        <input type="text" className={`form-control`} name="telefono" value={form.telefono || ''} onChange={handleChange} />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button type="submit" className="btn btn-success">Guardar cambios</button>

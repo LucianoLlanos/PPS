@@ -31,6 +31,8 @@ router.put('/ventas/:id', adminController.actualizarPedido);
 // Sucursales, clientes, servicios
 router.get('/sucursales', adminController.listarSucursales);
 router.get('/clientes', adminController.listarClientes);
+router.get('/clientes/:id', adminController.verCliente);
+router.put('/clientes/:id', adminController.actualizarCliente);
 router.get('/servicios', adminController.listarServicios);
 router.get('/stock_sucursal', adminController.listarStockSucursal);
 // Actualizar stock por sucursal (idSucursal, idProducto)

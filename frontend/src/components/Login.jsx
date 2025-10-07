@@ -1,0 +1,55 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api/axios';
+import useAuthStore from '../store/useAuthStore';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const setAuth = useAuthStore((s) => s.setAuth);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = { email, password };
+      console.log('Login payload', payload);
+      const res = await api.post('/auth/login', payload);
+      console.log('Login response', res.data);
+      const { token, user } = res.data;
+  setAuth(user, token);
+  // Si es admin (idRol === 3) llevar a vista de productos (CRUD)
+  if (user && Number(user.idRol) === 3) navigate('/productos');
+  else navigate('/');
+    } catch (err) {
+      console.error('Login error:', err);
+      console.error('Login error response data:', err?.response?.data);
+      const message = err?.response?.data?.error || err?.message || 'Error en login';
+      alert(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} style={{ maxWidth: 360 }}>
+      <h3>Iniciar sesión</h3>
+      <div style={{ marginBottom: 8 }}>
+        <button type="button" onClick={async () => { setEmail('admin@example.com'); setPassword('admin123'); await submit(new Event('submit')); }} style={{ marginRight: 8 }}>Entrar como Admin</button>
+        {/* Botón de Vendedor removido porque la vista vendedor fue deshabilitada */}
+      </div>
+      <div>
+        <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </div>
+      <div>
+        <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      </div>
+      <div>
+        <button type="submit" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
+      </div>
+    </form>
+  );
+}

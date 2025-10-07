@@ -1,0 +1,22 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const adminRoutes = require('./routes/adminRoutes');
+const sellerRoutes = require('./routes/sellerRoutes');
+const path = require('path');
+const authRoutes = require('./routes/authRoutes');
+const authMiddleware = require('./middleware/authMiddleware');
+const { requireRoleId } = require('./middleware/roleMiddleware');
+
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Proteger rutas administrativas: requieren token y rol Admin (idRol = 3)
+app.use('/', authMiddleware, requireRoleId(3), adminRoutes);
+app.use('/auth', authRoutes);
+// proteger rutas seller: necesita token y solo rol vendedor (idRol = 2)
+app.use('/seller', authMiddleware, requireRoleId(2), sellerRoutes);
+
+app.listen(3000, () => {
+  console.log('Servidor backend escuchando en puerto 3000');
+});

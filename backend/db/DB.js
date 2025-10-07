@@ -10,9 +10,8 @@ const connection = mysql.createConnection({
   host: '127.0.0.1',
   user: 'root',
   password: '12345678',
-  database: 'atilio_marola'
+  database: 'atilio_marola',
 });
-
 
 //mensaje de error por si falla la conexión
 connection.connect((err) => {

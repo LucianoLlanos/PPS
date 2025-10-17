@@ -283,10 +283,9 @@ function Usuarios() {
                     <label>Rol</label>
                     <select className={`form-select${fieldErrors.idRol ? ' is-invalid' : ''}`} name="idRol" value={addForm.idRol} onChange={handleAddChange} required>
                       <option value="">Selecciona un rol</option>
-                      <option value={1}>Cliente</option>
-                      <option value={2}>Admin</option>
-                      <option value={3}>Superadmin</option>
-                      <option value={4}>Vendedor</option>
+                        <option value={1}>Cliente</option>
+                        <option value={2}>Vendedor</option>
+                        <option value={3}>Admin</option>
                     </select>
                     <div style={{minHeight: 18, fontSize: '0.85em'}}>
                       {fieldErrors.idRol && <span className="invalid-feedback d-block">{fieldErrors.idRol}</span>}
@@ -357,9 +356,8 @@ function Usuarios() {
                     <select className={`form-select${editFieldErrors.idRol ? ' is-invalid' : ''}`} name="idRol" value={form.idRol} onChange={handleChange} required>
                       <option value="">Selecciona un rol</option>
                       <option value={1}>Cliente</option>
-                      <option value={2}>Admin</option>
-                      <option value={3}>Superadmin</option>
-                      <option value={4}>Vendedor</option>
+                      <option value={2}>Vendedor</option>
+                      <option value={3}>Admin</option>
                     </select>
                     <div style={{minHeight: 18, fontSize: '0.85em'}}>
                       {editFieldErrors.idRol && <span className="invalid-feedback d-block">{editFieldErrors.idRol}</span>}

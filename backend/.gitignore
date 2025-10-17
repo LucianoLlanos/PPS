@@ -17,3 +17,6 @@ build
 .vscode/
 .idea/
 .DS_Store
+
+# Uploaded images
+uploads/

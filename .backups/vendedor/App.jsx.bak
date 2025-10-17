@@ -1,0 +1,79 @@
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Usuarios from './components/Usuarios';
+import Productos from './components/Productos';
+import Pedidos from './components/Pedidos';
+import Clientes from './components/Clientes';
+import Vendedor from './components/Vendedor';
+import Login from './components/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+import './App.css';
+
+import useAuthStore from './store/useAuthStore';
+
+function App() {
+  const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const handleLogin = (user) => {
+    // noop: store already updated by Login
+  };
+  return (
+    <Router>
+      <div className="container py-4">
+        <div className="text-center mb-5">
+          <h1 className="display-4">Panel de Administraci\u00f3n</h1>
+          <p className="lead">Gestiona usuarios, productos y pedidos de forma sencilla</p>
+        </div>
+        {user && (
+          <nav className="mb-4">
+            <ul className="nav nav-pills justify-content-center">
+              {/* Mostrar opciones de administraci\u00f3n s\u00f3lo para Admin (idRol === 3) */}
+              {Number(user.idRol) === 3 && (
+                <>
+                  <li className="nav-item">
+                    <Link className="nav-link" to="/usuarios">Usuarios</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to="/productos">Productos</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to="/pedidos">Pedidos</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to="/clientes">Clientes</Link>
+                  </li>
+                </>
+              )}
+
+              {/* Link Vendedor para rol 2 */}
+              {Number(user.idRol) === 2 && (
+                <li className="nav-item">
+                  <Link className="nav-link" to="/vendedor">Vendedor</Link>
+                </li>
+              )}
+
+              <li className="nav-item">
+                <button className="nav-link" onClick={() => { clearAuth(); window.location.href = '/'; }}>Logout</button>
+              </li>
+            </ul>
+          </nav>
+        )}
+        <Routes>
+          <Route path="/usuarios" element={<ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute>} />
+          <Route path="/productos" element={<ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute>} />
+          <Route path="/pedidos" element={<ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute>} />
+          <Route path="/clientes" element={<ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute>} />
+          <Route path="/vendedor" element={
+            <ProtectedRoute requiredRoleId={2}>
+              <Vendedor />
+            </ProtectedRoute>
+          } />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/" element={<Login onLogin={handleLogin} />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App

@@ -1,8 +1,21 @@
+/* Contenedor principal de la aplicación */
 #root {
-  max-width: 1280px;
+  min-height: calc(100vh - 76px); /* Altura completa menos navbar */
+}
+
+/* Contenedor para páginas normales (no login) */
+.app-container {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 0 1rem 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Espaciado para el contenido principal */
+.main-content {
+  flex: 1;
+  padding: 1rem 0;
 }
 
 .logo {

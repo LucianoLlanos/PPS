@@ -1,0 +1,358 @@
+/* Productos - Estilos específicos para el panel de administración de productos */
+
+/* Layout principal */
+.productos-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header con herramientas */
+.productos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.productos-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.productos-tools-dropdown {
+  position: relative;
+}
+
+.productos-tools-btn {
+  background-color: #6f42c1;
+  border-color: #6f42c1;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+}
+
+.productos-tools-btn:hover {
+  background-color: #5a2d91;
+  border-color: #5a2d91;
+}
+
+.productos-tools-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.productos-tools-item {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.productos-tools-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Modales */
+.productos-modal-backdrop {
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.productos-modal-dialog {
+  max-width: 800px !important;
+}
+
+.productos-modal-content {
+  border-radius: 0.5rem;
+  border: none;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+.productos-modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem 1.5rem;
+}
+
+.productos-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.productos-modal-body {
+  padding: 1.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Formularios */
+.productos-form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.productos-form-col {
+  flex: 1;
+}
+
+.productos-form-group {
+  margin-bottom: 1rem;
+}
+
+.productos-form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+  color: #333;
+}
+
+.productos-form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.productos-form-input:focus {
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.productos-form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.productos-form-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  background-color: #fff;
+  font-size: 0.95rem;
+}
+
+/* Checkbox groups para sucursales */
+.productos-sucursales-group {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+}
+
+.productos-checkbox-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.productos-checkbox {
+  margin-right: 0.5rem;
+}
+
+.productos-select-all {
+  font-weight: 600;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Tabla */
+.productos-table {
+  margin-top: 20px;
+}
+
+.productos-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+  padding: 0.75rem;
+}
+
+.productos-table td {
+  vertical-align: middle;
+  padding: 0.75rem;
+}
+
+.productos-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Botones de acción */
+.productos-btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.productos-btn-edit {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.productos-btn-edit:hover {
+  background-color: #ffca2c;
+  border-color: #ffc720;
+}
+
+.productos-btn-delete {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.productos-btn-delete:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+.productos-btn-stock {
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.productos-btn-stock:hover {
+  background-color: #138496;
+  border-color: #117a8b;
+}
+
+/* Estados y alertas */
+.productos-alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.productos-alert-success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.productos-field-error {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Stock por sucursal */
+.productos-stock-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.productos-stock-item:last-child {
+  border-bottom: none;
+}
+
+.productos-stock-name {
+  font-weight: 500;
+}
+
+.productos-stock-value {
+  font-weight: 600;
+  color: #28a745;
+}
+
+.productos-stock-low {
+  color: #dc3545;
+}
+
+/* Loading states */
+.productos-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.productos-loading-spinner {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border: 0.25rem solid #f3f3f3;
+  border-top: 0.25rem solid #007bff;
+  border-radius: 50%;
+  animation: productos-spin 1s linear infinite;
+}
+
+@keyframes productos-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .productos-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .productos-modal-dialog {
+    max-width: 95% !important;
+    margin: 1rem auto;
+  }
+  
+  .productos-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .productos-btn-group {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .productos-table {
+    font-size: 0.875rem;
+  }
+  
+  .productos-table th,
+  .productos-table td {
+    padding: 0.5rem 0.25rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .productos-container {
+    padding: 10px;
+  }
+  
+  .productos-title {
+    font-size: 1.5rem;
+  }
+}

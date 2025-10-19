@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
+import '../stylos/admin/Admin.css';
+import '../stylos/admin/Usuarios.css';
 
 function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -239,43 +241,43 @@ function Usuarios() {
 
       {/* Modal Alta */}
       {addUser && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitAdd} noValidate style={{height: '100%'}}>
+        <div className="modal show d-block usuarios-modal-backdrop" tabIndex="-1" role="dialog">
+          <div className="modal-dialog modal-lg usuarios-modal-dialog" role="document">
+            <div className="modal-content usuarios-modal-content">
+              <form onSubmit={submitAdd} noValidate className="usuarios-modal-form">
                 <div className="modal-header">
                   <h5 className="modal-title">Agregar Usuario</h5>
                   <button type="button" className="btn-close" onClick={() => setAddUser(false)}></button>
                 </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
+                <div className="modal-body usuarios-modal-body">
                   {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
+                    <div className="alert alert-danger mb-3 usuarios-alert-danger">{error}</div>
                   )}
                   <div className="mb-2">
                     <label>Nombre</label>
                     <input type="text" className={`form-control${fieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={addForm.nombre} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {fieldErrors.nombre && <span className="invalid-feedback d-block">{fieldErrors.nombre}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Apellido</label>
                     <input type="text" className={`form-control${fieldErrors.apellido ? ' is-invalid' : ''}`} name="apellido" value={addForm.apellido} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {fieldErrors.apellido && <span className="invalid-feedback d-block">{fieldErrors.apellido}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Email</label>
                     <input type="email" className={`form-control${fieldErrors.email ? ' is-invalid' : ''}`} name="email" value={addForm.email} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {fieldErrors.email && <span className="invalid-feedback d-block">{fieldErrors.email}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Contraseña</label>
                     <input type="password" className={`form-control${fieldErrors.password ? ' is-invalid' : ''}`} name="password" value={addForm.password} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {fieldErrors.password && <span className="invalid-feedback d-block">{fieldErrors.password}</span>}
                     </div>
                   </div>
@@ -287,7 +289,7 @@ function Usuarios() {
                         <option value={2}>Vendedor</option>
                         <option value={3}>Admin</option>
                     </select>
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {fieldErrors.idRol && <span className="invalid-feedback d-block">{fieldErrors.idRol}</span>}
                     </div>
                   </div>
@@ -326,28 +328,28 @@ function Usuarios() {
                   <h5 className="modal-title">Editar Usuario</h5>
                   <button type="button" className="btn-close" onClick={() => setEditUser(null)}></button>
                 </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
+                <div className="usuarios-modal-body">
                   {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
+                    <div className="usuarios-alert-danger">{error}</div>
                   )}
                   <div className="mb-2">
                     <label>Nombre</label>
                     <input type="text" className={`form-control${editFieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={form.nombre} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {editFieldErrors.nombre && <span className="invalid-feedback d-block">{editFieldErrors.nombre}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Apellido</label>
                     <input type="text" className={`form-control${editFieldErrors.apellido ? ' is-invalid' : ''}`} name="apellido" value={form.apellido} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {editFieldErrors.apellido && <span className="invalid-feedback d-block">{editFieldErrors.apellido}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Email</label>
                     <input type="email" className={`form-control${editFieldErrors.email ? ' is-invalid' : ''}`} name="email" value={form.email} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {editFieldErrors.email && <span className="invalid-feedback d-block">{editFieldErrors.email}</span>}
                     </div>
                   </div>
@@ -359,7 +361,7 @@ function Usuarios() {
                       <option value={2}>Vendedor</option>
                       <option value={3}>Admin</option>
                     </select>
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="usuarios-field-error">
                       {editFieldErrors.idRol && <span className="invalid-feedback d-block">{editFieldErrors.idRol}</span>}
                     </div>
                   </div>
@@ -389,15 +391,15 @@ function Usuarios() {
 
       {/* Modal Borrado */}
       {deleteUser && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
+        <div className="usuarios-modal-backdrop">
+          <div className="usuarios-modal-dialog">
+            <div className="usuarios-modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">¿Eliminar usuario?</h5>
                 <button type="button" className="btn-close" onClick={() => { setDeleteUser(null); setDeleteError(null); }}></button>
               </div>
               <div className="modal-body">
-                {deleteError && <div className="alert alert-danger mb-2">{deleteError}</div>}
+                {deleteError && <div className="usuarios-alert-danger">{deleteError}</div>}
                 <p>¿Estás seguro que quieres eliminar a <b>{deleteUser.nombre} {deleteUser.apellido}</b>? Esta acción no se puede deshacer.</p>
               </div>
               <div className="modal-footer">

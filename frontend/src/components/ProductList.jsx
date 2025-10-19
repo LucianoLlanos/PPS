@@ -11,7 +11,7 @@ export default function ProductList({ onEdit }) {
       const res = await api.get('/seller/products');
       setProducts(res.data);
     } catch (err) {
-      console.error(err);
+      // Error silencioso, se maneja en el UI
     } finally {
       setLoading(false);
     }
@@ -30,7 +30,6 @@ export default function ProductList({ onEdit }) {
       await api.delete('/seller/products/' + id);
       fetch();
     } catch (err) {
-      console.error(err);
       alert('Error al eliminar');
     }
   };

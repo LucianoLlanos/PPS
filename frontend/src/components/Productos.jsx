@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import api from '../api/axios';
+import '../stylos/admin/Admin.css';
+import '../stylos/admin/Productos.css';
 
 function Productos() {
   const [productos, setProductos] = useState([]);
@@ -210,15 +212,15 @@ function Productos() {
 
   return (
     <div className="productos-page">
-      <div className="productos-header d-flex justify-content-between align-items-center mb-3" style={{borderBottom: '1px solid #e9ecef', paddingBottom: 12, marginBottom: 12}}>
-        <h2 className="mb-0" style={{fontWeight:700}}>Productos</h2>
-  <div ref={toolsRef} style={{position: 'relative', display: 'inline-block'}}>
+      <div className="productos-header-container">
+        <h2 className="productos-title">Productos</h2>
+  <div ref={toolsRef} className="productos-tools-container">
           <button className="btn btn-success" onClick={() => setAddProd(true)}>
             <i className="bi bi-plus-circle me-1"></i> Agregar producto
           </button>
           <button className="btn btn-secondary ms-2" onClick={() => setToolsOpen(!toolsOpen)} title="Herramientas">Herramientas <i className="bi bi-caret-down-fill ms-1"></i></button>
           {toolsOpen && (
-            <div style={{position: 'absolute', right: 0, marginTop: 8, zIndex: 50, minWidth: 220}} className="card shadow-sm">
+            <div className="productos-tools-dropdown card shadow-sm">
               <div className="list-group list-group-flush">
                 <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
                   <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
@@ -243,14 +245,14 @@ function Productos() {
             <table className="table table-striped table-bordered productos-table">
            <thead className="table-dark">
               <tr>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>ID</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Nombre</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Descripción</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Precio</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Stock</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Acciones</th>
+               <th className="productos-table-header">ID</th>
+               <th className="productos-table-header">Nombre</th>
+               <th className="productos-table-header">Descripción</th>
+               <th className="productos-table-header">Precio</th>
+               <th className="productos-table-header">Stock</th>
+               <th className="productos-table-header">Acciones</th>
                {sucursalesList.map(s => (
-                 <th key={s.idSucursal} className="text-center" style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>{s.nombreSucursal}</th>
+                 <th key={s.idSucursal} className="productos-table-header text-center">{s.nombreSucursal}</th>
                ))}
              </tr>
            </thead>
@@ -259,13 +261,13 @@ function Productos() {
                <tr key={p.idProducto}>
                  <td className="align-middle">{p.idProducto}</td>
                  <td className="align-middle">{p.nombre}</td>
-                 <td className="align-middle" style={{maxWidth: 360}}>
-                   <div className="text-truncate" style={{maxWidth: 360}} title={p.descripcion}>{p.descripcion}</div>
+                 <td className="productos-descripcion-cell">
+                   <div className="productos-descripcion-text" title={p.descripcion}>{p.descripcion}</div>
                  </td>
                  <td className="align-middle">${p.precio}</td>
                  <td className="align-middle">{p.stock}</td>
                  <td className="align-middle">
-                  <div className="d-flex gap-2" style={{whiteSpace: 'nowrap'}}>
+                  <div className="productos-actions-container">
                     <button className="btn btn-sm btn-primary" onClick={() => handleEdit(p)}>
                       <i className="bi bi-pencil me-1"></i> Editar
                     </button>
@@ -288,7 +290,7 @@ function Productos() {
       </div>
 
       {/* Stock por sucursal: grid de dos columnas en pantallas grandes */}
-      <div className="stock-grid" style={{display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginTop: 24}}>
+      <div className="productos-stock-grid">
         {stockSucursal && stockSucursal.length === 0 && <div className="text-muted">No hay datos de stock por sucursal</div>}
         {stockSucursal && stockSucursal.length > 0 && (
           Object.entries(stockSucursal.reduce((acc, cur) => {
@@ -300,7 +302,7 @@ function Productos() {
             const [, nombreSucursal] = key.split('::');
             return (
               <div key={key} className="mb-4">
-                  <h5 className="text-center" style={{marginBottom:12}}>{nombreSucursal}</h5>
+                  <h5 className="productos-sucursal-title">{nombreSucursal}</h5>
                   <div className="table-responsive">
                     <table className="table table-sm table-bordered">
                       <thead className="table-dark text-center">
@@ -331,43 +333,43 @@ function Productos() {
         )}
       </div>
       {addProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitAdd} noValidate style={{height: '100%'}}>
+        <div className="productos-modal-backdrop">
+          <div className="productos-modal-dialog-lg">
+            <div className="productos-modal-content">
+              <form onSubmit={submitAdd} noValidate className="productos-form">
                 <div className="modal-header">
                   <h5 className="modal-title">Agregar Producto</h5>
                   <button type="button" className="btn-close" onClick={() => setAddProd(false)}></button>
                 </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
+                <div className="productos-modal-body">
                   {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
+                    <div className="productos-alert-danger">{error}</div>
                   )}
                   <div className="mb-2">
                     <label>Nombre</label>
                     <input type="text" className={`form-control${fieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={addForm.nombre} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {fieldErrors.nombre && <span className="invalid-feedback d-block">{fieldErrors.nombre}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Descripción</label>
                     <input type="text" className={`form-control${fieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={addForm.descripcion} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {fieldErrors.descripcion && <span className="invalid-feedback d-block">{fieldErrors.descripcion}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Precio</label>
                     <input type="number" className={`form-control${fieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={addForm.precio} onChange={handleAddChange} required min="0" step="0.01" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {fieldErrors.precio && <span className="invalid-feedback d-block">{fieldErrors.precio}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Stock</label>
                     <input type="number" className={`form-control${fieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={addForm.stockTotal} onChange={handleAddChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {fieldErrors.stockTotal && <span className="invalid-feedback d-block">{fieldErrors.stockTotal}</span>}
                     </div>
                   </div>
@@ -408,43 +410,43 @@ function Productos() {
 
       {/* Modal Edición */}
       {editProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitEdit} noValidate style={{height: '100%'}}>
+        <div className="productos-modal-backdrop">
+          <div className="productos-modal-dialog-lg">
+            <div className="productos-modal-content">
+              <form onSubmit={submitEdit} noValidate className="productos-form">
                 <div className="modal-header">
                   <h5 className="modal-title">Editar Producto</h5>
                   <button type="button" className="btn-close" onClick={() => setEditProd(null)}></button>
                 </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
+                <div className="productos-modal-body">
                   {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
+                    <div className="productos-alert-danger">{error}</div>
                   )}
                   <div className="mb-2">
                     <label>Nombre</label>
                     <input type="text" className={`form-control${editFieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={form.nombre} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {editFieldErrors.nombre && <span className="invalid-feedback d-block">{editFieldErrors.nombre}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Descripción</label>
                     <input type="text" className={`form-control${editFieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={form.descripcion} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {editFieldErrors.descripcion && <span className="invalid-feedback d-block">{editFieldErrors.descripcion}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Precio</label>
                     <input type="number" className={`form-control${editFieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={form.precio} onChange={handleChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {editFieldErrors.precio && <span className="invalid-feedback d-block">{editFieldErrors.precio}</span>}
                     </div>
                   </div>
                   <div className="mb-2">
                     <label>Stock</label>
                     <input type="number" className={`form-control${editFieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={form.stockTotal} onChange={handleChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="productos-field-error">
                       {editFieldErrors.stockTotal && <span className="invalid-feedback d-block">{editFieldErrors.stockTotal}</span>}
                     </div>
                   </div>
@@ -461,9 +463,9 @@ function Productos() {
 
       {/* Modal Editar stock por sucursal */}
       {editSucursal && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
+        <div className="productos-modal-backdrop">
+          <div className="productos-modal-dialog">
+            <div className="productos-modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Editar stock - {editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})</h5>
                 <button type="button" className="btn-close" onClick={() => setEditSucursal(null)}></button>
@@ -498,15 +500,15 @@ function Productos() {
 
       {/* Modal Borrado */}
       {deleteProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
+        <div className="productos-modal-backdrop">
+          <div className="productos-modal-dialog">
+            <div className="productos-modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">¿Eliminar producto?</h5>
                 <button type="button" className="btn-close" onClick={() => { setDeleteProd(null); setDeleteError(null); }}></button>
               </div>
               <div className="modal-body">
-                {deleteError && <div className="alert alert-danger mb-2">{deleteError}</div>}
+                {deleteError && <div className="productos-alert-danger">{deleteError}</div>}
                 <p>¿Estás seguro que quieres eliminar <b>{deleteProd.nombre}</b>? Esta acción no se puede deshacer.</p>
               </div>
               <div className="modal-footer">
@@ -519,9 +521,9 @@ function Productos() {
       )}
     {/* Confirmación: actualizar filas/columnas faltantes */}
     {showBackfillModal && (
-      <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-        <div className="modal-dialog" role="document">
-          <div className="modal-content">
+      <div className="productos-modal-backdrop">
+        <div className="productos-modal-dialog">
+          <div className="productos-modal-content">
             <div className="modal-header">
               <h5 className="modal-title">Actualizar filas y columnas faltantes</h5>
               <button className="btn-close" onClick={() => setShowBackfillModal(false)}></button>
@@ -541,9 +543,9 @@ function Productos() {
     {/* Reconcile confirmation modal removed; use Herramientas -> Reconciliar producto */}
     {/* Seleccionar producto para alinear stock por sucursal (desde Herramientas) */}
     {showSelectReconcileModal && (
-      <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-        <div className="modal-dialog" role="document">
-          <div className="modal-content">
+      <div className="productos-modal-backdrop">
+        <div className="productos-modal-dialog">
+          <div className="productos-modal-content">
             <div className="modal-header">
               <h5 className="modal-title">Alinear stock por sucursal (producto)</h5>
               <button className="btn-close" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}></button>

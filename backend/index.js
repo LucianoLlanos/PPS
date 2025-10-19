@@ -3,6 +3,7 @@ const cors = require('cors');
 const app = express();
 const adminRoutes = require('./routes/adminRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
+const serviciosRoutes = require('./routes/serviciosRoutes');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
@@ -20,23 +21,11 @@ app.get('/productos', (req, res) => {
   });
 });
 
-// Endpoint de diagnóstico para la vista admin: devuelve conteos y muestras de tablas relevantes
-app.get('/debug/admin-status', async (req, res) => {
-  try {
-    const q = (sql) => new Promise((resolve, reject) => connection.query(sql, (err, rows) => err ? reject(err) : resolve(rows)));
-    const usuarios = await q('SELECT COUNT(*) AS total FROM usuarios');
-    const productos = await q('SELECT COUNT(*) AS total FROM productos');
-    const sucursales = await q('SELECT COUNT(*) AS total FROM sucursales');
-    const stock = await q('SELECT COUNT(*) AS total FROM stock_sucursal');
-    const sampleProductos = await q('SELECT idProducto, nombre, precio, stockTotal FROM productos LIMIT 5');
-    res.json({ usuarios: usuarios[0].total, productos: productos[0].total, sucursales: sucursales[0].total, stock: stock[0].total, sampleProductos });
-  } catch (err) {
-    console.error('debug/admin-status error', err);
-    res.status(500).json({ error: 'Error en diagnóstico', detail: err.message });
-  }
-});
-
 app.use('/auth', authRoutes);
+
+// Rutas de servicios post-venta
+app.use('/servicios', serviciosRoutes);
+
 // Temporalmente deshabilitado auth/roles para pruebas: montar adminRoutes sin middleware
 app.use('/', adminRoutes);
 // Nota: rutas de vendedor deshabilitadas — revertidas por petición del usuario

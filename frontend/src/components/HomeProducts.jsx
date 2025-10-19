@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import ProductModal from './ProductModal';
 import cart from '../utils/cart';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/useAuthStore';
+import '../stylos/HomeProducts.css';
 
 export default function HomeProducts() {
   const [productos, setProductos] = useState([]);
@@ -14,6 +16,23 @@ export default function HomeProducts() {
   const perPage = 12;
   const [selected, setSelected] = useState(null);
   const [showExamples, setShowExamples] = useState(false);
+  
+  // Estados para notificaciones toast
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // Función para mostrar notificación toast
+  const showToastNotification = (message) => {
+    setToastMessage(message);
+    setShowToast(true);
+    // Ocultar después de 3 segundos
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
 
   const fetch = async () => {
     setLoading(true);
@@ -21,13 +40,10 @@ export default function HomeProducts() {
       let res;
       try {
         res = await api.get('/productos');
-        console.debug('[HomeProducts] /productos response:', res && res.data);
         setProductos(res.data || []);
       } catch (err) {
-        console.warn('[HomeProducts] /productos failed, falling back to /seller/products', err && err.response ? err.response.status : err.message);
         // fallback
         res = await api.get('/seller/products');
-        console.debug('[HomeProducts] /seller/products response:', res && res.data);
         const normalized = (res.data || []).map(p => ({
           idProducto: p.id || p.idProducto,
           nombre: p.name || p.nombre,
@@ -39,7 +55,6 @@ export default function HomeProducts() {
         setProductos(normalized);
       }
     } catch (err) {
-      console.error('Error fetching productos', err);
       setError('No se pudieron cargar los productos');
     } finally {
       setLoading(false);
@@ -72,7 +87,16 @@ export default function HomeProducts() {
 
   const itemsToRender = showExamples ? exampleProducts : visible;
 
-  const add = (p) => { cart.addToCart(p, 1); };
+  const add = (p) => { 
+    if (!user) {
+      // Si no hay usuario logueado, redirigir a registro
+      navigate('/register');
+      return;
+    }
+    cart.addToCart(p, 1);
+    // Mostrar notificación de éxito
+    showToastNotification(`✅ ${p.nombre} agregado al carrito`);
+  };
 
   const sampleProducts = [
     { idProducto: 's1', nombre: 'Ejemplo A', descripcion: 'Producto de ejemplo A', precio: 1000 },
@@ -82,61 +106,113 @@ export default function HomeProducts() {
 
   const loadExamples = () => { setProductos(sampleProducts); };
 
-  if (loading) return <div style={{padding:20}}>Cargando productos...</div>;
-  if (error) return <div style={{padding:20}} className="alert alert-danger">{error}</div>;
+  if (loading) return <div className="products-loading">Cargando productos...</div>;
+  if (error) return <div className="products-error alert alert-danger">{error}</div>;
 
   return (
-    <div style={{padding:20}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
-        <h2 style={{margin:0}}>Catálogo de productos</h2>
+    <div className="products-container">
+      <div className="products-header">
+        <h2 className="products-title">Catálogo de productos</h2>
         <div>
-          <input placeholder="Buscar..." value={query} onChange={(e)=>{setQuery(e.target.value); setPage(1);}} style={{padding:6, minWidth:220}} />
+          <input placeholder="Buscar..." value={query} onChange={(e)=>{setQuery(e.target.value); setPage(1);}} className="products-search" />
         </div>
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16}}>
+      <div className="products-grid">
         {itemsToRender.map(p => (
-          <div key={p.idProducto || p.id} className="card" style={{padding:12, border: '1px solid #e9ecef', borderRadius:8, display:'flex', flexDirection:'column'}}>
-            <div style={{height:160, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginBottom:8}}>
+          <div key={p.idProducto || p.id} className="product-card card">
+            <div className="product-image-container">
               {(() => {
-                // Para pruebas: usar la misma imagen para todas las tarjetas
                 const src = '/img/descarga.jpg';
-                return <img src={src} alt={p.nombre || p.name} style={{maxWidth: '100%', maxHeight: '100%', objectFit:'contain'}} />;
+                return <img src={src} alt={p.nombre || p.name} className="product-image" />;
               })()}
             </div>
-            <h5 style={{margin:0, marginBottom:6}}>{p.nombre}</h5>
-            <div style={{color:'#666', fontSize:14, marginBottom:8, minHeight:40}}>
+            <h5 className="product-title">{p.nombre}</h5>
+            <div className="product-description">
               {(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}
             </div>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'auto'}}>
-              <div style={{fontWeight:700}}>${Number(p.precio || 0).toFixed(2)}</div>
+            <div className="product-footer">
+              <div className="product-price">${Number(p.precio || 0).toFixed(2)}</div>
               <div>
-                <button className="btn btn-sm btn-outline-primary" onClick={() => setSelected(p)} style={{marginRight:8}}>Ver</button>
-                <button className="btn btn-sm btn-primary" onClick={() => add(p)}>Agregar</button>
+                <button className="btn btn-sm btn-outline-primary product-view-btn" onClick={() => setSelected(p)}>Ver</button>
+                <button 
+                  className="btn btn-sm btn-primary"
+                  onClick={() => add(p)}
+                  title="Agregar al carrito"
+                >
+                  Agregar
+                </button>
               </div>
             </div>
           </div>
         ))}
 
         {itemsToRender.length === 0 && (
-          <div style={{gridColumn: '1 / -1', color:'#666'}}>No hay productos para mostrar</div>
+          <div className="products-empty">No hay productos para mostrar</div>
         )}
       </div>
 
-      <div style={{marginTop:12, display:'flex', justifyContent:'center'}}>
+      <div className="products-toggle-section">
         <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowExamples(s => !s)}>
           {showExamples ? 'Mostrar reales' : 'Mostrar ejemplos'}
         </button>
       </div>
 
       {/* Paginación simple */}
-      <div style={{marginTop:16, display:'flex', justifyContent:'center', gap:8}}>
+      <div className="products-pagination">
         <button disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</button>
-        <div style={{padding:'6px 10px'}}>Página {page} / {totalPages}</div>
+        <div className="pagination-info">Página {page} / {totalPages}</div>
         <button disabled={page>=totalPages} onClick={()=>setPage(page+1)}>Siguiente</button>
       </div>
 
-      {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} onAdded={()=>{}} />}
+      {selected && <ProductModal 
+        product={selected} 
+        onClose={()=>setSelected(null)} 
+        onAdded={(productName) => {
+          showToastNotification(`✅ ${productName} agregado al carrito`);
+        }} 
+      />}
+      
+      {/* Notificación Toast */}
+      {showToast && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            animation: 'slideInRight 0.3s ease-out',
+            maxWidth: '300px'
+          }}
+        >
+          <i className="bi bi-check-circle-fill"></i>
+          {toastMessage}
+        </div>
+      )}
+
+      {/* CSS para animación del toast */}
+      <style jsx>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }

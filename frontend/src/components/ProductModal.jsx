@@ -1,9 +1,13 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import cart from '../utils/cart';
-import api from '../api/axios';
+import useAuthStore from '../store/useAuthStore';
 
 export default function ProductModal({ product, onClose, onAdded }) {
   if (!product) return null;
+
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
 
   const title = product.nombre || product.name;
   const desc = product.descripcion || product.description || '';
@@ -11,9 +15,14 @@ export default function ProductModal({ product, onClose, onAdded }) {
   const img = product.imagen || product.image;
 
   const handleAdd = () => {
+    if (!user) {
+      onClose(); // Cerrar modal primero
+      navigate('/register');
+      return;
+    }
     cart.addToCart(product, 1);
-    if (onAdded) onAdded();
-    alert('Producto añadido al carrito');
+    if (onAdded) onAdded(title); // Pasar el nombre del producto
+    onClose(); // Cerrar el modal después de agregar
   };
 
   return (
@@ -27,7 +36,6 @@ export default function ProductModal({ product, onClose, onAdded }) {
           <div className="modal-body d-flex gap-3">
             <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               {(() => {
-                // Para pruebas: usar siempre la misma imagen local
                 const src = '/img/descarga.jpg';
                 return <img src={src} alt={title} style={{maxWidth:'100%', maxHeight:360}} />;
               })()}
@@ -39,7 +47,12 @@ export default function ProductModal({ product, onClose, onAdded }) {
           </div>
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={onClose}>Cerrar</button>
-            <button className="btn btn-primary" onClick={handleAdd}>Agregar al carrito</button>
+            <button 
+              className="btn btn-primary"
+              onClick={handleAdd}
+            >
+              Agregar al carrito
+            </button>
           </div>
         </div>
       </div>

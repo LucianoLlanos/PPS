@@ -1,10 +1,13 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Usuarios from './components/Usuarios';
 import Productos from './components/Productos';
 import Pedidos from './components/Pedidos';
 import Clientes from './components/Clientes';
 import Login from './components/Login';
+import Register from './components/Register';
 import HomeProducts from './components/HomeProducts';
+import Cart from './components/Cart';
+import ServiciosPostVenta from './components/ServiciosPostVenta';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -26,23 +29,29 @@ function App() {
   }, []);
 
   const handleLogin = (user) => {
-    // noop: store already updated by Login
+    // Store already updated by Login component
   };
   return (
     <Router>
-      <div className="container py-4" style={{paddingTop: '80px'}}>
-        <Header />
-        <Routes>
-          <Route path="/usuarios" element={<ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute>} />
-          <Route path="/productos" element={<ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute>} />
-          <Route path="/pedidos" element={<ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute>} />
-          <Route path="/clientes" element={<ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute>} />
-          {/* Ruta de Vendedor deshabilitada */}
-          <Route path="/login" element={<Login onLogin={handleLogin} />} />
-          <Route path="/" element={<HomeProducts />} />
-        </Routes>
-        <Footer />
-      </div>
+      <Header />
+      <Routes>
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/*" element={
+          <div className="app-container">
+            <Routes>
+              <Route path="/usuarios" element={<ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute>} />
+              <Route path="/productos" element={<ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute>} />
+              <Route path="/pedidos" element={<ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute>} />
+              <Route path="/clientes" element={<ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute>} />
+              <Route path="/servicios" element={<ProtectedRoute><ServiciosPostVenta /></ProtectedRoute>} />
+              <Route path="/carrito" element={<Cart />} />
+              <Route path="/" element={<HomeProducts />} />
+            </Routes>
+            <Footer />
+          </div>
+        } />
+      </Routes>
     </Router>
   );
 }

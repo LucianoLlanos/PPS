@@ -12,7 +12,7 @@ export default function OrderList() {
       const res = await api.get('/seller/orders');
       setOrders(res.data);
     } catch (err) {
-      console.error(err);
+      // Error silencioso
     }
   };
 
@@ -27,7 +27,6 @@ export default function OrderList() {
       setCustomer(''); setTotal(''); setItemsText('');
       fetch();
     } catch (err) {
-      console.error('Error creating order', err);
       alert(err?.response?.data?.error || 'Error al crear pedido');
     }
   };
@@ -39,7 +38,7 @@ export default function OrderList() {
       await api.put('/seller/orders/' + id + '/status', { status });
       setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
     } catch (err) {
-      console.error(err);
+      // Error silencioso
     }
   };
 

@@ -1,0 +1,527 @@
+/* Pedidos - Estilos específicos para el panel de administración de pedidos */
+
+/* Layout principal */
+.pedidos-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.pedidos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pedidos-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Filtros */
+.pedidos-filters {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 20px;
+}
+
+.pedidos-filters-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.pedidos-filters-col {
+  flex: 1;
+  min-width: 200px;
+}
+
+.pedidos-filter-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+  color: #495057;
+}
+
+.pedidos-filter-input {
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  font-size: 0.9rem;
+}
+
+.pedidos-filter-select {
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  background-color: #fff;
+  font-size: 0.9rem;
+}
+
+.pedidos-filter-checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.pedidos-filter-checkbox input {
+  margin-right: 0.5rem;
+}
+
+/* Botones de filtros */
+.pedidos-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.pedidos-btn-apply {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: white;
+  padding: 0.5rem 1rem;
+}
+
+.pedidos-btn-apply:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+.pedidos-btn-clear {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+  padding: 0.5rem 1rem;
+}
+
+.pedidos-btn-clear:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+}
+
+/* Filtros activos */
+.pedidos-active-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.pedidos-filter-badge {
+  background-color: #007bff;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pedidos-filter-badge button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+}
+
+/* Tabla */
+.pedidos-table {
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.pedidos-table table {
+  margin-bottom: 0;
+}
+
+.pedidos-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+  padding: 0.75rem;
+  position: relative;
+}
+
+.pedidos-table td {
+  vertical-align: middle;
+  padding: 0.75rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.pedidos-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Headers clickeables para ordenar */
+.pedidos-sortable-header {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pedidos-sortable-header:hover {
+  background-color: #e9ecef;
+}
+
+.pedidos-sort-icon {
+  opacity: 0.5;
+  margin-left: 0.5rem;
+}
+
+.pedidos-sort-icon.active {
+  opacity: 1;
+  color: #007bff;
+}
+
+/* Headers con filtros */
+.pedidos-header-filter {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-top: none;
+  padding: 0.5rem;
+  z-index: 10;
+}
+
+.pedidos-header-filter input,
+.pedidos-header-filter select {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* Estados de pedidos */
+.pedidos-status-pendiente {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.pedidos-status-procesando {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.pedidos-status-completado {
+  background-color: #28a745;
+  color: white;
+}
+
+.pedidos-status-cancelado {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Botones de acción */
+.pedidos-btn-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pedidos-btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.pedidos-btn-edit {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.pedidos-btn-edit:hover {
+  background-color: #ffca2c;
+  border-color: #ffc720;
+}
+
+.pedidos-btn-delete {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.pedidos-btn-delete:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+/* Modales */
+.pedidos-modal-backdrop {
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.pedidos-modal-xl {
+  max-width: 1200px !important;
+}
+
+.pedidos-modal-content {
+  border-radius: 0.5rem;
+  border: none;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+.pedidos-modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem 1.5rem;
+}
+
+.pedidos-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.pedidos-modal-body {
+  padding: 1.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Formulario de pedido */
+.pedidos-form-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  background-color: #f8f9fa;
+}
+
+.pedidos-form-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 0.5rem;
+}
+
+.pedidos-form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pedidos-form-col {
+  flex: 1;
+}
+
+.pedidos-form-group {
+  margin-bottom: 1rem;
+}
+
+.pedidos-form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+  color: #333;
+}
+
+.pedidos-form-input,
+.pedidos-form-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  font-size: 0.95rem;
+}
+
+.pedidos-form-input:focus,
+.pedidos-form-select:focus {
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Productos en pedido */
+.pedidos-productos-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+}
+
+.pedidos-producto-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.pedidos-producto-item:last-child {
+  border-bottom: none;
+}
+
+.pedidos-producto-info {
+  flex: 1;
+}
+
+.pedidos-producto-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.pedidos-producto-price {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.pedidos-producto-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pedidos-quantity-input {
+  width: 60px;
+  text-align: center;
+}
+
+/* Resumen de totales */
+.pedidos-totales {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.pedidos-total-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.pedidos-total-final {
+  font-weight: 600;
+  font-size: 1.1rem;
+  border-top: 1px solid #dee2e6;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Estados y alertas */
+.pedidos-alert {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.pedidos-alert-success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.pedidos-alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.pedidos-field-error {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Loading states */
+.pedidos-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .pedidos-filters-row {
+    flex-direction: column;
+  }
+  
+  .pedidos-filters-col {
+    min-width: auto;
+  }
+  
+  .pedidos-modal-xl {
+    max-width: 95% !important;
+  }
+  
+  .pedidos-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .pedidos-container {
+    padding: 10px;
+  }
+  
+  .pedidos-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .pedidos-title {
+    font-size: 1.5rem;
+  }
+  
+  .pedidos-table {
+    font-size: 0.875rem;
+  }
+  
+  .pedidos-table th,
+  .pedidos-table td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .pedidos-btn-group {
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  
+  .pedidos-filter-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 576px) {
+  .pedidos-active-filters {
+    flex-direction: column;
+  }
+  
+  .pedidos-producto-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .pedidos-producto-actions {
+    justify-content: space-between;
+  }
+}

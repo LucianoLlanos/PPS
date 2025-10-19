@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../api/axios';
+import '../stylos/admin/Admin.css';
+import '../stylos/admin/Pedidos.css';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
@@ -202,9 +204,9 @@ function Pedidos() {
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
                 {headerFilterVisible === 'id' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                  <div className="pedidos-filter-dropdown">
                     <div className="mb-1"><input className="form-control form-control-sm" placeholder="ID exacto" type="number" onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, idPedido: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, idPedido: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
                   </div>
                 )}
               </th>
@@ -214,9 +216,9 @@ function Pedidos() {
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
                 {headerFilterVisible === 'producto' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                  <div className="pedidos-filter-dropdown">
                     <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre producto" type="text" defaultValue={filters.producto || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, producto: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, producto: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
                   </div>
                 )}
               </th>
@@ -226,9 +228,9 @@ function Pedidos() {
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
                 {headerFilterVisible === 'usuario' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                  <div className="pedidos-filter-dropdown">
                     <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre, apellido o email" type="text" defaultValue={filters.usuario || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.card').querySelector('input'); const val = input.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, usuario: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, usuario: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
                   </div>
                 )}
               </th>
@@ -244,9 +246,9 @@ function Pedidos() {
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
                 {headerFilterVisible === 'cantidad' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000', minWidth: 200}}>
+                  <div className="pedidos-filter-dropdown-wide">
                     <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.cantidadMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.cantidadMax || ''} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.card'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, cantidadMin: min || '', cantidadMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, cantidadMin: '', cantidadMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.pedidos-filter-dropdown-wide'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, cantidadMin: min || '', cantidadMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, cantidadMin: '', cantidadMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
                   </div>
                 )}
               </th>
@@ -268,21 +270,21 @@ function Pedidos() {
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
                 {headerFilterVisible === 'total' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000', minWidth: 200}}>
+                  <div className="pedidos-filter-dropdown-wide">
                     <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.totalMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.totalMax || ''} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.card'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, totalMin: min || '', totalMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, totalMin: '', totalMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.pedidos-filter-dropdown-wide'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, totalMin: min || '', totalMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, totalMin: '', totalMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
                   </div>
                 )}
               </th>
               <th>
                 Estado
-                <div style={{display: 'inline-block', marginLeft: 6}}>
+                <div className="pedidos-estado-filter-container">
                   <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => {
                     const nextVisible = headerFilterVisible === 'estado' ? null : 'estado';
                     setHeaderFilterVisible(nextVisible);
                   }} aria-label="Filtro estado"><i className="bi bi-caret-down-fill text-primary"></i></button>
                   {headerFilterVisible === 'estado' && (
-                    <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000'}}>
+                    <div className="pedidos-filter-dropdown">
                       <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Todos</button></div>
                       <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Pendiente' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Pendiente</button></div>
                       <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'En Proceso' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>En Proceso</button></div>
@@ -339,17 +341,17 @@ function Pedidos() {
 
       {/* Modal Alta */}
       {addPedido && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitAdd} noValidate style={{height: '100%'}}>
+        <div className="pedidos-modal-backdrop">
+          <div className="pedidos-modal-dialog-lg">
+            <div className="pedidos-modal-content">
+              <form onSubmit={submitAdd} noValidate className="pedidos-form">
                 <div className="modal-header">
                   <h5 className="modal-title">Registrar Pedido</h5>
                   <button type="button" className="btn-close" onClick={() => setAddPedido(false)}></button>
                 </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
+                <div className="pedidos-modal-body">
                   {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
+                    <div className="pedidos-alert-danger">{error}</div>
                   )}
                   <div className="mb-2">
                     <label>Usuario</label>
@@ -361,7 +363,7 @@ function Pedidos() {
                           <option key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</option>
                       ))}
                     </select>
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="pedidos-field-error">
                       {fieldErrors.usuario && <span className="invalid-feedback d-block">{fieldErrors.usuario}</span>}
                     </div>
                   </div>
@@ -373,7 +375,7 @@ function Pedidos() {
                         <option key={s.idSucursal} value={s.idSucursal}>{s.nombre} ({s.direccion})</option>
                       ))}
                     </select>
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                    <div className="pedidos-field-error">
                       {fieldErrors.sucursal && <span className="invalid-feedback d-block">{fieldErrors.sucursal}</span>}
                     </div>
                   </div>
@@ -382,17 +384,17 @@ function Pedidos() {
                     {fieldErrors.productos && <div className="invalid-feedback d-block mb-1">{fieldErrors.productos}</div>}
                     {addForm.productos.map((prod, idx) => (
                       <div key={idx} className="d-flex align-items-center mb-1 gap-2">
-                        <select className={`form-select${fieldErrors[`producto_${idx}`] ? ' is-invalid' : ''}`} style={{maxWidth: 180}} value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required>
+                        <select className={`form-select pedidos-producto-select${fieldErrors[`producto_${idx}`] ? ' is-invalid' : ''}`} value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required>
                           <option value="">Producto</option>
                           {productosList.map(pr => (
                             <option key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</option>
                           ))}
                         </select>
-                        <input type="number" className={`form-control${fieldErrors[`cantidad_${idx}`] ? ' is-invalid' : ''}`} style={{maxWidth: 100}} value={prod.cantidad} min="1" onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required />
+                        <input type="number" className={`form-control pedidos-cantidad-input${fieldErrors[`cantidad_${idx}`] ? ' is-invalid' : ''}`} value={prod.cantidad} min="1" onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required />
                         <button type="button" className="btn btn-sm btn-danger" onClick={() => removeProductoRow(idx)}>
                           <i className="bi bi-x"></i>
                         </button>
-                        <div style={{minHeight: 18, fontSize: '0.85em'}}>
+                        <div className="pedidos-field-error">
                           {fieldErrors[`producto_${idx}`] && <span className="invalid-feedback d-block">{fieldErrors[`producto_${idx}`]}</span>}
                           {fieldErrors[`cantidad_${idx}`] && <span className="invalid-feedback d-block">{fieldErrors[`cantidad_${idx}`]}</span>}
                         </div>
@@ -426,15 +428,15 @@ function Pedidos() {
 
       {/* Modal Borrado */}
       {deletePedido && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
+        <div className="pedidos-modal-backdrop">
+          <div className="pedidos-modal-dialog">
+            <div className="pedidos-modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">¿Eliminar pedido?</h5>
                 <button type="button" className="btn-close" onClick={() => { setDeletePedido(null); setDeleteError(null); }}></button>
               </div>
               <div className="modal-body">
-                {deleteError && <div className="alert alert-danger mb-2">{deleteError}</div>}
+                {deleteError && <div className="pedidos-alert-danger">{deleteError}</div>}
                 <p>¿Estás seguro que quieres eliminar el pedido <b>#{deletePedido.idPedido}</b>? Esta acción no se puede deshacer.</p>
               </div>
               <div className="modal-footer">

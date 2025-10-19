@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
+import '../stylos/admin/Admin.css';
+import '../stylos/admin/Clientes.css';
 
 function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -72,9 +74,9 @@ function Clientes() {
       </div>
 
       {editCliente && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
+        <div className="clientes-modal-backdrop">
+          <div className="clientes-modal-dialog">
+            <div className="clientes-modal-content">
               <form onSubmit={submitEdit}>
                 <div className="modal-header">
                   <h5 className="modal-title">Editar Cliente</h5>

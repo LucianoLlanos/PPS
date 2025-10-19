@@ -1,0 +1,437 @@
+/* Estilos para el componente ServiciosPostVenta */
+
+.servicios-container {
+  margin-top: 1rem;
+}
+
+.servicios-title {
+  margin-bottom: 1.5rem;
+}
+
+.servicios-title i {
+  margin-right: 0.5rem;
+}
+
+.servicios-tabs {
+  margin-bottom: 1.5rem;
+}
+
+.servicios-tab-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #dee2e6;
+  background-color: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.servicios-tab-link.active {
+  background-color: #0d6efd;
+  color: white;
+  border-color: #0d6efd;
+}
+
+.servicios-tab-link i {
+  margin-right: 0.5rem;
+}
+
+.servicios-form-card {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.servicios-form-body {
+  padding: 1.5rem;
+}
+
+.servicios-form-title {
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.servicios-form-group {
+  margin-bottom: 1rem;
+}
+
+.servicios-form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #212529;
+}
+
+.servicios-form-label i {
+  margin-right: 0.5rem;
+}
+
+.servicios-form-label small {
+  color: #6c757d;
+  font-weight: normal;
+}
+
+.servicios-form-control {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  background-color: #fff;
+  background-image: none;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.servicios-form-control:focus {
+  color: #212529;
+  background-color: #fff;
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.servicios-form-select {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 2.25rem 0.75rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  appearance: none;
+}
+
+.servicios-form-select:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.servicios-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.servicios-submit-btn {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.375rem;
+  background-color: #0d6efd;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.servicios-submit-btn:hover:not(:disabled) {
+  background-color: #0b5ed7;
+}
+
+.servicios-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.servicios-submit-btn i {
+  margin-right: 0.5rem;
+}
+
+.servicios-spinner {
+  margin-right: 0.5rem;
+}
+
+.servicios-info-card {
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.servicios-info-body {
+  padding: 1.5rem;
+}
+
+.servicios-info-title {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.servicios-info-title i {
+  margin-right: 0.5rem;
+}
+
+.servicios-info-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.servicios-info-item {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: flex-start;
+}
+
+.servicios-info-item i {
+  margin-right: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+.servicios-info-item small {
+  line-height: 1.4;
+}
+
+/* Estilos para el historial de solicitudes */
+.servicios-empty-state {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.servicios-empty-icon {
+  font-size: 4rem;
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.servicios-empty-title {
+  margin-top: 1rem;
+  color: #6c757d;
+  font-size: 1.5rem;
+}
+
+.servicios-empty-text {
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.servicios-empty-btn {
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.servicios-empty-btn:hover {
+  background-color: #0b5ed7;
+}
+
+.servicios-card-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.servicios-history-card {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  height: 100%;
+}
+
+.servicios-history-body {
+  padding: 1.5rem;
+}
+
+.servicios-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.servicios-history-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.servicios-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.servicios-badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #000 !important;
+}
+
+.servicios-badge.bg-info {
+  background-color: #0dcaf0 !important;
+  color: #000 !important;
+}
+
+.servicios-badge.bg-primary {
+  background-color: #0d6efd !important;
+  color: #fff !important;
+}
+
+.servicios-badge.bg-success {
+  background-color: #198754 !important;
+  color: #fff !important;
+}
+
+.servicios-badge.bg-danger {
+  background-color: #dc3545 !important;
+  color: #fff !important;
+}
+
+.servicios-badge.bg-secondary {
+  background-color: #6c757d !important;
+  color: #fff !important;
+}
+
+.servicios-history-description {
+  color: #6c757d;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.servicios-history-details {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.servicios-history-detail {
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.servicios-history-detail i {
+  margin-right: 0.25rem;
+  width: 12px;
+}
+
+.servicios-admin-notes {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+  border-radius: 0.375rem;
+}
+
+.servicios-admin-notes-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d6efd;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.servicios-admin-notes-text {
+  font-size: 0.75rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Estilos para el toast de notificaciones */
+.servicios-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 9999;
+  max-width: 400px;
+  font-weight: 500;
+}
+
+.servicios-toast.success {
+  background-color: #28a745;
+  color: white;
+}
+
+.servicios-toast.error {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Estilos para campos de fecha y hora mejorados */
+.form-control:focus,
+.form-select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.alert.alert-info {
+  border-left: 4px solid #0dcaf0;
+  background: linear-gradient(135deg, #e7f4ff 0%, #f0f9ff 100%);
+}
+
+.alert.alert-success {
+  border-left: 4px solid #198754;
+  background: linear-gradient(135deg, #f0fff4 0%, #f6fffa 100%);
+}
+
+.form-text {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.form-text i {
+  color: #0d6efd;
+}
+
+.invalid-feedback {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Estilos especiales para los selectores */
+.form-select option {
+  padding: 8px 12px;
+}
+
+/* Responsive design */
+@media (min-width: 768px) {
+  .servicios-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .servicios-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

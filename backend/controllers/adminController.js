@@ -1,4 +1,5 @@
 const { connection } = require('../db/DB');
+const bcrypt = require('bcryptjs');
 
 // USUARIOS
 const listarUsuarios = (req, res) => {
@@ -19,9 +20,10 @@ const crearUsuario = (req, res) => {
   connection.query('SELECT * FROM usuarios WHERE email=?', [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al validar email' });
     if (results.length > 0) return res.status(409).json({ error: 'El email ya está registrado' });
+    const hashedPwd = bcrypt.hashSync(password, 10);
     const query =
       'INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)';
-    connection.query(query, [nombre, apellido, email, password, idRol], (err2, result) => {
+    connection.query(query, [nombre, apellido, email, hashedPwd, idRol], (err2, result) => {
       if (err2) return res.status(500).json({ error: 'Error al crear usuario' });
       const newUserId = result.insertId;
       // Si el rol es Cliente (1), crear también la fila en clientes con direccion/telefono opcionales
@@ -74,7 +76,7 @@ const actualizarUsuario = (req, res) => {
     const currentPassword = results[0].password;
     const pwdToUse =
       typeof password !== 'undefined' && password !== null && password !== ''
-        ? password
+        ? bcrypt.hashSync(password, 10)
         : currentPassword;
     const query =
       'UPDATE usuarios SET nombre=?, apellido=?, email=?, password=?, idRol=? WHERE idUsuario=?';

@@ -21,9 +21,8 @@ function Pedidos() {
     const params = {};
     if (useFilters.idPedido) params.idPedido = useFilters.idPedido;
     if (useFilters.estado) params.estado = useFilters.estado;
-  if (useFilters.fecha) params.fecha = useFilters.fecha;
-  if (useFilters.fechaDesde) params.fechaDesde = useFilters.fechaDesde;
-  if (useFilters.fechaHasta) params.fechaHasta = useFilters.fechaHasta;
+    if (useFilters.fechaDesde) params.fechaDesde = useFilters.fechaDesde;
+    if (useFilters.fechaHasta) params.fechaHasta = useFilters.fechaHasta;
     if (useFilters.producto) params.producto = useFilters.producto;
     if (useFilters.usuario) params.usuario = useFilters.usuario;
     if (useFilters.totalMin) params.totalMin = useFilters.totalMin;
@@ -190,14 +189,20 @@ function Pedidos() {
         {/* Indicador compacto de filtros activos */}
         <div className="mb-2 d-flex gap-2 align-items-center">
           {filters.estado && <span className="badge bg-info text-dark">Estado: {filters.estado}</span>}
-          {(filters.fecha || filters.fechaDesde || filters.fechaHasta) && <span className="badge bg-info text-dark">Fecha: {filters.fecha ? filters.fecha : `${filters.fechaDesde || '...'} - ${filters.fechaHasta || '...'}`}</span>}
+          {(filters.fechaDesde || filters.fechaHasta) && <span className="badge bg-info text-dark">Fecha: {filters.fechaDesde || '...'} - {filters.fechaHasta || '...'}</span>}
           {filters.sort && (
             <span className="badge bg-secondary">
-              Orden: {filters.sort.startsWith('fecha') ? `Fecha ${filters.sort === 'fecha_asc' ? '↑' : '↓'}` : filters.sort.startsWith('cantidad') ? `Cantidad ${filters.sort === 'cantidad_asc' ? '↑' : '↓'}` : filters.sort}
+              Orden: {
+                filters.sort.startsWith('fecha')
+                  ? `Fecha ${filters.sort === 'fecha_asc' ? '↑' : '↓'}`
+                  : filters.sort.startsWith('cantidad')
+                  ? `Cantidad ${filters.sort === 'cantidad_asc' ? '↑' : '↓'}`
+                  : filters.sort
+              }
             </span>
           )}
-          {(filters.estado || filters.fecha || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setFilters({ idPedido: '', producto: '', usuario: '', estado: '', fecha: '', fechaDesde: '', fechaHasta: '', totalMin: '', totalMax: '', cantidadMin: '', cantidadMax: '', priorizarPendientes: false, sort: '' }); loadPedidos({}); }}>Limpiar filtros</button>
+          {(filters.estado || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setFilters({ idPedido: '', producto: '', usuario: '', estado: '', fechaDesde: '', fechaHasta: '', totalMin: '', totalMax: '', cantidadMin: '', cantidadMax: '', priorizarPendientes: false, sort: '' }); loadPedidos({}); }}>Limpiar filtros</button>
           )}
         </div>
         <table className="table table-striped table-bordered">
@@ -241,14 +246,12 @@ function Pedidos() {
               </th>
               <th>
                 Cantidad
-                <button type="button" className="btn btn-sm btn-link text-white ms-2 p-0" onClick={() => {
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
                   const nextOrder = filters.sort === 'cantidad_asc' ? 'cantidad_desc' : 'cantidad_asc';
                   const newFilters = { ...filters, sort: nextOrder };
                   setFilters(newFilters);
                   loadPedidos(newFilters, nextOrder);
-                }} aria-label="Ordenar por cantidad">
-                  <i className={`bi ${filters.sort === 'cantidad_asc' ? 'bi-chevron-up' : filters.sort === 'cantidad_desc' ? 'bi-chevron-down' : 'bi-chevron-expand'} fs-5 text-white`}></i>
-                </button>
+                }} aria-label="Ordenar por cantidad">{filters.sort === 'cantidad_asc' ? '↑' : filters.sort === 'cantidad_desc' ? '↓' : '↕'}</button>
                 <button type="button" className="btn btn-sm btn-link text-primary ms-1 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'cantidad' ? null : 'cantidad'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro cantidad">
                   <i className="bi bi-caret-down-fill text-primary"></i>
                 </button>
@@ -261,31 +264,15 @@ function Pedidos() {
               </th>
               <th>
                 Fecha
-                <button type="button" className="btn btn-sm btn-link text-white ms-2 p-0" onClick={() => {
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
                   // toggle sort for fecha in unified filters
                   const nextOrder = filters.sort === 'fecha_asc' ? 'fecha_desc' : 'fecha_asc';
                   const newFilters = { ...filters, sort: nextOrder };
                   setFilters(newFilters);
                   loadPedidos(newFilters, nextOrder);
                 }} aria-label="Ordenar por fecha">
-                  <i className={`bi ${filters.sort === 'fecha_asc' ? 'bi-chevron-up' : filters.sort === 'fecha_desc' ? 'bi-chevron-down' : 'bi-chevron-expand'} fs-5 text-white`}></i>
+                  {filters.sort === 'fecha_asc' ? '↑' : filters.sort === 'fecha_desc' ? '↓' : '↕'}
                 </button>
-                <button type="button" className="btn btn-sm btn-link text-primary ms-1 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'fecha' ? null : 'fecha'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro fecha">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'fecha' && (
-                  <div className="card p-2" style={{position: 'absolute', zIndex: 50, background: 'white', color: '#000', minWidth: 260}}>
-                    <div className="mb-2">
-                      <label className="form-label" style={{fontSize: '0.85em'}}>Fecha exacta</label>
-                      <input name="fechaExacta" type="date" className="form-control form-control-sm" defaultValue={filters.fecha || ''} />
-                    </div>
-                    <div className="mb-2">
-                      <label className="form-label" style={{fontSize: '0.85em'}}>O rango</label>
-                      <div className="d-flex gap-1"><input name="fechaDesde" type="date" className="form-control form-control-sm" defaultValue={filters.fechaDesde || ''} /><input name="fechaHasta" type="date" className="form-control form-control-sm" defaultValue={filters.fechaHasta || ''} /></div>
-                    </div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.card'); const exact = card.querySelector('input[name="fechaExacta"]').value; const from = card.querySelector('input[name="fechaDesde"]').value; const to = card.querySelector('input[name="fechaHasta"]').value; let nf; if (exact) { nf = { ...filters, fecha: exact, fechaDesde: '', fechaHasta: '' }; } else { nf = { ...filters, fecha: '', fechaDesde: from || '', fechaHasta: to || '' }; } setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, fecha: '', fechaDesde: '', fechaHasta: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
-                  </div>
-                )}
               </th>
               <th>
                 Total

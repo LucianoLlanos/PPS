@@ -16,8 +16,8 @@ function Productos() {
   const [addForm, setAddForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
   const [editSucursal, setEditSucursal] = useState(null); // { idSucursal, idProducto, nombreProducto, stockDisponible }
   const [sucursales, setSucursales] = useState([]);
-  const [selectedSucursales, setSelectedSucursales] = useState([]);
-  const [selectAllSucursales, setSelectAllSucursales] = useState(false);
+  // Asignación exclusiva: 'ALL' para todas o idSucursal específico
+  const [sucursalAssignment, setSucursalAssignment] = useState('ALL');
   const [showBackfillModal, setShowBackfillModal] = useState(false);
   // reconcile modal removed: reconciliación ahora desde Herramientas -> Reconciliar producto
   const [showSelectReconcileModal, setShowSelectReconcileModal] = useState(false);
@@ -162,13 +162,20 @@ function Productos() {
     if (!addForm.stockTotal || isNaN(addForm.stockTotal) || Number(addForm.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
+    // Resolver listado de sucursales según la asignación exclusiva
+    let sucursalesIds = [];
+    if (sucursalAssignment === 'ALL') {
+      sucursalesIds = sucursales.map(s => s.idSucursal);
+    } else if (sucursalAssignment !== '' && sucursalAssignment !== null && typeof sucursalAssignment !== 'undefined') {
+      sucursalesIds = [Number(sucursalAssignment)];
+    }
     const payload = {
       ...addForm,
       nombre,
       descripcion,
       precio: Number(addForm.precio),
       stockTotal: Number(addForm.stockTotal),
-      sucursales: selectedSucursales
+      sucursales: sucursalesIds
     };
     try {
       await api.post('/productos', payload);
@@ -176,7 +183,7 @@ function Productos() {
       setAddProd(false);
       setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
       setFieldErrors({});
-      setSelectedSucursales([]);
+      setSucursalAssignment('ALL');
       setError(null);
     } catch (err) {
       let msg = 'Error al crear producto';
@@ -187,11 +194,6 @@ function Productos() {
     }
   };
 
-  const toggleSucursal = (id) => {
-    const n = Number(id);
-    if (selectedSucursales.includes(n)) setSelectedSucursales(selectedSucursales.filter(x => x !== n));
-    else setSelectedSucursales([...selectedSucursales, n]);
-  };
 
   const runBackfill = async () => {
     try {
@@ -373,27 +375,35 @@ function Productos() {
                   </div>
                   <div className="mb-3">
                     <label>Asignar a sucursales</label>
-                    <div className="d-flex align-items-center gap-3 mt-2 mb-2">
+                    <div className="mt-2 mb-2">
                       <div className="form-check">
-                        <input className="form-check-input" type="checkbox" id="select-all-suc" checked={selectAllSucursales} onChange={(e) => {
-                          const checked = e.target.checked;
-                          setSelectAllSucursales(checked);
-                          if (checked) setSelectedSucursales(sucursales.map(s => s.idSucursal));
-                          else setSelectedSucursales([]);
-                        }} />
-                        <label className="form-check-label" htmlFor="select-all-suc">Seleccionar todas</label>
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="sucursal-assignment"
+                          id="suc-all"
+                          value="ALL"
+                          checked={sucursalAssignment === 'ALL'}
+                          onChange={(e) => setSucursalAssignment(e.target.value)}
+                        />
+                        <label className="form-check-label" htmlFor="suc-all">Todas las sucursales</label>
                       </div>
-                      <div className="text-muted small">(Selecciona las sucursales donde quieres que aparezca el producto al crearlo)</div>
-                    </div>
-                    <div className="d-flex flex-wrap gap-2">
                       {sucursales.map(s => (
                         <div key={s.idSucursal} className="form-check">
-                          <input className="form-check-input" type="checkbox" value={s.idSucursal} id={`suc-${s.idSucursal}`} checked={selectedSucursales.includes(s.idSucursal)} onChange={() => toggleSucursal(s.idSucursal)} />
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="sucursal-assignment"
+                            id={`suc-${s.idSucursal}`}
+                            value={s.idSucursal}
+                            checked={String(sucursalAssignment) === String(s.idSucursal)}
+                            onChange={(e) => setSucursalAssignment(e.target.value)}
+                          />
                           <label className="form-check-label" htmlFor={`suc-${s.idSucursal}`}>{s.nombre}</label>
                         </div>
                       ))}
+                      <div className="form-text">Elegí una única opción: todas las sucursales o una en particular.</div>
                     </div>
-                    <div className="form-text">Si no seleccionas ninguna sucursal, el producto se creará en todas las sucursales con stock 0 por defecto.</div>
                   </div>
                 </div>
                 <div className="modal-footer">

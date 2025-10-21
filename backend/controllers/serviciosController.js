@@ -1,4 +1,4 @@
-const db = require('../db/DB');
+const { connection } = require('../db/DB');
 
 // Obtener todas las solicitudes de servicio (para admin)
 const getSolicitudesServicio = (req, res) => {
@@ -13,7 +13,7 @@ const getSolicitudesServicio = (req, res) => {
     ORDER BY s.fechaCreacion DESC
   `;
 
-  db.query(query, (err, results) => {
+  connection.query(query, (err, results) => {
     if (err) {
       console.error('Error al obtener solicitudes de servicio:', err);
       return res.status(500).json({ error: 'Error interno del servidor' });
@@ -30,7 +30,7 @@ const getSolicitudesUsuario = (req, res) => {
     SELECT * FROM solicitudes_servicio_postventa 
     WHERE idUsuario = ?
     ORDER BY fechaCreacion DESC
-  `;  db.query(query, [idUsuario], (err, results) => {
+  `;  connection.query(query, [idUsuario], (err, results) => {
     if (err) {
       console.error('Error al obtener solicitudes del usuario:', err);
       return res.status(500).json({ error: 'Error interno del servidor' });
@@ -72,7 +72,7 @@ const crearSolicitudServicio = (req, res) => {
 
   const values = [idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida];
 
-  db.query(query, values, (err, result) => {
+  connection.query(query, values, (err, result) => {
     if (err) {
       console.error('Error al crear solicitud de servicio:', err);
       return res.status(500).json({ error: 'Error interno del servidor' });
@@ -103,7 +103,7 @@ const actualizarEstadoSolicitud = (req, res) => {
     WHERE idSolicitud = ?
   `;
 
-  db.query(query, [estado, observacionesAdmin, idSolicitud], (err, result) => {
+  connection.query(query, [estado, observacionesAdmin, idSolicitud], (err, result) => {
     if (err) {
       console.error('Error al actualizar solicitud:', err);
       return res.status(500).json({ error: 'Error interno del servidor' });

@@ -221,7 +221,7 @@ const registrarHistorial = (tabla, idRegistro, accion, usuario, descripcion) => 
 
 // PRODUCTOS
 const listarProductos = (req, res) => {
-  const query = `SELECT idProducto, nombre, descripcion, precio, stockTotal AS stock FROM productos`;
+  const query = `SELECT idProducto, nombre, descripcion, precio, stockTotal AS stock, imagen FROM productos`;
   connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al obtener productos' });
     res.json(results);
@@ -229,65 +229,123 @@ const listarProductos = (req, res) => {
 };
 
 const crearProducto = (req, res) => {
+  console.log('[DEBUG] Datos recibidos:', req.body);
+  console.log('[DEBUG] Archivos recibidos:', req.files ? req.files.map(f => f.filename) : 'No hay archivos');
+  
   const { nombre, descripcion, precio, stockTotal } = req.body;
-  if (!nombre || !precio) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  
+  // Validación más específica
+  if (!nombre || nombre.trim() === '') {
+    console.log('[ERROR] Nombre faltante o vacío');
+    return res.status(400).json({ error: 'El nombre es obligatorio' });
   }
+  if (!precio || isNaN(precio) || Number(precio) <= 0) {
+    console.log('[ERROR] Precio inválido:', precio);
+    return res.status(400).json({ error: 'El precio debe ser un número mayor a 0' });
+  }
+  
+  // Manejar múltiples imágenes subidas
+  const imagenes = req.files ? req.files.map(file => file.filename) : [];
+  console.log('[DEBUG] Imágenes procesadas:', imagenes);
+  
   // sucursales opcion: array de ids de sucursales a las que asignar el producto
-  const sucursalesSelected = req.body.sucursales || []; // ejemplo: [1,2]
+  // Si viene como string JSON, parsearlo; si no, usar como array o default vacío
+  let sucursalesSelected = req.body.sucursales || [];
+  if (typeof sucursalesSelected === 'string') {
+    try {
+      sucursalesSelected = JSON.parse(sucursalesSelected);
+    } catch (e) {
+      console.log('[ERROR] Error parseando sucursales JSON:', e.message);
+      sucursalesSelected = [];
+    }
+  }
+  
+  console.log('[DEBUG] Sucursales procesadas:', sucursalesSelected);
+  
+  // Crear producto sin imagen en la tabla principal (mantener compatibilidad)
   const query =
-    'INSERT INTO productos (nombre, descripcion, precio, stockTotal) VALUES (?, ?, ?, ?)';
-  connection.query(query, [nombre, descripcion, precio, stockTotal], (err, result) => {
+    'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)';
+  const imagenPrincipal = imagenes.length > 0 ? imagenes[0] : null;
+  
+  connection.query(query, [nombre, descripcion, precio, stockTotal, imagenPrincipal], (err, result) => {
     if (err) return res.status(500).json({ error: 'Error al crear producto' });
     const idProducto = result.insertId;
 
-    // Obtener lista de sucursales del sistema
-    connection.query('SELECT idSucursal FROM sucursales', (err2, sucursalesAll) => {
-      if (err2) return res.status(500).json({ error: 'Error al obtener sucursales' });
-
-      let targets = [];
-      if (Array.isArray(sucursalesSelected) && sucursalesSelected.length > 0) {
-        // Usar solo las sucursales seleccionadas (filtrar por las que existen)
-        const existIds = sucursalesAll.map((s) => s.idSucursal);
-        targets = sucursalesSelected
-          .filter((id) => existIds.includes(Number(id)))
-          .map((id) => Number(id));
-      } else {
-        // Si no se proporcionaron, crear entradas con 0 en todas las sucursales
-        targets = sucursalesAll.map((s) => s.idSucursal);
+    // Insertar todas las imágenes en la tabla producto_imagenes
+    const insertarImagenes = (callback) => {
+      if (imagenes.length === 0) {
+        callback();
+        return;
       }
 
-      if (targets.length === 0)
-        return res.json({ mensaje: 'Producto creado, sin sucursales disponibles', id: idProducto });
-
-      // Distribuir stockTotal entre las sucursales seleccionadas (si hay stockTotal > 0)
-      const total = Number(stockTotal) || 0;
-      const n = targets.length;
-      const base = Math.floor(total / n);
-      let remainder = total % n;
-
-      // Insertar filas en stock_sucursal para cada target
-      const insertar = (i) => {
-        if (i >= targets.length) {
-          return res.json({
-            mensaje: 'Producto creado y stock por sucursal inicializado',
-            id: idProducto,
-          });
-        }
-        const idSucursal = targets[i];
-        const asignado = total > 0 ? base + (remainder > 0 ? (remainder--, 1) : 0) : 0;
+      let insertados = 0;
+      imagenes.forEach((imagen, index) => {
         connection.query(
-          'INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)',
-          [idSucursal, idProducto, asignado],
-          (err3) => {
-            if (err3)
-              return res.status(500).json({ error: 'Error al crear stock_sucursal inicial' });
-            insertar(i + 1);
+          'INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)',
+          [idProducto, imagen, index],
+          (err) => {
+            if (err) {
+              console.log('[ERROR] Error insertando imagen:', err);
+              return res.status(500).json({ error: 'Error al guardar imágenes' });
+            }
+            insertados++;
+            if (insertados === imagenes.length) {
+              callback();
+            }
           }
         );
-      };
+      });
+    };
 
-      insertar(0);
+    insertarImagenes(() => {
+      // Continúa con la lógica de sucursales
+      connection.query('SELECT idSucursal FROM sucursales', (err2, sucursalesAll) => {
+        if (err2) return res.status(500).json({ error: 'Error al obtener sucursales' });
+
+        let targets = [];
+        if (Array.isArray(sucursalesSelected) && sucursalesSelected.length > 0) {
+          // Usar solo las sucursales seleccionadas (filtrar por las que existen)
+          const existIds = sucursalesAll.map((s) => s.idSucursal);
+          targets = sucursalesSelected
+            .filter((id) => existIds.includes(Number(id)))
+            .map((id) => Number(id));
+        } else {
+          // Si no se proporcionaron, crear entradas con 0 en todas las sucursales
+          targets = sucursalesAll.map((s) => s.idSucursal);
+        }
+
+        if (targets.length === 0)
+          return res.json({ mensaje: 'Producto creado, sin sucursales disponibles', id: idProducto });
+
+        // Distribuir stockTotal entre las sucursales seleccionadas (si hay stockTotal > 0)
+        const total = Number(stockTotal) || 0;
+        const n = targets.length;
+        const base = Math.floor(total / n);
+        let remainder = total % n;
+
+        // Insertar filas en stock_sucursal para cada target
+        const insertar = (i) => {
+          if (i >= targets.length) {
+            return res.json({
+              mensaje: `Producto creado con ${imagenes.length} imagen(es) y stock por sucursal inicializado`,
+              id: idProducto,
+            });
+          }
+          const idSucursal = targets[i];
+          const asignado = total > 0 ? base + (remainder > 0 ? (remainder--, 1) : 0) : 0;
+          connection.query(
+            'INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)',
+            [idSucursal, idProducto, asignado],
+            (err3) => {
+              if (err3)
+                return res.status(500).json({ error: 'Error al crear stock_sucursal inicial' });
+              insertar(i + 1);
+            }
+          );
+        };
+
+        insertar(0);
+      });
     });
   });
 };
@@ -487,12 +545,24 @@ const reconcileStockProducto = (req, res) => {
 const actualizarProducto = (req, res) => {
   const { id } = req.params;
   const { nombre, descripcion, precio, stockTotal } = req.body;
-  const query =
-    'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
-  connection.query(query, [nombre, descripcion, precio, stockTotal, id], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
-    res.json({ mensaje: 'Producto actualizado' });
-  });
+  
+  // Si se sube una nueva imagen, usarla; si no, mantener la existente
+  if (req.file) {
+    const nuevaImagen = req.file.filename;
+    const query =
+      'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=?, imagen=? WHERE idProducto=?';
+    connection.query(query, [nombre, descripcion, precio, stockTotal, nuevaImagen, id], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
+      res.json({ mensaje: 'Producto actualizado con nueva imagen' });
+    });
+  } else {
+    const query =
+      'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
+    connection.query(query, [nombre, descripcion, precio, stockTotal, id], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
+      res.json({ mensaje: 'Producto actualizado' });
+    });
+  }
 };
 
 const eliminarProducto = (req, res) => {

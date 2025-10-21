@@ -75,8 +75,9 @@ export default function Header({ initialQuery }) {
               <li className="nav-item">
                 <Link className="nav-link" to="/">Catálogo</Link>
               </li>
-              {/* Enlace de servicios visible para usuarios logueados */}
-              {user && (
+              
+              {/* Enlace de servicios para usuarios regulares (no admin) */}
+              {user && Number(user.idRol) !== 3 && (
                 <li className="nav-item">
                   <Link className="nav-link" to="/servicios">
                     <i className="bi bi-tools me-1"></i>
@@ -84,6 +85,7 @@ export default function Header({ initialQuery }) {
                   </Link>
                 </li>
               )}
+              
               {/* Enlaces de administración visibles sólo para admin (idRol === 3) */}
               {user && Number(user.idRol) === 3 && (
                 <>
@@ -98,6 +100,12 @@ export default function Header({ initialQuery }) {
                   </li>
                   <li className="nav-item">
                     <Link className="nav-link" to="/clientes">Clientes</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to="/servicios-admin">
+                      <i className="bi bi-tools me-1"></i>
+                      Gestión Servicios
+                    </Link>
                   </li>
                 </>
               )}

@@ -16,6 +16,11 @@ function Productos() {
   const [success, setSuccess] = useState(null);
   const [addProd, setAddProd] = useState(false);
   const [addForm, setAddForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
+  const [addLoading, setAddLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [editSucursal, setEditSucursal] = useState(null); // { idSucursal, idProducto, nombreProducto, stockDisponible }
   const [sucursales, setSucursales] = useState([]);
   // Asignación exclusiva: 'ALL' para todas o idSucursal específico
@@ -28,6 +33,13 @@ function Productos() {
   const toolsRef = useRef(null);
 
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
+  useEffect(() => {
+    if (addProd) {
+      // Scroll hacia arriba cuando se abre el modal de agregar producto
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [addProd]);
+
   useEffect(() => {
     const handleDocClick = (e) => {
       if (toolsRef.current && !toolsRef.current.contains(e.target)) {
@@ -99,6 +111,55 @@ function Productos() {
     setAddForm({ ...addForm, [e.target.name]: e.target.value });
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      // Crear preview de la imagen
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedImage(null);
+      setImagePreview(null);
+    }
+  };
+
+  const handleMultipleImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSelectedImages(files);
+      
+      // Crear previews para todas las imágenes
+      const previews = [];
+      let loadedCount = 0;
+      
+      files.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          previews[index] = reader.result;
+          loadedCount++;
+          if (loadedCount === files.length) {
+            setImagePreviews([...previews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    } else {
+      setSelectedImages([]);
+      setImagePreviews([]);
+    }
+  };
+
+  const removeImage = (index) => {
+    const newImages = selectedImages.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setSelectedImages(newImages);
+    setImagePreviews(newPreviews);
+  };
+
   const submitEdit = (e) => {
     e.preventDefault();
     // Validación final antes de enviar
@@ -154,6 +215,8 @@ function Productos() {
 
   const submitAdd = async (e) => {
     e.preventDefault();
+    setAddLoading(true);
+    
     // Validación y limpieza
     const errors = {};
     const nombre = addForm.nombre.trim();
@@ -163,7 +226,11 @@ function Productos() {
     if (!addForm.precio || isNaN(addForm.precio) || Number(addForm.precio) <= 0) errors.precio = 'El precio debe ser mayor a 0';
     if (!addForm.stockTotal || isNaN(addForm.stockTotal) || Number(addForm.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      setAddLoading(false);
+      return;
+    }
+    
     // Resolver listado de sucursales según la asignación exclusiva
     let sucursalesIds = [];
     if (sucursalAssignment === 'ALL') {
@@ -171,21 +238,39 @@ function Productos() {
     } else if (sucursalAssignment !== '' && sucursalAssignment !== null && typeof sucursalAssignment !== 'undefined') {
       sucursalesIds = [Number(sucursalAssignment)];
     }
-    const payload = {
-      ...addForm,
-      nombre,
-      descripcion,
-      precio: Number(addForm.precio),
-      stockTotal: Number(addForm.stockTotal),
-      sucursales: sucursalesIds
-    };
+    
+    // Crear FormData para enviar archivo
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('descripcion', descripcion);
+    formData.append('precio', Number(addForm.precio));
+    formData.append('stockTotal', Number(addForm.stockTotal));
+    formData.append('sucursales', JSON.stringify(sucursalesIds));
+    
+    // Agregar múltiples imágenes si fueron seleccionadas
+    if (selectedImages.length > 0) {
+      selectedImages.forEach((image, index) => {
+        formData.append('imagenes', image);
+      });
+    }
+    
     try {
-      await api.post('/productos', payload);
+      await api.post('/productos', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       setSuccess('Producto creado correctamente');
       setAddProd(false);
       setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
       setFieldErrors({});
       setSucursalAssignment('ALL');
+      setSelectedImages([]);
+      setImagePreviews([]);
+      setSelectedImage(null);
+      setImagePreview(null);
+      setSelectedImage(null);
+      setImagePreview(null);
       setError(null);
     } catch (err) {
       let msg = 'Error al crear producto';
@@ -193,6 +278,8 @@ function Productos() {
         msg = err.response.data.message;
       }
       setError(msg);
+    } finally {
+      setAddLoading(false);
     }
   };
 
@@ -237,6 +324,471 @@ function Productos() {
           )}
         </div>
       </div>
+      {/* Modal Agregar Producto - Estilo moderno como Login/Register */}
+      {addProd && (
+        <>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 9999,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          }}>
+            <div style={{
+              background: 'linear-gradient(180deg, #4A90E2 0%, #357ABD 50%, #1E3A8A 100%)',
+              borderRadius: '20px',
+              padding: '2px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto'
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: '18px',
+                padding: '40px',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                textAlign: 'center'
+              }}>
+                {/* Header con ícono */}
+                <div style={{ marginBottom: '30px' }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    backgroundColor: '#E5E7EB',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 20px',
+                    border: '3px solid rgba(255,255,255,0.8)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    <i className="bi bi-plus-circle-fill" style={{ fontSize: '32px', color: '#4A90E2' }}></i>
+                  </div>
+                  <h5 style={{
+                    fontSize: '24px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    margin: 0
+                  }}>Agregar Producto</h5>
+                </div>
+
+                <form onSubmit={submitAdd} noValidate>
+                  {error && (
+                    <div style={{
+                      backgroundColor: '#fef2f2',
+                      color: '#dc2626',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      marginBottom: '20px',
+                      fontSize: '14px',
+                      border: '1px solid #fecaca'
+                    }}>{error}</div>
+                  )}
+
+                  {/* Nombre */}
+                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: fieldErrors.nombre ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <i className="bi bi-tag" style={{ 
+                        fontSize: '16px', 
+                        color: '#9CA3AF', 
+                        marginLeft: '12px',
+                        marginRight: '8px'
+                      }}></i>
+                      <input
+                        type="text"
+                        name="nombre"
+                        value={addForm.nombre}
+                        onChange={handleAddChange}
+                        placeholder="Nombre del producto *"
+                        required
+                        style={{
+                          flex: 1,
+                          padding: '14px 12px 14px 0',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          fontSize: '15px',
+                          outline: 'none',
+                          color: '#374151'
+                        }}
+                      />
+                    </div>
+                    {fieldErrors.nombre && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.nombre}</div>}
+                  </div>
+
+                  {/* Descripción */}
+                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: fieldErrors.descripcion ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <i className="bi bi-card-text" style={{ 
+                        fontSize: '16px', 
+                        color: '#9CA3AF', 
+                        marginLeft: '12px',
+                        marginRight: '8px',
+                        marginTop: '14px'
+                      }}></i>
+                      <textarea
+                        name="descripcion"
+                        value={addForm.descripcion}
+                        onChange={handleAddChange}
+                        placeholder="Descripción del producto *"
+                        required
+                        rows="3"
+                        style={{
+                          flex: 1,
+                          padding: '14px 12px 14px 0',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          fontSize: '15px',
+                          outline: 'none',
+                          color: '#374151',
+                          resize: 'vertical',
+                          minHeight: '60px'
+                        }}
+                      />
+                    </div>
+                    {fieldErrors.descripcion && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.descripcion}</div>}
+                  </div>
+
+                  {/* Múltiples Imágenes del producto */}
+                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                    <label style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '500', 
+                      color: '#374151',
+                      marginBottom: '8px',
+                      display: 'block'
+                    }}>
+                      <i className="bi bi-images me-2"></i>
+                      Imágenes del producto (máx. 5)
+                    </label>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      padding: '12px'
+                    }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImagesChange}
+                        style={{
+                          padding: '8px',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          fontSize: '14px',
+                          outline: 'none',
+                          color: '#374151'
+                        }}
+                      />
+                      <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0' }}>
+                        Selecciona hasta 5 imágenes para el producto
+                      </p>
+                      
+                      {/* Previews de múltiples imágenes */}
+                      {imagePreviews.length > 0 && (
+                        <div style={{ 
+                          marginTop: '12px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                          gap: '12px'
+                        }}>
+                          {imagePreviews.map((preview, index) => (
+                            <div key={index} style={{ position: 'relative' }}>
+                              <img 
+                                src={preview} 
+                                alt={`Preview ${index + 1}`} 
+                                style={{
+                                  width: '100%',
+                                  height: '100px',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeImage(index)}
+                                style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  right: '4px',
+                                  background: 'rgba(220, 53, 69, 0.9)',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '50%',
+                                  width: '24px',
+                                  height: '24px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                title="Eliminar imagen"
+                              >
+                                ×
+                              </button>
+                              <p style={{ 
+                                fontSize: '10px', 
+                                color: '#6b7280', 
+                                textAlign: 'center',
+                                marginTop: '4px' 
+                              }}>
+                                Imagen {index + 1}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Precio y Stock en fila */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    {/* Precio */}
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        border: fieldErrors.precio ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        <i className="bi bi-currency-dollar" style={{ 
+                          fontSize: '16px', 
+                          color: '#9CA3AF', 
+                          marginLeft: '12px',
+                          marginRight: '8px'
+                        }}></i>
+                        <input
+                          type="number"
+                          name="precio"
+                          value={addForm.precio}
+                          onChange={handleAddChange}
+                          placeholder="Precio *"
+                          required
+                          min="0"
+                          step="0.01"
+                          style={{
+                            flex: 1,
+                            padding: '14px 12px 14px 0',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            fontSize: '15px',
+                            outline: 'none',
+                            color: '#374151'
+                          }}
+                        />
+                      </div>
+                      {fieldErrors.precio && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.precio}</div>}
+                    </div>
+
+                    {/* Stock */}
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        border: fieldErrors.stockTotal ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        <i className="bi bi-box" style={{ 
+                          fontSize: '16px', 
+                          color: '#9CA3AF', 
+                          marginLeft: '12px',
+                          marginRight: '8px'
+                        }}></i>
+                        <input
+                          type="number"
+                          name="stockTotal"
+                          value={addForm.stockTotal}
+                          onChange={handleAddChange}
+                          placeholder="Stock *"
+                          required
+                          min="0"
+                          style={{
+                            flex: 1,
+                            padding: '14px 12px 14px 0',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            fontSize: '15px',
+                            outline: 'none',
+                            color: '#374151'
+                          }}
+                        />
+                      </div>
+                      {fieldErrors.stockTotal && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.stockTotal}</div>}
+                    </div>
+                  </div>
+
+                  {/* Sucursales */}
+                  <div style={{ marginBottom: '24px', textAlign: 'left' }}>
+                    <label style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '500', 
+                      color: '#374151',
+                      marginBottom: '8px',
+                      display: 'block'
+                    }}>
+                      <i className="bi bi-building me-2"></i>
+                      Asignar a sucursales
+                    </label>
+                    <div style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      padding: '12px'
+                    }}>
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="sucursal-assignment"
+                            value="ALL"
+                            checked={sucursalAssignment === 'ALL'}
+                            onChange={(e) => setSucursalAssignment(e.target.value)}
+                            style={{ marginRight: '8px' }}
+                          />
+                          Todas las sucursales
+                        </label>
+                      </div>
+                      {sucursales.map(s => (
+                        <div key={s.idSucursal} style={{ marginBottom: '8px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', cursor: 'pointer' }}>
+                            <input
+                              type="radio"
+                              name="sucursal-assignment"
+                              value={s.idSucursal}
+                              checked={String(sucursalAssignment) === String(s.idSucursal)}
+                              onChange={(e) => setSucursalAssignment(e.target.value)}
+                              style={{ marginRight: '8px' }}
+                            />
+                            {s.nombre}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Botones */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <button
+                      type="submit"
+                      disabled={addLoading}
+                      style={{
+                        padding: '14px',
+                        border: 'none',
+                        borderRadius: '8px',
+                        background: addLoading ? '#9CA3AF' : '#22c55e',
+                        color: 'white',
+                        fontSize: '15px',
+                        fontWeight: '500',
+                        cursor: addLoading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onMouseEnter={(e) => !addLoading && (e.target.style.background = '#16a34a')}
+                      onMouseLeave={(e) => !addLoading && (e.target.style.background = '#22c55e')}
+                    >
+                      {addLoading ? (
+                        <>
+                          <span style={{ 
+                            display: 'inline-block',
+                            width: '16px',
+                            height: '16px',
+                            border: '2px solid #ffffff',
+                            borderTop: '2px solid transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            marginRight: '8px'
+                          }}></span>
+                          CREANDO...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-check-circle me-2"></i>
+                          CREAR
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAddProd(false)}
+                      style={{
+                        padding: '14px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        background: 'white',
+                        color: '#6b7280',
+                        fontSize: '15px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.5px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = '#f9fafb';
+                        e.target.style.borderColor = '#9ca3af';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'white';
+                        e.target.style.borderColor = '#d1d5db';
+                      }}
+                    >
+                      <i className="bi bi-x-circle me-2"></i>
+                      CANCELAR
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Stock por sucursal */}
   {/* productos table arriba (se renderiza más abajo) */}
       {error && <div className="alert alert-danger">{error}</div>}
@@ -334,90 +886,6 @@ function Productos() {
           })
         )}
       </div>
-      {addProd && (
-        <div className="productos-modal-backdrop">
-          <div className="productos-modal-dialog-lg">
-            <div className="productos-modal-content">
-              <form onSubmit={submitAdd} noValidate className="productos-form">
-                <div className="modal-header">
-                  <h5 className="modal-title">Agregar Producto</h5>
-                  <button type="button" className="btn-close" onClick={() => setAddProd(false)}></button>
-                </div>
-                <div className="productos-modal-body">
-                  {error && (
-                    <div className="productos-alert-danger">{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${fieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={addForm.nombre} onChange={handleAddChange} required />
-                    <div className="productos-field-error">
-                      {fieldErrors.nombre && <span className="invalid-feedback d-block">{fieldErrors.nombre}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Descripción</label>
-                    <input type="text" className={`form-control${fieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={addForm.descripcion} onChange={handleAddChange} required />
-                    <div className="productos-field-error">
-                      {fieldErrors.descripcion && <span className="invalid-feedback d-block">{fieldErrors.descripcion}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Precio</label>
-                    <input type="number" className={`form-control${fieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={addForm.precio} onChange={handleAddChange} required min="0" step="0.01" />
-                    <div className="productos-field-error">
-                      {fieldErrors.precio && <span className="invalid-feedback d-block">{fieldErrors.precio}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Stock</label>
-                    <input type="number" className={`form-control${fieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={addForm.stockTotal} onChange={handleAddChange} required min="0" />
-                    <div className="productos-field-error">
-                      {fieldErrors.stockTotal && <span className="invalid-feedback d-block">{fieldErrors.stockTotal}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-3">
-                    <label>Asignar a sucursales</label>
-                    <div className="mt-2 mb-2">
-                      <div className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="sucursal-assignment"
-                          id="suc-all"
-                          value="ALL"
-                          checked={sucursalAssignment === 'ALL'}
-                          onChange={(e) => setSucursalAssignment(e.target.value)}
-                        />
-                        <label className="form-check-label" htmlFor="suc-all">Todas las sucursales</label>
-                      </div>
-                      {sucursales.map(s => (
-                        <div key={s.idSucursal} className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name="sucursal-assignment"
-                            id={`suc-${s.idSucursal}`}
-                            value={s.idSucursal}
-                            checked={String(sucursalAssignment) === String(s.idSucursal)}
-                            onChange={(e) => setSucursalAssignment(e.target.value)}
-                          />
-                          <label className="form-check-label" htmlFor={`suc-${s.idSucursal}`}>{s.nombre}</label>
-                        </div>
-                      ))}
-                      <div className="form-text">Elegí una única opción: todas las sucursales o una en particular.</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Crear producto</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setAddProd(false)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal Edición */}
       {editProd && (
         <div className="productos-modal-backdrop">

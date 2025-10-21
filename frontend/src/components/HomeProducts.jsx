@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import ProductModal from './ProductModal';
+import ProductImageCarousel from './ProductImageCarousel';
 import cart from '../utils/cart';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
@@ -121,12 +122,10 @@ export default function HomeProducts() {
       <div className="products-grid">
         {itemsToRender.map(p => (
           <div key={p.idProducto || p.id} className="product-card card">
-            <div className="product-image-container">
-              {(() => {
-                const src = '/img/descarga.jpg';
-                return <img src={src} alt={p.nombre || p.name} className="product-image" />;
-              })()}
-            </div>
+            <ProductImageCarousel 
+              imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} 
+              nombre={p.nombre || p.name} 
+            />
             <h5 className="product-title">{p.nombre}</h5>
             <div className="product-description">
               {(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}

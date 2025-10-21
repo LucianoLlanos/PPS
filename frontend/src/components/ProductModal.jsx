@@ -36,8 +36,22 @@ export default function ProductModal({ product, onClose, onAdded }) {
           <div className="modal-body d-flex gap-3">
             <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               {(() => {
-                const src = '/img/descarga.jpg';
-                return <img src={src} alt={title} style={{maxWidth:'100%', maxHeight:360}} />;
+                // Usar imagen del producto si existe, sino usar imagen por defecto
+                const imagenProducto = product.imagen || product.image;
+                const src = imagenProducto 
+                  ? `http://localhost:3000/uploads/${imagenProducto}`
+                  : '/img/descarga.jpg';
+                return (
+                  <img 
+                    src={src} 
+                    alt={title} 
+                    style={{maxWidth:'100%', maxHeight:360, borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'}}
+                    onError={(e) => {
+                      // Si la imagen del producto falla, usar la imagen por defecto
+                      e.target.src = '/img/descarga.jpg';
+                    }}
+                  />
+                );
               })()}
             </div>
             <div style={{flex: 1}}>

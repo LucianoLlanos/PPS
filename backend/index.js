@@ -15,9 +15,24 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Endpoint público para listar productos (sin autenticación)
 const { connection } = require('./db/DB');
 app.get('/productos', (req, res) => {
-  connection.query('SELECT idProducto, nombre, descripcion, precio, stockTotal AS stock FROM productos', (err, results) => {
+  const query = `
+    SELECT 
+      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
+    FROM productos p 
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id 
+    GROUP BY p.idProducto
+  `;
+  connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al obtener productos' });
-    res.json(results);
+    
+    // Procesar resultados para convertir imagenes de string a array
+    const processedResults = results.map(producto => ({
+      ...producto,
+      imagenes: producto.imagenes ? producto.imagenes.split(',') : []
+    }));
+    
+    res.json(processedResults);
   });
 });
 

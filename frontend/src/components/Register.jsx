@@ -5,6 +5,14 @@ import useAuthStore from '../store/useAuthStore';
 import { migrateGuestCart, migrateOldCart } from '../utils/cart';
 import '../stylos/Register.css';
 
+// Definir el estilo del spinner
+const spinnerStyle = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
 export default function Register() {
   const [formData, setFormData] = useState({
     nombre: '',

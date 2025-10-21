@@ -30,9 +30,11 @@ function Pedidos() {
     if (useFilters.cantidadMin) params.cantidadMin = useFilters.cantidadMin;
     if (useFilters.cantidadMax) params.cantidadMax = useFilters.cantidadMax;
     if (useFilters.priorizarPendientes) params.priorizarPendientes = '1';
-    const sortToUse = sortOverride || (filters && filters.sort) || null;
-    if (sortToUse === 'fecha_asc') params.sort = 'fecha_asc';
-    if (sortToUse === 'fecha_desc') params.sort = 'fecha_desc';
+  const sortToUse = sortOverride || (filters && filters.sort) || null;
+  if (sortToUse === 'fecha_asc') params.sort = 'fecha_asc';
+  if (sortToUse === 'fecha_desc') params.sort = 'fecha_desc';
+  if (sortToUse === 'cantidad_asc') params.sort = 'cantidad_asc';
+  if (sortToUse === 'cantidad_desc') params.sort = 'cantidad_desc';
 
     api.get('/ventas', { params })
       .then(res => setPedidos(res.data))
@@ -188,7 +190,17 @@ function Pedidos() {
         <div className="mb-2 d-flex gap-2 align-items-center">
           {filters.estado && <span className="badge bg-info text-dark">Estado: {filters.estado}</span>}
           {(filters.fechaDesde || filters.fechaHasta) && <span className="badge bg-info text-dark">Fecha: {filters.fechaDesde || '...'} - {filters.fechaHasta || '...'}</span>}
-          {filters.sort && <span className="badge bg-secondary">Orden: {filters.sort === 'fecha_asc' ? 'Fecha ↑' : 'Fecha ↓'}</span>}
+          {filters.sort && (
+            <span className="badge bg-secondary">
+              Orden: {
+                filters.sort.startsWith('fecha')
+                  ? `Fecha ${filters.sort === 'fecha_asc' ? '↑' : '↓'}`
+                  : filters.sort.startsWith('cantidad')
+                  ? `Cantidad ${filters.sort === 'cantidad_asc' ? '↑' : '↓'}`
+                  : filters.sort
+              }
+            </span>
+          )}
           {(filters.estado || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
             <button className="btn btn-sm btn-outline-secondary" onClick={() => { setFilters({ idPedido: '', producto: '', usuario: '', estado: '', fechaDesde: '', fechaHasta: '', totalMin: '', totalMax: '', cantidadMin: '', cantidadMax: '', priorizarPendientes: false, sort: '' }); loadPedidos({}); }}>Limpiar filtros</button>
           )}
@@ -252,7 +264,7 @@ function Pedidos() {
               </th>
               <th>
                 Fecha
-                <button type="button" className="btn btn-sm btn-link text-white ms-2 p-0" onClick={() => {
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
                   // toggle sort for fecha in unified filters
                   const nextOrder = filters.sort === 'fecha_asc' ? 'fecha_desc' : 'fecha_asc';
                   const newFilters = { ...filters, sort: nextOrder };

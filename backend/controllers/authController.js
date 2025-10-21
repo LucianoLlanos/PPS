@@ -19,12 +19,29 @@ const authController = {
         return res.status(401).json({ error: 'Credenciales inválidas' });
       }
       const user = results[0];
-      // comparar password con bcrypt (si está hasheado) o con texto plano
-      const match = bcrypt.compareSync(password, user.password);
-      console.log(`[auth] password match for ${email}:`, Boolean(match));
-      if (!match) {
-        return res.status(401).json({ error: 'Credenciales inválidas' });
+      // Compatibilidad: si la contraseña almacenada NO parece un hash bcrypt, comparar plano y migrar a hash
+      const stored = user.password || '';
+      const looksHashed = typeof stored === 'string' && (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$'));
+      let match = false;
+      if (looksHashed) {
+        match = bcrypt.compareSync(password, stored);
+      } else {
+        // comparación en texto plano (solo para migración)
+        match = password === stored;
+        if (match) {
+          try {
+            const newHash = bcrypt.hashSync(password, 10);
+            connection.query('UPDATE usuarios SET password = ? WHERE idUsuario = ?', [newHash, user.idUsuario], (uErr) => {
+              if (uErr) console.error('[auth] No se pudo migrar contraseña a hash para usuario', user.idUsuario, uErr.message || uErr);
+            });
+            user.password = newHash;
+          } catch (mErr) {
+            console.error('[auth] error migrando password a hash:', mErr);
+          }
+        }
       }
+      console.log(`[auth] password match for ${email}:`, Boolean(match));
+      if (!match) return res.status(401).json({ error: 'Credenciales inválidas' });
 
       const payload = { idUsuario: user.idUsuario, idRol: user.idRol, email: user.email };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });

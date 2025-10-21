@@ -1,4 +1,5 @@
 const { connection } = require('../db/DB');
+const bcrypt = require('bcryptjs');
 
 // USUARIOS
 const listarUsuarios = (req, res) => {
@@ -19,9 +20,10 @@ const crearUsuario = (req, res) => {
   connection.query('SELECT * FROM usuarios WHERE email=?', [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al validar email' });
     if (results.length > 0) return res.status(409).json({ error: 'El email ya está registrado' });
+    const hashedPwd = bcrypt.hashSync(password, 10);
     const query =
       'INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)';
-    connection.query(query, [nombre, apellido, email, password, idRol], (err2, result) => {
+    connection.query(query, [nombre, apellido, email, hashedPwd, idRol], (err2, result) => {
       if (err2) return res.status(500).json({ error: 'Error al crear usuario' });
       const newUserId = result.insertId;
       // Si el rol es Cliente (1), crear también la fila en clientes con direccion/telefono opcionales
@@ -74,7 +76,7 @@ const actualizarUsuario = (req, res) => {
     const currentPassword = results[0].password;
     const pwdToUse =
       typeof password !== 'undefined' && password !== null && password !== ''
-        ? password
+        ? bcrypt.hashSync(password, 10)
         : currentPassword;
     const query =
       'UPDATE usuarios SET nombre=?, apellido=?, email=?, password=?, idRol=? WHERE idUsuario=?';
@@ -504,13 +506,14 @@ const eliminarProducto = (req, res) => {
 
 // PEDIDOS (VENTAS)
 const listarPedidos = (req, res) => {
-  // Filtros soportados: idPedido, estado, fechaDesde, fechaHasta, producto (nombre LIKE), usuario (nombre/apellido/email LIKE),
+  // Filtros soportados: idPedido, estado, fecha (YYYY-MM-DD exacta), fechaDesde, fechaHasta, producto (nombre LIKE), usuario (nombre/apellido/email LIKE),
   // totalMin, totalMax, cantidadMin, cantidadMax, priorizarPendientes (1), sort (fecha_asc/fecha_desc)
   const {
     idPedido,
     estado,
     fechaDesde,
     fechaHasta,
+    fecha,
     producto,
     usuario,
     totalMin,
@@ -539,13 +542,26 @@ const listarPedidos = (req, res) => {
     where.push('pe.estado = ?');
     params.push(estado);
   }
-  if (fechaDesde) {
-    where.push('pe.fecha >= ?');
-    params.push(fechaDesde);
-  }
-  if (fechaHasta) {
-    where.push('pe.fecha <= ?');
-    params.push(fechaHasta);
+  // Manejo robusto de fechas:
+  // - Si se pasa 'fecha' exacta, usar DATE(pe.fecha) = fecha
+  // - Si se pasan both fechaDesde y fechaHasta usar DATE(pe.fecha) BETWEEN fechaDesde AND fechaHasta (inclusive)
+  // - Si solo fechaDesde usar DATE(pe.fecha) >= fechaDesde
+  // - Si solo fechaHasta usar DATE(pe.fecha) <= fechaHasta
+  if (fecha) {
+    where.push('DATE(pe.fecha) = ?');
+    params.push(fecha);
+  } else if (fechaDesde && fechaHasta) {
+    where.push('DATE(pe.fecha) BETWEEN ? AND ?');
+    params.push(fechaDesde, fechaHasta);
+  } else {
+    if (fechaDesde) {
+      where.push('DATE(pe.fecha) >= ?');
+      params.push(fechaDesde);
+    }
+    if (fechaHasta) {
+      where.push('DATE(pe.fecha) <= ?');
+      params.push(fechaHasta);
+    }
   }
 
   // Filtrar por producto usando EXISTS en detalle_pedido + productos
@@ -582,32 +598,26 @@ const listarPedidos = (req, res) => {
 
   if (where.length) sql += ' WHERE ' + where.join(' AND ');
 
-  // Ordenamiento: priorizar pendientes (si se pide) y luego por fecha
+  // Ordenamiento: soporta múltiples keys separadas por coma (ej: 'fecha_asc,cantidad_desc')
+  const orderClauses = [];
   if (priorizarPendientes === '1') {
-    // Si se priorizan pendientes, mantener esa prioridad y luego aplicar el orden solicitado
-    if (sort === 'cantidad_asc') {
-      sql += " ORDER BY CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END, (SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) ASC";
-    } else if (sort === 'cantidad_desc') {
-      sql += " ORDER BY CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END, (SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) DESC";
-    } else if (sort === 'fecha_asc') {
-      sql += " ORDER BY CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END, pe.fecha ASC";
-    } else if (sort === 'fecha_desc') {
-      sql += " ORDER BY CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END, pe.fecha DESC";
-    } else {
-      sql += " ORDER BY CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END, pe.fecha ASC";
-    }
+    orderClauses.push("CASE WHEN pe.estado = 'Pendiente' THEN 0 ELSE 1 END");
+  }
+
+  if (sort) {
+    const parts = String(sort).split(',').map(s => s.trim()).filter(Boolean);
+    parts.forEach(s => {
+      if (s === 'fecha_asc') orderClauses.push('pe.fecha ASC');
+      else if (s === 'fecha_desc') orderClauses.push('pe.fecha DESC');
+      else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) ASC");
+      else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) DESC");
+    });
+  }
+
+  if (orderClauses.length) {
+    sql += ' ORDER BY ' + orderClauses.join(', ');
   } else {
-    if (sort === 'cantidad_asc') {
-      sql += ' ORDER BY (SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) ASC';
-    } else if (sort === 'cantidad_desc') {
-      sql += ' ORDER BY (SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) DESC';
-    } else if (sort === 'fecha_asc') {
-      sql += ' ORDER BY pe.fecha ASC';
-    } else if (sort === 'fecha_desc') {
-      sql += ' ORDER BY pe.fecha DESC';
-    } else {
-      sql += ' ORDER BY pe.fecha DESC';
-    }
+    sql += ' ORDER BY pe.fecha DESC';
   }
 
   connection.query(sql, params, (err, pedidos) => {

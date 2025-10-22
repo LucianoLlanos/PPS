@@ -66,7 +66,7 @@ export default function Header({ initialQuery }) {
     <header className="header-container mb-4">
       <nav className="navbar navbar-expand-lg navbar-light header-navbar">
         <div className="container-fluid">
-          <Link className="navbar-brand header-brand" to="/">Mi Tienda</Link>
+          <Link className="navbar-brand header-brand" to="/">Atilio Marola</Link>
           <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span className="navbar-toggler-icon"></span>
           </button>
@@ -109,6 +109,7 @@ export default function Header({ initialQuery }) {
                   </li>
                 </>
               )}
+              
               {/* Mostrar Login y Registro sólo si NO hay usuario logueado */}
               {!user && (
                 <>
@@ -121,50 +122,54 @@ export default function Header({ initialQuery }) {
                 </>
               )}
             </ul>
-            {/* Botón del carrito */}
-            <div className="d-flex align-items-center me-3">
-              <button 
-                className="btn btn-outline-primary position-relative"
-                onClick={() => navigate('/carrito')}
-                title="Ver carrito"
-              >
-                <i className="bi bi-cart3"></i>
-                {cartCount > 0 && (
-                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    {cartCount}
-                    <span className="visually-hidden">productos en carrito</span>
-                  </span>
-                )}
-              </button>
-            </div>
+            <div className="d-flex align-items-center gap-3">
+              {/* Botón del carrito */}
+              <div className="d-flex align-items-center">
+                <button 
+                  className="btn btn-outline-primary position-relative"
+                  onClick={() => navigate('/carrito')}
+                  title="Ver carrito"
+                >
+                  <i className="bi bi-cart3"></i>
+                  {cartCount > 0 && (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                      {cartCount}
+                      <span className="visually-hidden">productos en carrito</span>
+                    </span>
+                  )}
+                </button>
+              </div>
 
-            {/* Mostrar nombre y logout cuando hay usuario */}
-            {user && (
-              <div className="d-flex align-items-center ms-3">
-                <span className="me-2">{user.nombre} {user.apellido}</span>
-                <button className="btn btn-outline-danger btn-sm" onClick={() => { 
-                  clearUserCart(); // Limpiar carrito del usuario
-                  clearAuth(); 
-                  navigate('/'); 
-                }}>Cerrar sesión</button>
-              </div>
-            )}
-            <form className="d-flex position-relative header-search-form" onSubmit={submit}>
-              <div className="header-search-container">
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-search"/></span>
-                  <input className="form-control" type="search" placeholder="Buscar..." aria-label="Buscar" value={q} onChange={(e)=>handleChange(e.target.value)} onFocus={()=>{ if (suggestions.length>0) setShowSug(true); }} />
-                  <button className="btn btn-outline-success" type="submit"><i className="bi bi-arrow-right-circle"/></button>
+              {/* Buscador */}
+              <form className="d-flex position-relative header-search-form" onSubmit={submit}>
+                <div className="header-search-container">
+                  <div className="input-group">
+                    <span className="input-group-text"><i className="bi bi-search"/></span>
+                    <input className="form-control" type="search" placeholder="Buscar..." aria-label="Buscar" value={q} onChange={(e)=>handleChange(e.target.value)} onFocus={()=>{ if (suggestions.length>0) setShowSug(true); }} />
+                    <button className="btn btn-outline-success" type="submit"><i className="bi bi-arrow-right-circle"/></button>
+                  </div>
+                  {showSug && suggestions && suggestions.length>0 && (
+                    <ul className="list-group position-absolute header-suggestions">
+                      {suggestions.map((s,idx)=> (
+                        <li key={idx} className="list-group-item list-group-item-action header-suggestion-item" onMouseDown={()=>pickSuggestion(s)}>{s}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                {showSug && suggestions && suggestions.length>0 && (
-                  <ul className="list-group position-absolute header-suggestions">
-                    {suggestions.map((s,idx)=> (
-                      <li key={idx} className="list-group-item list-group-item-action header-suggestion-item" onMouseDown={()=>pickSuggestion(s)}>{s}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </form>
+              </form>
+
+              {/* Mostrar nombre y logout cuando hay usuario */}
+              {user && (
+                <div className="d-flex align-items-center">
+                  <span className="me-2 text-nowrap">{user.nombre} {user.apellido}</span>
+                  <button className="btn btn-outline-danger btn-sm" onClick={() => { 
+                    clearUserCart(); // Limpiar carrito del usuario
+                    clearAuth(); 
+                    navigate('/'); 
+                  }}>Cerrar sesión</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </nav>

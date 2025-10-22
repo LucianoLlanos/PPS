@@ -21,13 +21,15 @@ export default function HomeProducts() {
   // Estados para notificaciones toast
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState('success'); // 'success' o 'warning'
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
 
   // Función para mostrar notificación toast
-  const showToastNotification = (message) => {
+  const showToastNotification = (message, type = 'success') => {
     setToastMessage(message);
+    setToastType(type);
     setShowToast(true);
     // Ocultar después de 3 segundos
     setTimeout(() => {
@@ -90,13 +92,16 @@ export default function HomeProducts() {
 
   const add = (p) => { 
     if (!user) {
-      // Si no hay usuario logueado, redirigir a registro
-      navigate('/register');
+      // Si no hay usuario logueado, mostrar mensaje y redirigir a registro
+      showToastNotification(`⚠️ Inicia sesión para agregar productos al carrito`, 'warning');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
       return;
     }
     cart.addToCart(p, 1);
     // Mostrar notificación de éxito
-    showToastNotification(`✅ ${p.nombre} agregado al carrito`);
+    showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
   };
 
   const sampleProducts = [
@@ -114,9 +119,6 @@ export default function HomeProducts() {
     <div className="products-container">
       <div className="products-header">
         <h2 className="products-title">Catálogo de productos</h2>
-        <div>
-          <input placeholder="Buscar..." value={query} onChange={(e)=>{setQuery(e.target.value); setPage(1);}} className="products-search" />
-        </div>
       </div>
 
       <div className="products-grid">
@@ -167,8 +169,8 @@ export default function HomeProducts() {
       {selected && <ProductModal 
         product={selected} 
         onClose={()=>setSelected(null)} 
-        onAdded={(productName) => {
-          showToastNotification(`✅ ${productName} agregado al carrito`);
+        onAdded={(message, type) => {
+          showToastNotification(message, type);
         }} 
       />}
       
@@ -179,8 +181,8 @@ export default function HomeProducts() {
             position: 'fixed',
             top: '20px',
             right: '20px',
-            backgroundColor: '#28a745',
-            color: 'white',
+            backgroundColor: toastType === 'success' ? '#28a745' : '#ffc107',
+            color: toastType === 'success' ? 'white' : '#212529',
             padding: '12px 20px',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -191,10 +193,11 @@ export default function HomeProducts() {
             fontSize: '14px',
             fontWeight: '500',
             animation: 'slideInRight 0.3s ease-out',
-            maxWidth: '300px'
+            maxWidth: '300px',
+            border: toastType === 'warning' ? '1px solid #e0a800' : 'none'
           }}
         >
-          <i className="bi bi-check-circle-fill"></i>
+          <i className={toastType === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-triangle-fill'}></i>
           {toastMessage}
         </div>
       )}

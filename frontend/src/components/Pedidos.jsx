@@ -5,7 +5,20 @@ import '../stylos/admin/Pedidos.css';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
-  const [filters, setFilters] = useState({ estado: '', fechaDesde: '', fechaHasta: '', priorizarPendientes: false, sort: '' });
+  const [filters, setFilters] = useState({ 
+    idPedido: '', 
+    producto: '', 
+    usuario: '', 
+    estado: '', 
+    fechaDesde: '', 
+    fechaHasta: '', 
+    totalMin: '', 
+    totalMax: '', 
+    cantidadMin: '', 
+    cantidadMax: '', 
+    priorizarPendientes: false, 
+    sort: '' 
+  });
   const [headerFilterVisible, setHeaderFilterVisible] = useState(null); // e.g. 'estado' or 'fecha'
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -60,16 +73,83 @@ function Pedidos() {
     window.addEventListener('usuarioCreado', onUsuarioCreado);
     // Cerrar paneles de filtro al clickear fuera
     const handleDocClick = (e) => {
-      // si hay un panel abierto y el click no está dentro de ninguno de los .card de filtro ni en el botón que lo abre, cerrarlos
+      // si hay un panel abierto y el click no está dentro de ninguno de los paneles de filtro ni en el botón que lo abre, cerrarlos
       if (headerFilterVisible) {
-        const clickedCard = e.target.closest && e.target.closest('.card');
+        const clickedDropdown = e.target.closest && e.target.closest('.pedidos-filter-dropdown, .pedidos-filter-dropdown-wide');
         const clickedTrigger = e.target.closest && e.target.closest('.filter-trigger');
-        if (!clickedCard && !clickedTrigger) setHeaderFilterVisible(null);
+        if (!clickedDropdown && !clickedTrigger) setHeaderFilterVisible(null);
       }
     };
     document.addEventListener('click', handleDocClick);
     return () => { window.removeEventListener('usuarioCreado', onUsuarioCreado); document.removeEventListener('click', handleDocClick); };
   }, [success, loadPedidos, headerFilterVisible]);
+
+  // Funciones para manejar los filtros de manera controlada
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const applyFilter = (field, value = null) => {
+    const newFilters = {
+      ...filters,
+      [field]: value !== null ? value : filters[field]
+    };
+    setFilters(newFilters);
+    setHeaderFilterVisible(null);
+    loadPedidos(newFilters);
+  };
+
+  const applyMultipleFilters = (fields) => {
+    const newFilters = { ...filters };
+    fields.forEach(field => {
+      newFilters[field] = filters[field];
+    });
+    setFilters(newFilters);
+    setHeaderFilterVisible(null);
+    loadPedidos(newFilters);
+  };
+
+  const clearFilter = (field) => {
+    const newFilters = {
+      ...filters,
+      [field]: ''
+    };
+    setFilters(newFilters);
+    setHeaderFilterVisible(null);
+    loadPedidos(newFilters);
+  };
+
+  const clearMultipleFilters = (fields) => {
+    const newFilters = { ...filters };
+    fields.forEach(field => {
+      newFilters[field] = '';
+    });
+    setFilters(newFilters);
+    setHeaderFilterVisible(null);
+    loadPedidos(newFilters);
+  };
+
+  const clearAllFilters = () => {
+    const emptyFilters = { 
+      idPedido: '', 
+      producto: '', 
+      usuario: '', 
+      estado: '', 
+      fechaDesde: '', 
+      fechaHasta: '', 
+      totalMin: '', 
+      totalMax: '', 
+      cantidadMin: '', 
+      cantidadMax: '', 
+      priorizarPendientes: false, 
+      sort: '' 
+    };
+    setFilters(emptyFilters);
+    loadPedidos(emptyFilters);
+  };
 
   // Los filtros ahora se manejan desde los controles en la cabecera y el badge Limpiar
   const handleAddChange = (e) => {
@@ -204,7 +284,7 @@ function Pedidos() {
             </span>
           )}
           {(filters.estado || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setFilters({ idPedido: '', producto: '', usuario: '', estado: '', fechaDesde: '', fechaHasta: '', totalMin: '', totalMax: '', cantidadMin: '', cantidadMax: '', priorizarPendientes: false, sort: '' }); loadPedidos({}); }}>Limpiar filtros</button>
+            <button className="btn btn-sm btn-outline-secondary" onClick={clearAllFilters}>Limpiar filtros</button>
           )}
         </div>
         <table className="table table-striped table-bordered">
@@ -217,8 +297,24 @@ function Pedidos() {
                 </button>
                 {headerFilterVisible === 'id' && (
                   <div className="pedidos-filter-dropdown">
-                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="ID exacto" type="number" onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, idPedido: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, idPedido: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="mb-1">
+                      <input 
+                        className="form-control form-control-sm" 
+                        placeholder="ID exacto" 
+                        type="number" 
+                        value={filters.idPedido}
+                        onChange={(e) => handleFilterChange('idPedido', e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter') { 
+                            applyFilter('idPedido');
+                          } 
+                        }} 
+                      />
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('idPedido')}>Aplicar</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('idPedido')}>Limpiar</button>
+                    </div>
                   </div>
                 )}
               </th>
@@ -229,8 +325,24 @@ function Pedidos() {
                 </button>
                 {headerFilterVisible === 'producto' && (
                   <div className="pedidos-filter-dropdown">
-                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre producto" type="text" defaultValue={filters.producto || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, producto: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, producto: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="mb-1">
+                      <input 
+                        className="form-control form-control-sm" 
+                        placeholder="Nombre producto" 
+                        type="text" 
+                        value={filters.producto}
+                        onChange={(e) => handleFilterChange('producto', e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter') { 
+                            applyFilter('producto');
+                          } 
+                        }} 
+                      />
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('producto')}>Aplicar</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('producto')}>Limpiar</button>
+                    </div>
                   </div>
                 )}
               </th>
@@ -241,8 +353,24 @@ function Pedidos() {
                 </button>
                 {headerFilterVisible === 'usuario' && (
                   <div className="pedidos-filter-dropdown">
-                    <div className="mb-1"><input className="form-control form-control-sm" placeholder="Nombre, apellido o email" type="text" defaultValue={filters.usuario || ''} onKeyDown={(e) => { if (e.key === 'Enter') { const val = e.target.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); } }} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const input = ev.target.closest('.pedidos-filter-dropdown').querySelector('input'); const val = input.value; const nf = { ...filters, usuario: val || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, usuario: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="mb-1">
+                      <input 
+                        className="form-control form-control-sm" 
+                        placeholder="Nombre, apellido o email" 
+                        type="text" 
+                        value={filters.usuario}
+                        onChange={(e) => handleFilterChange('usuario', e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter') { 
+                            applyFilter('usuario');
+                          } 
+                        }} 
+                      />
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('usuario')}>Aplicar</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('usuario')}>Limpiar</button>
+                    </div>
                   </div>
                 )}
               </th>
@@ -259,8 +387,26 @@ function Pedidos() {
                 </button>
                 {headerFilterVisible === 'cantidad' && (
                   <div className="pedidos-filter-dropdown-wide">
-                    <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.cantidadMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.cantidadMax || ''} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.pedidos-filter-dropdown-wide'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, cantidadMin: min || '', cantidadMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, cantidadMin: '', cantidadMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="mb-1 d-flex gap-1">
+                      <input 
+                        type="number" 
+                        className="form-control form-control-sm" 
+                        placeholder="Min" 
+                        value={filters.cantidadMin}
+                        onChange={(e) => handleFilterChange('cantidadMin', e.target.value)}
+                      />
+                      <input 
+                        type="number" 
+                        className="form-control form-control-sm" 
+                        placeholder="Max" 
+                        value={filters.cantidadMax}
+                        onChange={(e) => handleFilterChange('cantidadMax', e.target.value)}
+                      />
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-primary" onClick={() => applyMultipleFilters(['cantidadMin', 'cantidadMax'])}>Aplicar</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => clearMultipleFilters(['cantidadMin', 'cantidadMax'])}>Limpiar</button>
+                    </div>
                   </div>
                 )}
               </th>
@@ -283,29 +429,59 @@ function Pedidos() {
                 </button>
                 {headerFilterVisible === 'total' && (
                   <div className="pedidos-filter-dropdown-wide">
-                    <div className="mb-1 d-flex gap-1"><input type="number" className="form-control form-control-sm" placeholder="Min" defaultValue={filters.totalMin || ''} /><input type="number" className="form-control form-control-sm" placeholder="Max" defaultValue={filters.totalMax || ''} /></div>
-                    <div className="d-flex gap-1"><button className="btn btn-sm btn-primary" onClick={(ev) => { const card = ev.target.closest('.pedidos-filter-dropdown-wide'); const inputs = card.querySelectorAll('input'); const min = inputs[0].value; const max = inputs[1].value; const nf = { ...filters, totalMin: min || '', totalMax: max || '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Aplicar</button><button className="btn btn-sm btn-secondary" onClick={() => { const nf = { ...filters, totalMin: '', totalMax: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Limpiar</button></div>
+                    <div className="mb-1 d-flex gap-1">
+                      <input 
+                        type="number" 
+                        className="form-control form-control-sm" 
+                        placeholder="Min" 
+                        value={filters.totalMin}
+                        onChange={(e) => handleFilterChange('totalMin', e.target.value)}
+                      />
+                      <input 
+                        type="number" 
+                        className="form-control form-control-sm" 
+                        placeholder="Max" 
+                        value={filters.totalMax}
+                        onChange={(e) => handleFilterChange('totalMax', e.target.value)}
+                      />
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-primary" onClick={() => applyMultipleFilters(['totalMin', 'totalMax'])}>Aplicar</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => clearMultipleFilters(['totalMin', 'totalMax'])}>Limpiar</button>
+                    </div>
                   </div>
                 )}
               </th>
-              <th>
+              <th style={{ position: 'relative' }}>
                 Estado
-                <div className="pedidos-estado-filter-container">
-                  <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => {
-                    const nextVisible = headerFilterVisible === 'estado' ? null : 'estado';
-                    setHeaderFilterVisible(nextVisible);
-                  }} aria-label="Filtro estado"><i className="bi bi-caret-down-fill text-primary"></i></button>
-                  {headerFilterVisible === 'estado' && (
-                    <div className="pedidos-filter-dropdown">
-                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: '' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Todos</button></div>
-                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Pendiente' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Pendiente</button></div>
-                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'En Proceso' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>En Proceso</button></div>
-                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Enviado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Enviado</button></div>
-                      <div><button className="btn btn-sm btn-light w-100 mb-1" onClick={() => { const nf = { ...filters, estado: 'Entregado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Entregado</button></div>
-                      <div><button className="btn btn-sm btn-light w-100" onClick={() => { const nf = { ...filters, estado: 'Cancelado' }; setFilters(nf); setHeaderFilterVisible(null); loadPedidos(nf); }}>Cancelado</button></div>
-                    </div>
-                  )}
-                </div>
+                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => {
+                  const nextVisible = headerFilterVisible === 'estado' ? null : 'estado';
+                  setHeaderFilterVisible(nextVisible);
+                }} aria-label="Filtro estado">
+                  <i className="bi bi-caret-down-fill text-primary"></i>
+                </button>
+                {headerFilterVisible === 'estado' && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '0',
+                    zIndex: 1000,
+                    backgroundColor: 'white',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '0.375rem',
+                    boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)',
+                    padding: '0.5rem',
+                    minWidth: '150px',
+                    marginTop: '2px'
+                  }}>
+                    <button className="btn btn-sm btn-outline-secondary w-100 mb-1" onClick={() => applyFilter('estado', '')}>Todos</button>
+                    <button className="btn btn-sm btn-outline-warning w-100 mb-1" onClick={() => applyFilter('estado', 'Pendiente')}>Pendiente</button>
+                    <button className="btn btn-sm btn-outline-info w-100 mb-1" onClick={() => applyFilter('estado', 'En Proceso')}>En Proceso</button>
+                    <button className="btn btn-sm btn-outline-primary w-100 mb-1" onClick={() => applyFilter('estado', 'Enviado')}>Enviado</button>
+                    <button className="btn btn-sm btn-outline-success w-100 mb-1" onClick={() => applyFilter('estado', 'Entregado')}>Entregado</button>
+                    <button className="btn btn-sm btn-outline-danger w-100" onClick={() => applyFilter('estado', 'Cancelado')}>Cancelado</button>
+                  </div>
+                )}
               </th>
               <th>Acciones</th>
             </tr>

@@ -31,6 +31,10 @@ function Productos() {
   const [selectedProductForReconcile, setSelectedProductForReconcile] = useState(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef(null);
+  
+  // Estados para filtros de la tabla
+  const [filtroNombre, setFiltroNombre] = useState('');
+  const [filtroSucursal, setFiltroSucursal] = useState('');
 
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
   useEffect(() => {
@@ -298,6 +302,19 @@ function Productos() {
     if (!acc.find(s => s.idSucursal === cur.idSucursal)) acc.push({ idSucursal: cur.idSucursal, nombreSucursal: cur.nombreSucursal });
     return acc;
   }, []);
+
+  // Función para filtrar productos
+  const productosFiltrados = productos.filter(p => {
+    const nombreMatch = p.nombre.toLowerCase().includes(filtroNombre.toLowerCase());
+    return nombreMatch;
+  });
+
+  // Función para filtrar stock por sucursal
+  const stockFiltrado = stockSucursal.filter(s => {
+    const nombreMatch = s.nombreProducto.toLowerCase().includes(filtroNombre.toLowerCase());
+    const sucursalMatch = filtroSucursal === '' || s.nombreSucursal.toLowerCase().includes(filtroSucursal.toLowerCase());
+    return nombreMatch && sucursalMatch;
+  });
 
   return (
     <div className="productos-page">
@@ -793,11 +810,83 @@ function Productos() {
   {/* productos table arriba (se renderiza más abajo) */}
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
+      
+      {/* Filtros para la tabla */}
+      <div className="productos-filtros-container mb-3">
+        <div className="card">
+          <div className="card-body">
+            <h6 className="card-title mb-3">
+              <i className="bi bi-funnel me-2"></i>
+              Filtros de búsqueda
+            </h6>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label">Buscar por nombre del producto:</label>
+                <div className="input-group">
+                  <span className="input-group-text">
+                    <i className="bi bi-search"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: Bomba, Panel Solar..."
+                    value={filtroNombre}
+                    onChange={(e) => setFiltroNombre(e.target.value)}
+                  />
+                  {filtroNombre && (
+                    <button 
+                      className="btn btn-outline-secondary" 
+                      type="button"
+                      onClick={() => setFiltroNombre('')}
+                      title="Limpiar filtro"
+                    >
+                      <i className="bi bi-x"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Filtrar por sucursal:</label>
+                <div className="input-group">
+                  <span className="input-group-text">
+                    <i className="bi bi-building"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: Centro, Norte, Sur..."
+                    value={filtroSucursal}
+                    onChange={(e) => setFiltroSucursal(e.target.value)}
+                  />
+                  {filtroSucursal && (
+                    <button 
+                      className="btn btn-outline-secondary" 
+                      type="button"
+                      onClick={() => setFiltroSucursal('')}
+                      title="Limpiar filtro"
+                    >
+                      <i className="bi bi-x"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2">
+              <small className="text-muted">
+                <i className="bi bi-info-circle me-1"></i>
+                Productos encontrados: <strong>{productosFiltrados.length}</strong> | 
+                Registros de stock: <strong>{stockFiltrado.length}</strong>
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="productos-table-wrapper mt-3">
         <div className="productos-card">
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>
             <table className="table table-striped table-bordered productos-table">
-           <thead className="table-dark">
+           <thead className="table-dark" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr>
                <th className="productos-table-header">ID</th>
                <th className="productos-table-header">Nombre</th>
@@ -811,7 +900,7 @@ function Productos() {
              </tr>
            </thead>
            <tbody>
-             {productos.map(p => (
+             {productosFiltrados.map(p => (
                <tr key={p.idProducto}>
                  <td className="align-middle">{p.idProducto}</td>
                  <td className="align-middle">{p.nombre}</td>
@@ -837,17 +926,30 @@ function Productos() {
                  })}
                </tr>
              ))}
+             {productosFiltrados.length === 0 && (
+               <tr>
+                 <td colSpan={6 + sucursalesList.length} className="text-center text-muted py-4">
+                   <i className="bi bi-search me-2"></i>
+                   No se encontraron productos que coincidan con los filtros
+                 </td>
+               </tr>
+             )}
            </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      {/* Stock por sucursal: grid de dos columnas en pantallas grandes */}
+      {/* Stock por sucursal: grid de dos columnas en pantallas grandes con filtros aplicados */}
       <div className="productos-stock-grid">
-        {stockSucursal && stockSucursal.length === 0 && <div className="text-muted">No hay datos de stock por sucursal</div>}
-        {stockSucursal && stockSucursal.length > 0 && (
-          Object.entries(stockSucursal.reduce((acc, cur) => {
+        {stockFiltrado && stockFiltrado.length === 0 && (
+          <div className="text-muted text-center py-4">
+            <i className="bi bi-funnel me-2"></i>
+            No hay datos de stock que coincidan con los filtros aplicados
+          </div>
+        )}
+        {stockFiltrado && stockFiltrado.length > 0 && (
+          Object.entries(stockFiltrado.reduce((acc, cur) => {
             const key = `${cur.idSucursal}::${cur.nombreSucursal}`;
             acc[key] = acc[key] || [];
             acc[key].push(cur);
@@ -856,10 +958,14 @@ function Productos() {
             const [, nombreSucursal] = key.split('::');
             return (
               <div key={key} className="mb-4">
-                  <h5 className="productos-sucursal-title">{nombreSucursal}</h5>
-                  <div className="table-responsive">
+                  <h5 className="productos-sucursal-title">
+                    <i className="bi bi-building me-2"></i>
+                    {nombreSucursal}
+                    <span className="badge bg-secondary ms-2">{items.length} productos</span>
+                  </h5>
+                  <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <table className="table table-sm table-bordered">
-                      <thead className="table-dark text-center">
+                      <thead className="table-dark text-center" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                         <tr>
                           <th>Producto</th>
                           <th>Stock Disponible</th>
@@ -870,7 +976,11 @@ function Productos() {
                         {items.map(it => (
                           <tr key={`${it.idSucursal}-${it.idProducto}`}>
                             <td>{it.nombreProducto}</td>
-                            <td className="text-center align-middle">{it.stockDisponible}</td>
+                            <td className="text-center align-middle">
+                              <span className={`badge ${it.stockDisponible > 0 ? 'bg-success' : 'bg-warning'}`}>
+                                {it.stockDisponible}
+                              </span>
+                            </td>
                             <td className="text-center align-middle">
                               <button className="btn btn-sm btn-primary" onClick={() => setEditSucursal({ idSucursal: it.idSucursal, idProducto: it.idProducto, nombreProducto: it.nombreProducto, stockDisponible: it.stockDisponible })}>
                                 <i className="bi bi-pencil me-1"></i> Editar
@@ -886,112 +996,617 @@ function Productos() {
           })
         )}
       </div>
-      {/* Modal Edición */}
+      {/* Modal Edición - Estilo moderno como Login/Register */}
       {editProd && (
-        <div className="productos-modal-backdrop">
-          <div className="productos-modal-dialog-lg">
-            <div className="productos-modal-content">
-              <form onSubmit={submitEdit} noValidate className="productos-form">
-                <div className="modal-header">
-                  <h5 className="modal-title">Editar Producto</h5>
-                  <button type="button" className="btn-close" onClick={() => setEditProd(null)}></button>
+        <>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 9999,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          }}>
+            <div style={{
+              background: 'linear-gradient(180deg, #4A90E2 0%, #357ABD 50%, #1E3A8A 100%)',
+              borderRadius: '20px',
+              padding: '2px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto'
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: '18px',
+                padding: '40px',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                textAlign: 'center'
+              }}>
+                {/* Header con ícono */}
+                <div style={{ marginBottom: '30px' }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    backgroundColor: '#E5E7EB',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 20px',
+                    border: '3px solid rgba(255,255,255,0.8)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    <i className="bi bi-pencil-fill" style={{ fontSize: '32px', color: '#4A90E2' }}></i>
+                  </div>
+                  <h5 style={{
+                    fontSize: '24px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    margin: 0
+                  }}>Editar Producto</h5>
                 </div>
-                <div className="productos-modal-body">
+
+                <form onSubmit={submitEdit} noValidate>
                   {error && (
-                    <div className="productos-alert-danger">{error}</div>
+                    <div style={{
+                      backgroundColor: '#fef2f2',
+                      color: '#dc2626',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      marginBottom: '20px',
+                      fontSize: '14px',
+                      border: '1px solid #fecaca'
+                    }}>{error}</div>
                   )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${editFieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={form.nombre} onChange={handleChange} required />
-                    <div className="productos-field-error">
-                      {editFieldErrors.nombre && <span className="invalid-feedback d-block">{editFieldErrors.nombre}</span>}
+
+                  {/* Nombre */}
+                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: editFieldErrors.nombre ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <i className="bi bi-tag" style={{ 
+                        fontSize: '16px', 
+                        color: '#9CA3AF', 
+                        marginLeft: '12px',
+                        marginRight: '8px'
+                      }}></i>
+                      <input
+                        type="text"
+                        name="nombre"
+                        value={form.nombre}
+                        onChange={handleChange}
+                        placeholder="Nombre del producto *"
+                        required
+                        style={{
+                          flex: 1,
+                          padding: '14px 12px 14px 0',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          fontSize: '15px',
+                          outline: 'none',
+                          color: '#374151'
+                        }}
+                      />
+                    </div>
+                    {editFieldErrors.nombre && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.nombre}</div>}
+                  </div>
+
+                  {/* Descripción */}
+                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                    <div style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '8px',
+                      border: editFieldErrors.descripcion ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <i className="bi bi-card-text" style={{ 
+                        fontSize: '16px', 
+                        color: '#9CA3AF', 
+                        marginLeft: '12px',
+                        marginRight: '8px',
+                        marginTop: '14px'
+                      }}></i>
+                      <textarea
+                        name="descripcion"
+                        value={form.descripcion}
+                        onChange={handleChange}
+                        placeholder="Descripción del producto *"
+                        required
+                        rows="3"
+                        style={{
+                          flex: 1,
+                          padding: '14px 12px 14px 0',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          fontSize: '15px',
+                          outline: 'none',
+                          color: '#374151',
+                          resize: 'vertical',
+                          minHeight: '60px'
+                        }}
+                      />
+                    </div>
+                    {editFieldErrors.descripcion && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.descripcion}</div>}
+                  </div>
+
+                  {/* Precio y Stock en fila */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                    {/* Precio */}
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        border: editFieldErrors.precio ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        <i className="bi bi-currency-dollar" style={{ 
+                          fontSize: '16px', 
+                          color: '#9CA3AF', 
+                          marginLeft: '12px',
+                          marginRight: '8px'
+                        }}></i>
+                        <input
+                          type="number"
+                          name="precio"
+                          value={form.precio}
+                          onChange={handleChange}
+                          placeholder="Precio *"
+                          required
+                          min="0"
+                          step="0.01"
+                          style={{
+                            flex: 1,
+                            padding: '14px 12px 14px 0',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            fontSize: '15px',
+                            outline: 'none',
+                            color: '#374151'
+                          }}
+                        />
+                      </div>
+                      {editFieldErrors.precio && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.precio}</div>}
+                    </div>
+
+                    {/* Stock */}
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '8px',
+                        border: editFieldErrors.stockTotal ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        <i className="bi bi-box" style={{ 
+                          fontSize: '16px', 
+                          color: '#9CA3AF', 
+                          marginLeft: '12px',
+                          marginRight: '8px'
+                        }}></i>
+                        <input
+                          type="number"
+                          name="stockTotal"
+                          value={form.stockTotal}
+                          onChange={handleChange}
+                          placeholder="Stock *"
+                          required
+                          min="0"
+                          style={{
+                            flex: 1,
+                            padding: '14px 12px 14px 0',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            fontSize: '15px',
+                            outline: 'none',
+                            color: '#374151'
+                          }}
+                        />
+                      </div>
+                      {editFieldErrors.stockTotal && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.stockTotal}</div>}
                     </div>
                   </div>
-                  <div className="mb-2">
-                    <label>Descripción</label>
-                    <input type="text" className={`form-control${editFieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={form.descripcion} onChange={handleChange} required />
-                    <div className="productos-field-error">
-                      {editFieldErrors.descripcion && <span className="invalid-feedback d-block">{editFieldErrors.descripcion}</span>}
-                    </div>
+
+                  {/* Botones */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <button
+                      type="submit"
+                      style={{
+                        padding: '14px',
+                        border: 'none',
+                        borderRadius: '8px',
+                        background: '#22c55e',
+                        color: 'white',
+                        fontSize: '15px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onMouseEnter={(e) => (e.target.style.background = '#16a34a')}
+                      onMouseLeave={(e) => (e.target.style.background = '#22c55e')}
+                    >
+                      <i className="bi bi-check-circle me-2"></i>
+                      GUARDAR
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditProd(null)}
+                      style={{
+                        padding: '14px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        background: 'white',
+                        color: '#6b7280',
+                        fontSize: '15px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.5px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = '#f9fafb';
+                        e.target.style.borderColor = '#9ca3af';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'white';
+                        e.target.style.borderColor = '#d1d5db';
+                      }}
+                    >
+                      <i className="bi bi-x-circle me-2"></i>
+                      CANCELAR
+                    </button>
                   </div>
-                  <div className="mb-2">
-                    <label>Precio</label>
-                    <input type="number" className={`form-control${editFieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={form.precio} onChange={handleChange} required min="0" />
-                    <div className="productos-field-error">
-                      {editFieldErrors.precio && <span className="invalid-feedback d-block">{editFieldErrors.precio}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Stock</label>
-                    <input type="number" className={`form-control${editFieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={form.stockTotal} onChange={handleChange} required min="0" />
-                    <div className="productos-field-error">
-                      {editFieldErrors.stockTotal && <span className="invalid-feedback d-block">{editFieldErrors.stockTotal}</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Guardar cambios</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditProd(null)}>Cancelar</button>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Modal Editar stock por sucursal */}
+      {/* Modal Editar stock por sucursal - Estilo moderno */}
       {editSucursal && (
-        <div className="productos-modal-backdrop">
-          <div className="productos-modal-dialog">
-            <div className="productos-modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Editar stock - {editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})</h5>
-                <button type="button" className="btn-close" onClick={() => setEditSucursal(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-2">
-                  <label>Stock Disponible</label>
-                  <input type="number" className={`form-control`} name="stockDisponible" value={editSucursal.stockDisponible} onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })} min="0" />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 9999,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          <div style={{
+            background: 'linear-gradient(180deg, #8B5CF6 0%, #7C3AED 50%, #6D28D9 100%)',
+            borderRadius: '20px',
+            padding: '2px',
+            maxWidth: '450px',
+            width: '100%'
+          }}>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '18px',
+              padding: '40px',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              textAlign: 'center'
+            }}>
+              {/* Header con ícono */}
+              <div style={{ marginBottom: '30px' }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  backgroundColor: '#EDE9FE',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  border: '3px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}>
+                  <i className="bi bi-building" style={{ fontSize: '32px', color: '#8B5CF6' }}></i>
                 </div>
-                <div className="text-muted small">Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.</div>
+                <h5 style={{
+                  fontSize: '20px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  margin: 0
+                }}>Editar Stock por Sucursal</h5>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  margin: '8px 0 0 0'
+                }}>
+                  {editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})
+                </p>
               </div>
-              <div className="modal-footer">
-                <button className="btn btn-success" onClick={async () => {
-                  try {
-                    const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                    await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
-                    setSuccess('Stock actualizado correctamente');
-                    setEditSucursal(null);
-                    setError(null);
-                  } catch (err) {
-                    let msg = 'Error al actualizar stock';
-                    if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
-                    setError(msg);
-                  }
-                }}>Guardar</button>
-                <button className="btn btn-secondary" onClick={() => setEditSucursal(null)}>Cancelar</button>
+
+              {/* Campo de stock */}
+              <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <div style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease'
+                }}>
+                  <i className="bi bi-boxes" style={{ 
+                    fontSize: '16px', 
+                    color: '#9CA3AF', 
+                    marginLeft: '12px',
+                    marginRight: '8px'
+                  }}></i>
+                  <input
+                    type="number"
+                    name="stockDisponible"
+                    value={editSucursal.stockDisponible}
+                    onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })}
+                    placeholder="Stock disponible"
+                    min="0"
+                    style={{
+                      flex: 1,
+                      padding: '14px 12px 14px 0',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      fontSize: '15px',
+                      outline: 'none',
+                      color: '#374151'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: '#F3F4F6',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '24px',
+                fontSize: '12px',
+                color: '#6b7280',
+                textAlign: 'left'
+              }}>
+                <i className="bi bi-info-circle me-1"></i>
+                Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.
+              </div>
+
+              {/* Botones */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  onClick={async () => {
+                    try {
+                      const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
+                      await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                      setSuccess('Stock actualizado correctamente');
+                      setEditSucursal(null);
+                      setError(null);
+                    } catch (err) {
+                      let msg = 'Error al actualizar stock';
+                      if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
+                      setError(msg);
+                    }
+                  }}
+                  style={{
+                    padding: '14px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: '#8B5CF6',
+                    color: 'white',
+                    fontSize: '15px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = '#7C3AED')}
+                  onMouseLeave={(e) => (e.target.style.background = '#8B5CF6')}
+                >
+                  <i className="bi bi-check-circle me-2"></i>
+                  GUARDAR
+                </button>
+
+                <button
+                  onClick={() => setEditSucursal(null)}
+                  style={{
+                    padding: '14px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#6b7280',
+                    fontSize: '15px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    letterSpacing: '0.5px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#f9fafb';
+                    e.target.style.borderColor = '#9ca3af';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'white';
+                    e.target.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <i className="bi bi-x-circle me-2"></i>
+                  CANCELAR
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Borrado */}
+      {/* Modal Eliminación - Estilo moderno como Login/Register */}
       {deleteProd && (
-        <div className="productos-modal-backdrop">
-          <div className="productos-modal-dialog">
-            <div className="productos-modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">¿Eliminar producto?</h5>
-                <button type="button" className="btn-close" onClick={() => { setDeleteProd(null); setDeleteError(null); }}></button>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 9999,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+          <div style={{
+            background: 'linear-gradient(180deg, #EF4444 0%, #DC2626 50%, #B91C1C 100%)',
+            borderRadius: '20px',
+            padding: '2px',
+            maxWidth: '450px',
+            width: '100%'
+          }}>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '18px',
+              padding: '40px',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              textAlign: 'center'
+            }}>
+              {/* Header con ícono */}
+              <div style={{ marginBottom: '30px' }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEE2E2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  border: '3px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}>
+                  <i className="bi bi-exclamation-triangle-fill" style={{ fontSize: '32px', color: '#EF4444' }}></i>
+                </div>
+                <h5 style={{
+                  fontSize: '24px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  margin: 0
+                }}>¿Eliminar producto?</h5>
               </div>
-              <div className="modal-body">
-                {deleteError && <div className="productos-alert-danger">{deleteError}</div>}
-                <p>¿Estás seguro que quieres eliminar <b>{deleteProd.nombre}</b>? Esta acción no se puede deshacer.</p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-danger" onClick={confirmDelete}>Eliminar</button>
-                <button className="btn btn-secondary" onClick={() => { setDeleteProd(null); setDeleteError(null); }}>Cancelar</button>
+
+              {deleteError && (
+                <div style={{
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  fontSize: '14px',
+                  border: '1px solid #fecaca'
+                }}>{deleteError}</div>
+              )}
+
+              <p style={{
+                fontSize: '16px',
+                color: '#6b7280',
+                lineHeight: '1.5',
+                marginBottom: '30px'
+              }}>
+                ¿Estás seguro que quieres eliminar <strong style={{ color: '#374151' }}>{deleteProd.nombre}</strong>? 
+                <br />
+                Esta acción no se puede deshacer.
+              </p>
+
+              {/* Botones */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  onClick={confirmDelete}
+                  style={{
+                    padding: '14px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: '#EF4444',
+                    color: 'white',
+                    fontSize: '15px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = '#DC2626')}
+                  onMouseLeave={(e) => (e.target.style.background = '#EF4444')}
+                >
+                  <i className="bi bi-trash me-2"></i>
+                  ELIMINAR
+                </button>
+
+                <button
+                  onClick={() => { setDeleteProd(null); setDeleteError(null); }}
+                  style={{
+                    padding: '14px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#6b7280',
+                    fontSize: '15px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    letterSpacing: '0.5px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#f9fafb';
+                    e.target.style.borderColor = '#9ca3af';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'white';
+                    e.target.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <i className="bi bi-x-circle me-2"></i>
+                  CANCELAR
+                </button>
               </div>
             </div>
           </div>

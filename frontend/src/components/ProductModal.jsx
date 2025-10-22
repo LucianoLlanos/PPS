@@ -17,11 +17,15 @@ export default function ProductModal({ product, onClose, onAdded }) {
   const handleAdd = () => {
     if (!user) {
       onClose(); // Cerrar modal primero
-      navigate('/register');
+      // Notificar que debe iniciar sesión
+      if (onAdded) onAdded(`⚠️ Inicia sesión para agregar productos al carrito`, 'warning');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
       return;
     }
     cart.addToCart(product, 1);
-    if (onAdded) onAdded(title); // Pasar el nombre del producto
+    if (onAdded) onAdded(`✅ ${title} agregado al carrito`, 'success'); // Pasar mensaje completo y tipo
     onClose(); // Cerrar el modal después de agregar
   };
 

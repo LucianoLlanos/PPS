@@ -1,9 +1,10 @@
 /* Estilos para el componente Login */
 
 .login-container {
-  min-height: calc(100vh - 76px); /* Restar altura del navbar */
-  margin-top: -76px; /* Compensar el padding-top del body */
-  padding-top: 96px; /* Espacio para el navbar + margen */
+  /* Ajustes para no depender del padding-top global del body */
+  min-height: calc(100vh - 56px);
+  margin-top: 0; /* Eliminada la compensación negativa */
+  padding-top: 32px; /* Reducido para mantener separación visual con el header */
   background: linear-gradient(180deg, #4A90E2 0%, #357ABD 50%, #1E3A8A 100%);
   display: flex;
   align-items: center;

@@ -41,8 +41,10 @@ app.use('/auth', authRoutes);
 // Rutas de servicios post-venta
 app.use('/servicios', serviciosRoutes);
 
-// Temporalmente deshabilitado auth/roles para pruebas: montar adminRoutes sin middleware
-app.use('/', adminRoutes);
+// Proteger rutas administrativas con autenticación y rol Admin (idRol = 3)
+// Si se desea exponer endpoints públicos (por ejemplo listado de productos), mantener rutas públicas
+// antes de esta línea.
+app.use('/', authMiddleware, requireRoleId(3), adminRoutes);
 // Nota: rutas de vendedor deshabilitadas — revertidas por petición del usuario
 // Si en el futuro quiere restaurarlas, reactivar la siguiente línea:
 // app.use('/seller', authMiddleware, requireRoleId(2), sellerRoutes);

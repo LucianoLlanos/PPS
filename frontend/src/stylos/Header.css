@@ -294,8 +294,9 @@
 }
 
 @media (max-width: 575.98px) {
+  /* Evitar alterar el padding global del body en móviles para no crear un gran espacio blanco */
   body {
-    padding-top: 120px; /* Más espacio en móviles debido al navbar colapsado */
+    padding-top: 56px; /* Ajustado: suficiente para navbar colapsado sin exceso */
   }
   
   .header-search-form {
@@ -322,7 +323,7 @@
 
 @media (max-width: 480px) {
   body {
-    padding-top: 140px;
+    padding-top: 64px; /* Ajuste para pantallas muy pequeñas */
   }
   
   .header-navbar .container-fluid {

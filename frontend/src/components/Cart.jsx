@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCart, updateQuantity, removeFromCart, clearCart, getTotal, getSubtotal } from '../utils/cart';
+import { formatCurrency, formatNumber } from '../utils/format';
 import useAuthStore from '../store/useAuthStore';
-import '../stylos/Cart.css';
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, Card, CardContent, Grid, Avatar, Stack, Alert } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 
 export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
   useEffect(() => {
     loadCart();
-    
-    // Escuchar cambios en el carrito
-    const handleCartUpdate = () => {
-      loadCart();
-    };
-    
+    const handleCartUpdate = () => loadCart();
     window.addEventListener('cart:updated', handleCartUpdate);
     return () => window.removeEventListener('cart:updated', handleCartUpdate);
   }, []);
@@ -25,13 +24,14 @@ export default function Cart() {
   const loadCart = () => {
     try {
       const items = getCart();
-      setCartItems(items);
-    } catch (error) {
+      setCartItems(items || []);
+    } catch {
       setCartItems([]);
     }
   };
 
   const handleQuantityChange = (id, newQuantity) => {
+    if (newQuantity < 1) return;
     updateQuantity(id, newQuantity);
     loadCart();
   };
@@ -49,237 +49,128 @@ export default function Cart() {
   };
 
   const handleCheckout = () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    
-    if (cartItems.length === 0) {
-      alert('El carrito está vacío');
-      return;
-    }
-
+    if (!user) { navigate('/login'); return; }
+    if (cartItems.length === 0) { alert('El carrito está vacío'); return; }
     alert('Funcionalidad de checkout pendiente de implementar');
   };
 
   const total = getTotal();
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
-  if (cartItems.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     return (
-      <div className="cart-container">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="cart-empty">
-              <i className="bi bi-cart-x cart-empty-icon"></i>
-              <h3 className="cart-empty-title">Tu carrito está vacío</h3>
-              <p className="cart-empty-text">Agrega algunos productos para comenzar</p>
-              <button 
-                className="btn btn-primary"
-                onClick={() => navigate('/')}
-              >
-                Ver productos
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Stack spacing={2} alignItems="center">
+          <Avatar sx={{ bgcolor: 'grey.100', color: 'text.secondary' }}>🛒</Avatar>
+          <Typography variant="h6">Tu carrito está vacío</Typography>
+          <Typography color="text.secondary">Agrega algunos productos para comenzar</Typography>
+          <Button variant="contained" onClick={() => navigate('/')}>Ver productos</Button>
+        </Stack>
+      </Box>
     );
   }
 
   return (
-    <div className="cart-container">
-      <div className="cart-header">
-        <h2 className="cart-title">
-          <i className="bi bi-cart3"></i>
-          Mi Carrito
-        </h2>
-        <p className="cart-subtitle">
-          {itemCount} {itemCount === 1 ? 'producto' : 'productos'} en tu carrito
-        </p>
-      </div>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>Mi Carrito</Typography>
+  <Typography color="text.secondary">{formatNumber(itemCount)} {itemCount === 1 ? 'producto' : 'productos'}</Typography>
+      </Box>
 
-      <div className="row">
-        <div className="col-12">
-          {/* Tabla de productos */}
-          <div className="card mb-4">
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table table-hover mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th scope="col" className="px-4 py-3">Producto</th>
-                      <th scope="col" className="text-center py-3">Precio Unitario</th>
-                      <th scope="col" className="text-center py-3">Cantidad</th>
-                      <th scope="col" className="text-center py-3">Subtotal</th>
-                      <th scope="col" className="text-center py-3">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cartItems.filter(item => item && item.product).map((item) => {
-                      // Validar que el item tenga la estructura correcta
-                      if (!item || !item.product) {
-                        return null;
-                      }
-                      
-                      const product = item.product;
-                      const subtotal = getSubtotal(item);
-                      const unitPrice = parseFloat(product.price || product.precio || 0);
-                      const imageUrl = product.imagen ? `/uploads/${product.imagen}` : '/img/no-image.jpg';
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Producto</TableCell>
+                  <TableCell align="center">Precio</TableCell>
+                  <TableCell align="center">Cantidad</TableCell>
+                  <TableCell align="center">Subtotal</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {cartItems.filter(item => item && item.product).map(item => {
+                  const product = item.product;
+                  const subtotal = getSubtotal(item);
+                  const unitPrice = parseFloat(product.price || product.precio || 0);
+                  const resolveImage = (prod) => {
+                    // prod.imagenes may be an array of filenames
+                    if (!prod) return '/img/no-image.jpg';
+                    if (prod.imagenes && Array.isArray(prod.imagenes) && prod.imagenes.length > 0) return `http://localhost:3000/uploads/${prod.imagenes[0]}`;
+                    if (prod.imagen && typeof prod.imagen === 'string' && prod.imagen.trim()) {
+                      // sometimes imagen can be a comma separated list
+                      const val = prod.imagen.includes(',') ? prod.imagen.split(',')[0].trim() : prod.imagen.trim();
+                      // if it's already a data url, return as is
+                      if (val.startsWith('data:')) return val;
+                      return `http://localhost:3000/uploads/${val}`;
+                    }
+                    if (prod.image && typeof prod.image === 'string' && prod.image.trim()) return `http://localhost:3000/uploads/${prod.image.trim()}`;
+                    return '/img/no-image.jpg';
+                  };
+                  const imageUrl = resolveImage(product);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <img src={imageUrl} alt={product.nombre} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} onError={(e)=> e.target.src = '/img/no-image.jpg'} />
+                          <Box>
+                            <Typography sx={{ fontWeight: 600 }}>{product.nombre}</Typography>
+                            <Typography variant="caption" color="text.secondary">{product.categoria || 'Sin categoría'}</Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">{formatCurrency(unitPrice)}</TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                          <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity - 1)} disabled={item.quantity <= 1}><RemoveIcon /></IconButton>
+                          <TextField value={item.quantity} size="small" inputProps={{ style: { textAlign: 'center', width: 64 } }} onChange={(e) => { const q = Math.max(1, parseInt(e.target.value) || 1); handleQuantityChange(item.id, q); }} />
+                          <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity + 1)}><AddIcon /></IconButton>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">{formatCurrency(subtotal)}</TableCell>
+                      <TableCell align="center">
+                        <IconButton color="error" onClick={() => { if (window.confirm(`¿Eliminar ${product.nombre} del carrito?`)) handleRemoveItem(item.id); }}><DeleteIcon /></IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
 
-                      return (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3">
-                            <div className="d-flex align-items-center">
-                              <img 
-                                src={imageUrl} 
-                                alt={product.nombre}
-                                className="cart-product-image rounded me-3"
-                                onError={(e) => { e.target.src = '/img/no-image.jpg'; }}
-                              />
-                              <div>
-                                <h6 className="mb-1">{product.nombre}</h6>
-                                <small className="text-muted">{product.categoria || 'Sin categoría'}</small>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="text-center py-3 align-middle">
-                            <div className="fw-bold">${unitPrice.toFixed(2)}</div>
-                          </td>
-                          <td className="text-center py-3 align-middle">
-                            <div className="d-flex justify-content-center align-items-center">
-                              <div className="input-group cart-quantity-group">
-                                <button 
-                                  className="btn btn-outline-secondary btn-sm"
-                                  onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                                  disabled={item.quantity <= 1}
-                                >
-                                  <i className="bi bi-dash"></i>
-                                </button>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm text-center cart-quantity-input"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                    const newQty = Math.max(1, parseInt(e.target.value) || 1);
-                                    handleQuantityChange(item.id, newQty);
-                                  }}
-                                  min="1"
-                                />
-                                <button 
-                                  className="btn btn-outline-secondary btn-sm"
-                                  onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                                >
-                                  <i className="bi bi-plus"></i>
-                                </button>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="text-center py-3 align-middle">
-                            <div className="fw-bold text-primary">${subtotal.toFixed(2)}</div>
-                          </td>
-                          <td className="text-center py-3 align-middle">
-                            <div className="d-flex justify-content-center gap-2">
-                              <button 
-                                className="btn btn-outline-primary btn-sm"
-                                onClick={() => {
-                                  const newQty = prompt('Nueva cantidad:', item.quantity);
-                                  if (newQty && parseInt(newQty) > 0) {
-                                    handleQuantityChange(item.id, parseInt(newQty));
-                                  }
-                                }}
-                                title="Editar cantidad"
-                              >
-                                <i className="bi bi-pencil"></i>
-                              </button>
-                              <button 
-                                className="btn btn-outline-danger btn-sm"
-                                onClick={() => {
-                                  if (window.confirm(`¿Eliminar ${product.nombre} del carrito?`)) {
-                                    handleRemoveItem(item.id);
-                                  }
-                                }}
-                                title="Eliminar producto"
-                              >
-                                <i className="bi bi-trash"></i>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>Resumen del pedido</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Productos ({itemCount})</Typography>
+                <Typography>{formatCurrency(total)}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography>Envío</Typography>
+                <Typography color="success.main">Gratis</Typography>
+              </Box>
+              <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">Total</Typography>
+                <Typography variant="h6" color="primary">{formatCurrency(total)}</Typography>
+              </Box>
 
-          {/* Resumen y botones de acción */}
-          <div className="row">
-            <div className="col-md-8">
-              <button 
-                className="btn btn-outline-secondary"
-                onClick={() => navigate('/')}
-              >
-                <i className="bi bi-arrow-left me-2"></i>
-                Seguir comprando
-              </button>
-            </div>
-            <div className="col-md-4">
-              <div className="card">
-                <div className="card-body">
-                  <h5 className="card-title mb-3">
-                    <i className="bi bi-receipt me-2"></i>
-                    Resumen del pedido
-                  </h5>
-                  
-                  <div className="d-flex justify-content-between mb-2">
-                    <span>Productos ({itemCount}):</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="d-flex justify-content-between mb-2">
-                    <span>Envío:</span>
-                    <span className="text-success">Gratis</span>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="d-flex justify-content-between mb-3">
-                    <strong>Total:</strong>
-                    <strong className="text-primary fs-5">${total.toFixed(2)}</strong>
-                  </div>
+              {!user && (
+                <Alert severity="warning" sx={{ mt: 2 }}>Necesitas iniciar sesión para realizar el pedido</Alert>
+              )}
 
-                  {!user && (
-                    <div className="alert alert-warning" role="alert">
-                      <i className="bi bi-exclamation-triangle me-2"></i>
-                      <small>Necesitas iniciar sesión para realizar el pedido</small>
-                    </div>
-                  )}
-
-                  <button 
-                    className={`btn ${user ? 'btn-success' : 'btn-outline-primary'} w-100 btn-lg`}
-                    onClick={handleCheckout}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-bag-check me-2"></i>
-                        {user ? 'Hacer Pedido' : 'Iniciar sesión para pedir'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+              <Stack spacing={1} sx={{ mt: 3 }}>
+                <Button variant={user ? 'contained' : 'outlined'} color={user ? 'success' : 'primary'} fullWidth onClick={handleCheckout} disabled={loading}>{loading ? 'Procesando...' : (user ? 'Hacer Pedido' : 'Iniciar sesión para pedir')}</Button>
+                <Button variant="outlined" fullWidth onClick={() => navigate('/')}>Seguir comprando</Button>
+                <Button variant="text" fullWidth color="error" onClick={handleClearCart}>Vaciar carrito</Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
 }

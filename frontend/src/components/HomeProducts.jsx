@@ -3,9 +3,13 @@ import api from '../api/axios';
 import ProductModal from './ProductModal';
 import ProductImageCarousel from './ProductImageCarousel';
 import cart from '../utils/cart';
+import { formatCurrency } from '../utils/format';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
-import '../stylos/HomeProducts.css';
+import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, Chip, IconButton } from '@mui/material';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 export default function HomeProducts() {
   const [productos, setProductos] = useState([]);
@@ -45,6 +49,7 @@ export default function HomeProducts() {
         res = await api.get('/productos');
         setProductos(res.data || []);
       } catch (err) {
+        console.error(err);
         // fallback
         res = await api.get('/seller/products');
         const normalized = (res.data || []).map(p => ({
@@ -58,6 +63,7 @@ export default function HomeProducts() {
         setProductos(normalized);
       }
     } catch (err) {
+      console.error(err);
       setError('No se pudieron cargar los productos');
     } finally {
       setLoading(false);
@@ -71,7 +77,6 @@ export default function HomeProducts() {
     const q = params.get('q') || '';
     setQuery(q);
     fetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
   const filtered = productos.filter(p => {
@@ -82,13 +87,7 @@ export default function HomeProducts() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const visible = filtered.slice((page-1)*perPage, page*perPage);
 
-  const exampleProducts = [
-    { idProducto: 'e1', nombre: 'Ejemplo: Bomba 1HP', descripcion: 'Tarjeta de ejemplo - Bomba', precio: 45000, imagen: null },
-    { idProducto: 'e2', nombre: 'Ejemplo: Panel Solar', descripcion: 'Tarjeta de ejemplo - Panel', precio: 85000, imagen: null },
-    { idProducto: 'e3', nombre: 'Ejemplo: Tanque 1000L', descripcion: 'Tarjeta de ejemplo - Tanque', precio: 60000, imagen: null },
-  ];
-
-  const itemsToRender = showExamples ? exampleProducts : visible;
+  
 
   const add = (p) => { 
     if (!user) {
@@ -110,111 +109,87 @@ export default function HomeProducts() {
     { idProducto: 's3', nombre: 'Ejemplo C', descripcion: 'Producto de ejemplo C', precio: 3000 },
   ];
 
-  const loadExamples = () => { setProductos(sampleProducts); };
+  const itemsToRender = showExamples ? sampleProducts : visible;
 
-  if (loading) return <div className="products-loading">Cargando productos...</div>;
-  if (error) return <div className="products-error alert alert-danger">{error}</div>;
+  // loadExamples removed (no se usa)
+
+  if (loading) return <Box sx={{ py: 6, textAlign: 'center' }}>Cargando productos...</Box>;
+  if (error) return <Box sx={{ py: 6, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
 
   return (
-    <div className="products-container">
-      <div className="products-header">
-        <h2 className="products-title">Catálogo de productos</h2>
-      </div>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>Catálogo de productos</Typography>
+        <Button variant="outlined" size="small" onClick={() => setShowExamples(s => !s)} sx={{ borderRadius: 999, textTransform: 'none' }}>{showExamples ? 'Mostrar reales' : 'Mostrar ejemplos'}</Button>
+      </Box>
 
-      <div className="products-grid">
-        {itemsToRender.map(p => (
-          <div key={p.idProducto || p.id} className="product-card card">
-            <ProductImageCarousel 
-              imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} 
-              nombre={p.nombre || p.name} 
-            />
-            <h5 className="product-title">{p.nombre}</h5>
-            <div className="product-description">
-              {(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}
-            </div>
-            <div className="product-footer">
-              <div className="product-price">${Number(p.precio || 0).toFixed(2)}</div>
-              <div>
-                <button className="btn btn-sm btn-outline-primary product-view-btn" onClick={() => setSelected(p)}>Ver</button>
-                <button 
-                  className="btn btn-sm btn-primary"
-                  onClick={() => add(p)}
-                  title="Agregar al carrito"
-                >
-                  Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        {itemsToRender.map((p, idx) => {
+          const isNew = idx === itemsToRender.length - 1;
+          return (
+            <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} lg={isNew ? 6 : 3}>
+            <Card
+              sx={{
+                borderRadius: 3,
+                boxShadow: 3,
+                height: '100%',
+                minHeight: 360,
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                '&:hover': { transform: 'translateY(-6px)', boxShadow: 8 }
+              }}
+            >
+              <Box sx={{ position: 'relative' }}>
+                <Box sx={{ width: '100%', height: 220, backgroundColor: '#f6f6f6', display: 'block', overflow: 'hidden', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+                  <ProductImageCarousel imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} nombre={p.nombre || p.name} />
+                </Box>
+                <Chip label={p.stock ? `Stock: ${p.stock}` : 'Sin stock'} size="small" color={p.stock > 0 ? 'primary' : 'default'} sx={{ position: 'absolute', top: 12, left: 12, zIndex: 50, bgcolor: 'rgba(255,255,255,0.95)', fontWeight: 700 }} />
+                <Box sx={{ position: 'absolute', left: 0, bottom: 0, right: 0, p: 1.5, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)', color: '#fff' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{p.nombre}</Typography>
+                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.95 }}>{(p.descripcion || '').slice(0,80)}</Typography>
+                </Box>
+              </Box>
+
+              <CardContent sx={{ flex: '0 0 auto', pt: 2 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 18 }}>{formatCurrency(Number(p.precio || p.price || 0))}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}</Typography>
+              </CardContent>
+
+              <CardActions sx={{ mt: 'auto', px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <IconButton size="small" onClick={() => setSelected(p)} aria-label="ver" sx={{ mr: 1 }}>
+                    <VisibilityIcon />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => add(p)} color="primary" aria-label="agregar">
+                    <AddShoppingCartIcon />
+                  </IconButton>
+                </Box>
+                <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
+                  <FavoriteBorderIcon fontSize="small" />
+                </IconButton>
+              </CardActions>
+            </Card>
+            </Grid>
+          );
+        })}
 
         {itemsToRender.length === 0 && (
-          <div className="products-empty">No hay productos para mostrar</div>
+          <Grid item xs={12}><Typography align="center" color="text.secondary">No hay productos para mostrar</Typography></Grid>
         )}
-      </div>
+      </Grid>
 
-      <div className="products-toggle-section">
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowExamples(s => !s)}>
-          {showExamples ? 'Mostrar reales' : 'Mostrar ejemplos'}
-        </button>
-      </div>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center', mt: 2 }}>
+        <Button disabled={page<=1} onClick={()=>setPage(page-1)} variant="outlined">Anterior</Button>
+        <Typography> Página {page} / {totalPages} </Typography>
+        <Button disabled={page>=totalPages} onClick={()=>setPage(page+1)} variant="outlined">Siguiente</Button>
+      </Box>
 
-      {/* Paginación simple */}
-      <div className="products-pagination">
-        <button disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</button>
-        <div className="pagination-info">Página {page} / {totalPages}</div>
-        <button disabled={page>=totalPages} onClick={()=>setPage(page+1)}>Siguiente</button>
-      </div>
+      {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} onAdded={(message, type) => { showToastNotification(message, type); }} />}
 
-      {selected && <ProductModal 
-        product={selected} 
-        onClose={()=>setSelected(null)} 
-        onAdded={(message, type) => {
-          showToastNotification(message, type);
-        }} 
-      />}
-      
-      {/* Notificación Toast */}
-      {showToast && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: toastType === 'success' ? '#28a745' : '#ffc107',
-            color: toastType === 'success' ? 'white' : '#212529',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-            animation: 'slideInRight 0.3s ease-out',
-            maxWidth: '300px',
-            border: toastType === 'warning' ? '1px solid #e0a800' : 'none'
-          }}
-        >
-          <i className={toastType === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-triangle-fill'}></i>
-          {toastMessage}
-        </div>
-      )}
-
-      {/* CSS para animación del toast */}
-      <style jsx>{`
-        @keyframes slideInRight {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
+      <Snackbar open={showToast} autoHideDuration={3000} onClose={() => setShowToast(false)} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <Alert onClose={() => setShowToast(false)} severity={toastType === 'success' ? 'success' : 'warning'} sx={{ width: '100%' }}>{toastMessage}</Alert>
+      </Snackbar>
+    </Box>
   );
 }

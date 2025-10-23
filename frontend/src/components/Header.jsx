@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import useAuthStore from '../store/useAuthStore';
 import { getCount, clearUserCart } from '../utils/cart';
-import '../stylos/Header.css';
+import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import MenuIcon from '@mui/icons-material/Menu';
 
 export default function Header({ initialQuery }) {
   const [q, setQ] = useState(initialQuery || '');
@@ -16,20 +19,14 @@ export default function Header({ initialQuery }) {
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   useEffect(() => {
-    // Cargar contador inicial del carrito
     setCartCount(getCount());
-
-    // Escuchar cambios en el carrito
-    const handleCartUpdate = (e) => {
-      setCartCount(e.detail.count);
-    };
-
+    const handleCartUpdate = (e) => setCartCount(e.detail.count);
     window.addEventListener('cart:updated', handleCartUpdate);
     return () => window.removeEventListener('cart:updated', handleCartUpdate);
   }, []);
 
   const submit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     navigate(`/?q=${encodeURIComponent(q || '')}`);
   };
 
@@ -44,7 +41,7 @@ export default function Header({ initialQuery }) {
       const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0,8);
       setSuggestions(filtered);
       setShowSug(true);
-    } catch (e) {
+    } catch {
       setSuggestions([]);
       setShowSug(false);
     }
@@ -63,116 +60,79 @@ export default function Header({ initialQuery }) {
   };
 
   return (
-    <header className="header-container mb-4">
-      <nav className="navbar navbar-expand-lg navbar-light header-navbar">
-        <div className="container-fluid">
-          <Link className="navbar-brand header-brand" to="/">Atilio Marola</Link>
-          <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-              <li className="nav-item">
-                <Link className="nav-link" to="/">Catálogo</Link>
-              </li>
-              
-              {/* Enlace de servicios para usuarios regulares (no admin) */}
-              {user && Number(user.idRol) !== 3 && (
-                <li className="nav-item">
-                  <Link className="nav-link" to="/servicios">
-                    <i className="bi bi-tools me-1"></i>
-                    Servicios
-                  </Link>
-                </li>
+    <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 3 }}>
+      <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography component={RouterLink} to="/" variant="h6" sx={{ textDecoration: 'none', color: 'text.primary', fontWeight: 700 }}>Atilio Marola</Typography>
+        </Box>
+
+        <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 640, mx: 2, position: 'relative' }}>
+          <ClickAwayListener onClickAway={() => setShowSug(false)}>
+            <Box>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Buscar..."
+                value={q}
+                onChange={(e) => handleChange(e.target.value)}
+                onFocus={() => { if (suggestions.length > 0) setShowSug(true); }}
+                InputProps={{
+                  startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button type="submit" variant="contained" size="small" sx={{ borderRadius: 8 }}>Ir</Button>
+                    </InputAdornment>
+                  )
+                }}
+              />
+
+              {showSug && suggestions && suggestions.length > 0 && (
+                <Paper sx={{ position: 'absolute', zIndex: 20, left: 0, right: 0, mt: 0.5 }}>
+                  <List dense>
+                    {suggestions.map((s, idx) => (
+                      <ListItem key={idx} disablePadding>
+                        <ListItemButton onMouseDown={() => pickSuggestion(s)}>
+                          <ListItemText primary={s} />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Paper>
               )}
-              
-              {/* Enlaces de administración visibles sólo para admin (idRol === 3) */}
-              {user && Number(user.idRol) === 3 && (
+            </Box>
+          </ClickAwayListener>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton color="inherit" onClick={() => navigate('/carrito')} aria-label="carrito">
+            <Badge badgeContent={cartCount} color="error">
+              <ShoppingCartIcon />
+            </Badge>
+          </IconButton>
+
+          {!user && (
+            <>
+              <Button component={RouterLink} to="/login" variant="outlined" size="small">Login</Button>
+              <Button component={RouterLink} to="/register" variant="contained" size="small">Registro</Button>
+            </>
+          )}
+
+          {user && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {Number(user.idRol) === 3 && (
                 <>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/productos">Productos</Link>
-                  </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/usuarios">Usuarios</Link>
-                  </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/pedidos">Pedidos</Link>
-                  </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/clientes">Clientes</Link>
-                  </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/servicios-admin">
-                      <i className="bi bi-tools me-1"></i>
-                      Gestión Servicios
-                    </Link>
-                  </li>
+                  <Button component={RouterLink} to="/productos" variant="text" size="small">Productos</Button>
+                  <Button component={RouterLink} to="/usuarios" variant="text" size="small">Usuarios</Button>
+                  <Button component={RouterLink} to="/pedidos" variant="text" size="small">Pedidos</Button>
+                  <Button component={RouterLink} to="/clientes" variant="text" size="small">Clientes</Button>
                 </>
               )}
-              
-              {/* Mostrar Login y Registro sólo si NO hay usuario logueado */}
-              {!user && (
-                <>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/login">Login</Link>
-                  </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to="/register">Registro</Link>
-                  </li>
-                </>
-              )}
-            </ul>
-            <div className="d-flex align-items-center gap-3">
-              {/* Botón del carrito */}
-              <div className="d-flex align-items-center">
-                <button 
-                  className="btn btn-outline-primary position-relative"
-                  onClick={() => navigate('/carrito')}
-                  title="Ver carrito"
-                >
-                  <i className="bi bi-cart3"></i>
-                  {cartCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                      {cartCount}
-                      <span className="visually-hidden">productos en carrito</span>
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Buscador */}
-              <form className="d-flex position-relative header-search-form" onSubmit={submit}>
-                <div className="header-search-container">
-                  <div className="input-group">
-                    <span className="input-group-text"><i className="bi bi-search"/></span>
-                    <input className="form-control" type="search" placeholder="Buscar..." aria-label="Buscar" value={q} onChange={(e)=>handleChange(e.target.value)} onFocus={()=>{ if (suggestions.length>0) setShowSug(true); }} />
-                    <button className="btn btn-outline-success" type="submit"><i className="bi bi-arrow-right-circle"/></button>
-                  </div>
-                  {showSug && suggestions && suggestions.length>0 && (
-                    <ul className="list-group position-absolute header-suggestions">
-                      {suggestions.map((s,idx)=> (
-                        <li key={idx} className="list-group-item list-group-item-action header-suggestion-item" onMouseDown={()=>pickSuggestion(s)}>{s}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </form>
-
-              {/* Mostrar nombre y logout cuando hay usuario */}
-              {user && (
-                <div className="d-flex align-items-center">
-                  <span className="me-2 text-nowrap">{user.nombre} {user.apellido}</span>
-                  <button className="btn btn-outline-danger btn-sm" onClick={() => { 
-                    clearUserCart(); // Limpiar carrito del usuario
-                    clearAuth(); 
-                    navigate('/'); 
-                  }}>Cerrar sesión</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-    </header>
+              <Typography sx={{ mx: 1 }}>{user.nombre} {user.apellido}</Typography>
+              <Button color="error" variant="outlined" size="small" onClick={() => { clearUserCart(); clearAuth(); navigate('/'); }}>Cerrar sesión</Button>
+            </Box>
+          )}
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 }

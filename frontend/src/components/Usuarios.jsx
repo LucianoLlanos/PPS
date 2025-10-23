@@ -1,20 +1,18 @@
+
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
-import '../stylos/admin/Admin.css';
-import '../stylos/admin/Usuarios.css';
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 
 function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [error, setError] = useState(null);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [editFieldErrors, setEditFieldErrors] = useState({});
-  const [deleteError, setDeleteError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
-  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', idRol: '' });
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', idRol: '', direccion: '', telefono: '' });
   const [addUser, setAddUser] = useState(false);
   const [addForm, setAddForm] = useState({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
-  const [success, setSuccess] = useState(null);
 
   const loadUsuarios = () => {
     api.get('/usuarios')
@@ -22,16 +20,7 @@ function Usuarios() {
       .catch(() => setError('Error al obtener usuarios'));
   };
 
-  useEffect(() => {
-    loadUsuarios();
-    if (success) {
-      const timer = setTimeout(() => {
-        setSuccess(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-    // El error no se autocierra, solo el success
-  }, [success]);
+  useEffect(() => { loadUsuarios(); }, []);
 
   const handleEdit = (user) => {
     setEditUser(user);
@@ -42,386 +31,174 @@ function Usuarios() {
     setDeleteUser(user);
   };
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    // Validación en tiempo real para edición
-    if (e.target.value.trim() === '') {
-      setEditFieldErrors({ ...editFieldErrors, [e.target.name]: 'Este campo es obligatorio' });
-    } else {
-      const newErrors = { ...editFieldErrors };
-      delete newErrors[e.target.name];
-      setEditFieldErrors(newErrors);
-    }
-    if (e.target.name === 'email') {
-      const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-      if (!emailRegex.test(e.target.value)) {
-        setEditFieldErrors({ ...editFieldErrors, email: 'Email inválido' });
-      } else {
-        const newErrors = { ...editFieldErrors };
-        delete newErrors.email;
-        setEditFieldErrors(newErrors);
-      }
-    }
-  };
-  const handleAddChange = (e) => {
-    setAddForm({ ...addForm, [e.target.name]: e.target.value });
-    // Validación en tiempo real
-    if (e.target.value.trim() === '') {
-      setFieldErrors({ ...fieldErrors, [e.target.name]: 'Este campo es obligatorio' });
-    } else {
-      const newErrors = { ...fieldErrors };
-      delete newErrors[e.target.name];
-      setFieldErrors(newErrors);
-    }
-    if (e.target.name === 'email') {
-      // Validación básica de email
-      const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-      if (!emailRegex.test(e.target.value)) {
-        setFieldErrors({ ...fieldErrors, email: 'Email inválido' });
-      } else {
-        const newErrors = { ...fieldErrors };
-        delete newErrors.email;
-        setFieldErrors(newErrors);
-      }
-    }
-    if (e.target.name === 'password') {
-      const value = e.target.value;
-      if (value.length > 0 && value.length < 4) {
-        setFieldErrors({ ...fieldErrors, password: 'La contraseña debe tener al menos 4 caracteres' });
-      } else if (/\s/.test(value)) {
-        setFieldErrors({ ...fieldErrors, password: 'La contraseña no puede contener espacios' });
-      } else {
-        const newErrors = { ...fieldErrors };
-        delete newErrors.password;
-        setFieldErrors(newErrors);
-      }
-    }
-  };
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleAddChange = (e) => setAddForm({ ...addForm, [e.target.name]: e.target.value });
 
-  const submitEdit = (e) => {
+  const submitEdit = async (e) => {
     e.preventDefault();
-    // Validación final antes de enviar
-    const errors = {};
-    const nombre = form.nombre.trim();
-    const apellido = form.apellido.trim();
-    if (!nombre) errors.nombre = 'El nombre es obligatorio';
-    if (!apellido) errors.apellido = 'El apellido es obligatorio';
-    if (!form.email.trim()) errors.email = 'El email es obligatorio';
-    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-    if (form.email && !emailRegex.test(form.email)) errors.email = 'Email inválido';
-    if (!form.idRol) errors.idRol = 'El rol es obligatorio';
-    setEditFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    api.put(`/usuarios/${editUser.idUsuario}`, { ...form, nombre, apellido, idRol: form.idRol, direccion: form.direccion || null, telefono: form.telefono || null })
-      .then(() => {
-        setSuccess('Usuario actualizado correctamente');
-        setEditUser(null);
-        setEditFieldErrors({});
-        setError(null);
-        loadUsuarios();
-      })
-      .catch((err) => {
-        let msg = 'Error al actualizar usuario';
-        if (err.response && err.response.data && err.response.data.message) {
-          msg = err.response.data.message;
-        }
-        setError(msg);
-      });
+    try {
+      await api.put(`/usuarios/${editUser.idUsuario}`, { ...form });
+      setSuccess('Usuario actualizado correctamente');
+      setOpenSnackbar(true);
+      setEditUser(null);
+      loadUsuarios();
+    } catch {
+      setError('Error al actualizar usuario');
+      setOpenSnackbar(true);
+    }
   };
 
   const confirmDelete = async () => {
     try {
       await api.delete(`/usuarios/${deleteUser.idUsuario}`);
       setSuccess('Usuario eliminado correctamente');
+      setOpenSnackbar(true);
       setDeleteUser(null);
-      setDeleteError(null);
-      setError(null);
-  loadUsuarios();
-    } catch (err) {
-      let msg = 'Error al eliminar usuario';
-      if (err && err.response && err.response.data && err.response.data.message) {
-        msg = err.response.data.message;
-      }
-      setDeleteError(msg);
+      loadUsuarios();
+    } catch {
+      setError('Error al eliminar usuario');
+      setOpenSnackbar(true);
     }
   };
 
   const submitAdd = async (e) => {
     e.preventDefault();
-    // Validación final antes de enviar
-    const errors = {};
-    const nombre = addForm.nombre.trim();
-    const apellido = addForm.apellido.trim();
-    if (!nombre) errors.nombre = 'El nombre es obligatorio';
-    if (!apellido) errors.apellido = 'El apellido es obligatorio';
-    if (!addForm.email.trim()) errors.email = 'El email es obligatorio';
-    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-    if (addForm.email && !emailRegex.test(addForm.email)) errors.email = 'Email inválido';
-    if (!addForm.password.trim()) errors.password = 'La contraseña es obligatoria';
-    if (addForm.password && addForm.password.length < 4) errors.password = 'La contraseña debe tener al menos 4 caracteres';
-    if (/\s/.test(addForm.password)) errors.password = 'La contraseña no puede contener espacios';
-    if (!addForm.idRol) errors.idRol = 'El rol es obligatorio';
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    // Enviar datos limpios
-    const payload = {
-      ...addForm,
-      nombre,
-      apellido,
-      idRol: addForm.idRol,
-      direccion: addForm.direccion || null,
-      telefono: addForm.telefono || null
-    };
     try {
-      const res = await api.post('/usuarios', payload);
-      // Notify other components that a user was created (useful so Pedidos can refresh its users list)
-  try { window.dispatchEvent(new CustomEvent('usuarioCreado', { detail: res.data })); } catch { /* ignore in non-browser env */ }
+      await api.post('/usuarios', { ...addForm });
       setSuccess('Usuario creado correctamente');
+      setOpenSnackbar(true);
       setAddUser(false);
-  setAddForm({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
-      setFieldErrors({});
-      setError(null);
-  loadUsuarios();
-    } catch (err) {
-      let msg = 'Error al crear usuario';
-      if (err.response && err.response.data && err.response.data.message) {
-        msg = err.response.data.message;
-      }
-      setError(msg);
+      setAddForm({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
+      loadUsuarios();
+    } catch {
+      setError('Error al crear usuario');
+      setOpenSnackbar(true);
     }
   };
 
   return (
-    <div className="mb-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Usuarios</h2>
-        <button className="btn btn-success" onClick={() => setAddUser(true)}>
-          <i className="bi bi-person-plus"></i> Agregar usuario
-        </button>
-      </div>
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-      <div className="table-responsive">
-        <table className="table table-striped table-bordered">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th>
-              <th>Nombre</th>
-              <th>Apellido</th>
-              <th>Email</th>
-          <th>Rol</th>
-              <th>Dirección</th>
-              <th>Teléfono</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {usuarios.map(u => (
-              <tr key={u.idUsuario}>
-                <td>{u.idUsuario}</td>
-                <td>{u.nombre}</td>
-                <td>{u.apellido}</td>
-                <td>{u.email}</td>
-                <td>{u.nombreRol || u.idRol}</td>
-                <td>{u.direccion || ''}</td>
-                <td>{u.telefono || ''}</td>
-                <td>
-                  <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(u)}>
-                    <i className="bi bi-pencil"></i> Editar
-                  </button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(u)}>
-                    <i className="bi bi-trash"></i> Eliminar
-                  </button>
-                </td>
-              </tr>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Usuarios</Typography>
+        <Button variant="contained" color="success" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 1, boxShadow: 1 }} onClick={() => setAddUser(true)}>
+          Agregar usuario
+        </Button>
+      </Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
+      </Snackbar>}
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100vw', overflowX: 'auto', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
+        <Table sx={{ minWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
+          <TableHead>
+            <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Nombre</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Apellido</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Rol</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Dirección</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Teléfono</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {usuarios.map((u, idx) => (
+              <TableRow key={u.idUsuario} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.idUsuario}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.nombre}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.apellido}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.email}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.nombreRol || u.idRol}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.direccion || ''}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{u.telefono || ''}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <Button variant="contained" color="primary" size="small" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, mr: 1, boxShadow: 1 }} onClick={() => handleEdit(u)}>
+                    Editar
+                  </Button>
+                  <Button variant="contained" color="error" size="small" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, boxShadow: 1 }} onClick={() => handleDelete(u)}>
+                    Eliminar
+                  </Button>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Modal Alta */}
-      {addUser && (
-        <div className="modal show d-block usuarios-modal-backdrop" tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-lg usuarios-modal-dialog" role="document">
-            <div className="modal-content usuarios-modal-content">
-              <form onSubmit={submitAdd} noValidate className="usuarios-modal-form">
-                <div className="modal-header">
-                  <h5 className="modal-title">Agregar Usuario</h5>
-                  <button type="button" className="btn-close" onClick={() => setAddUser(false)}></button>
-                </div>
-                <div className="modal-body usuarios-modal-body">
-                  {error && (
-                    <div className="alert alert-danger mb-3 usuarios-alert-danger">{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${fieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={addForm.nombre} onChange={handleAddChange} required />
-                    <div className="usuarios-field-error">
-                      {fieldErrors.nombre && <span className="invalid-feedback d-block">{fieldErrors.nombre}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Apellido</label>
-                    <input type="text" className={`form-control${fieldErrors.apellido ? ' is-invalid' : ''}`} name="apellido" value={addForm.apellido} onChange={handleAddChange} required />
-                    <div className="usuarios-field-error">
-                      {fieldErrors.apellido && <span className="invalid-feedback d-block">{fieldErrors.apellido}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Email</label>
-                    <input type="email" className={`form-control${fieldErrors.email ? ' is-invalid' : ''}`} name="email" value={addForm.email} onChange={handleAddChange} required />
-                    <div className="usuarios-field-error">
-                      {fieldErrors.email && <span className="invalid-feedback d-block">{fieldErrors.email}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Contraseña</label>
-                    <input type="password" className={`form-control${fieldErrors.password ? ' is-invalid' : ''}`} name="password" value={addForm.password} onChange={handleAddChange} required />
-                    <div className="usuarios-field-error">
-                      {fieldErrors.password && <span className="invalid-feedback d-block">{fieldErrors.password}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Rol</label>
-                    <select className={`form-select${fieldErrors.idRol ? ' is-invalid' : ''}`} name="idRol" value={addForm.idRol} onChange={handleAddChange} required>
-                      <option value="">Selecciona un rol</option>
-                        <option value={1}>Cliente</option>
-                        <option value={2}>Vendedor</option>
-                        <option value={3}>Admin</option>
-                    </select>
-                    <div className="usuarios-field-error">
-                      {fieldErrors.idRol && <span className="invalid-feedback d-block">{fieldErrors.idRol}</span>}
-                    </div>
-                  </div>
-
-                  {/* Campos adicionales para Cliente */}
-                  {(addForm.idRol == 1) && (
-                    <>
-                      <div className="mb-2">
-                        <label>Dirección (opcional)</label>
-                        <input type="text" className={`form-control`} name="direccion" value={addForm.direccion} onChange={handleAddChange} />
-                      </div>
-                      <div className="mb-2">
-                        <label>Teléfono (opcional)</label>
-                        <input type="text" className={`form-control`} name="telefono" value={addForm.telefono} onChange={handleAddChange} />
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Crear usuario</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setAddUser(false)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={addUser} onClose={() => setAddUser(false)} PaperProps={{ sx: { borderRadius: 3, minWidth: 340 } }}>
+        <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Agregar Usuario</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={submitAdd} sx={{ mt: 1 }}>
+            <TextField margin="dense" label="Nombre" name="nombre" value={addForm.nombre} onChange={handleAddChange} fullWidth variant="outlined" autoFocus required />
+            <TextField margin="dense" label="Apellido" name="apellido" value={addForm.apellido} onChange={handleAddChange} fullWidth variant="outlined" required />
+            <TextField margin="dense" label="Email" name="email" value={addForm.email} onChange={handleAddChange} fullWidth variant="outlined" required />
+            <TextField margin="dense" label="Contraseña" name="password" value={addForm.password} onChange={handleAddChange} fullWidth variant="outlined" type="password" required />
+            <FormControl fullWidth margin="dense">
+              <InputLabel id="rol-label">Rol</InputLabel>
+              <Select labelId="rol-label" label="Rol" name="idRol" value={addForm.idRol} onChange={handleAddChange} required>
+                <MenuItem value={1}>Cliente</MenuItem>
+                <MenuItem value={2}>Vendedor</MenuItem>
+                <MenuItem value={3}>Admin</MenuItem>
+              </Select>
+            </FormControl>
+            {addForm.idRol == 1 && (
+              <>
+                <TextField margin="dense" label="Dirección (opcional)" name="direccion" value={addForm.direccion} onChange={handleAddChange} fullWidth variant="outlined" />
+                <TextField margin="dense" label="Teléfono (opcional)" name="telefono" value={addForm.telefono} onChange={handleAddChange} fullWidth variant="outlined" />
+              </>
+            )}
+            <DialogActions sx={{ px: 0, pt: 2 }}>
+              <Button onClick={() => setAddUser(false)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+              <Button type="submit" color="success" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Crear usuario</Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Edición */}
-      {editUser && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitEdit} noValidate style={{height: '100%'}}>
-                <div className="modal-header">
-                  <h5 className="modal-title">Editar Usuario</h5>
-                  <button type="button" className="btn-close" onClick={() => setEditUser(null)}></button>
-                </div>
-                <div className="usuarios-modal-body">
-                  {error && (
-                    <div className="usuarios-alert-danger">{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${editFieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={form.nombre} onChange={handleChange} required />
-                    <div className="usuarios-field-error">
-                      {editFieldErrors.nombre && <span className="invalid-feedback d-block">{editFieldErrors.nombre}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Apellido</label>
-                    <input type="text" className={`form-control${editFieldErrors.apellido ? ' is-invalid' : ''}`} name="apellido" value={form.apellido} onChange={handleChange} required />
-                    <div className="usuarios-field-error">
-                      {editFieldErrors.apellido && <span className="invalid-feedback d-block">{editFieldErrors.apellido}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Email</label>
-                    <input type="email" className={`form-control${editFieldErrors.email ? ' is-invalid' : ''}`} name="email" value={form.email} onChange={handleChange} required />
-                    <div className="usuarios-field-error">
-                      {editFieldErrors.email && <span className="invalid-feedback d-block">{editFieldErrors.email}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Rol</label>
-                    <select className={`form-select${editFieldErrors.idRol ? ' is-invalid' : ''}`} name="idRol" value={form.idRol} onChange={handleChange} required>
-                      <option value="">Selecciona un rol</option>
-                      <option value={1}>Cliente</option>
-                      <option value={2}>Vendedor</option>
-                      <option value={3}>Admin</option>
-                    </select>
-                    <div className="usuarios-field-error">
-                      {editFieldErrors.idRol && <span className="invalid-feedback d-block">{editFieldErrors.idRol}</span>}
-                    </div>
-                  </div>
-                  {/* Campos adicionales para Cliente en edición */}
-                  {(form.idRol == 1) && (
-                    <>
-                      <div className="mb-2">
-                        <label>Dirección (opcional)</label>
-                        <input type="text" className={`form-control`} name="direccion" value={form.direccion || ''} onChange={handleChange} />
-                      </div>
-                      <div className="mb-2">
-                        <label>Teléfono (opcional)</label>
-                        <input type="text" className={`form-control`} name="telefono" value={form.telefono || ''} onChange={handleChange} />
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Guardar cambios</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditUser(null)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!editUser} onClose={() => setEditUser(null)} PaperProps={{ sx: { borderRadius: 3, minWidth: 340 } }}>
+        <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Editar Usuario</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={submitEdit} sx={{ mt: 1 }}>
+            <TextField margin="dense" label="Nombre" name="nombre" value={form.nombre} onChange={handleChange} fullWidth variant="outlined" required />
+            <TextField margin="dense" label="Apellido" name="apellido" value={form.apellido} onChange={handleChange} fullWidth variant="outlined" required />
+            <TextField margin="dense" label="Email" name="email" value={form.email} onChange={handleChange} fullWidth variant="outlined" required />
+            <FormControl fullWidth margin="dense">
+              <InputLabel id="rol-edit-label">Rol</InputLabel>
+              <Select labelId="rol-edit-label" label="Rol" name="idRol" value={form.idRol} onChange={handleChange} required>
+                <MenuItem value={1}>Cliente</MenuItem>
+                <MenuItem value={2}>Vendedor</MenuItem>
+                <MenuItem value={3}>Admin</MenuItem>
+              </Select>
+            </FormControl>
+            {form.idRol == 1 && (
+              <>
+                <TextField margin="dense" label="Dirección (opcional)" name="direccion" value={form.direccion || ''} onChange={handleChange} fullWidth variant="outlined" />
+                <TextField margin="dense" label="Teléfono (opcional)" name="telefono" value={form.telefono || ''} onChange={handleChange} fullWidth variant="outlined" />
+              </>
+            )}
+            <DialogActions sx={{ px: 0, pt: 2 }}>
+              <Button onClick={() => setEditUser(null)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+              <Button type="submit" color="success" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Guardar</Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Borrado */}
-      {deleteUser && (
-        <div className="usuarios-modal-backdrop">
-          <div className="usuarios-modal-dialog">
-            <div className="usuarios-modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">¿Eliminar usuario?</h5>
-                <button type="button" className="btn-close" onClick={() => { setDeleteUser(null); setDeleteError(null); }}></button>
-              </div>
-              <div className="modal-body">
-                {deleteError && <div className="usuarios-alert-danger">{deleteError}</div>}
-                <p>¿Estás seguro que quieres eliminar a <b>{deleteUser.nombre} {deleteUser.apellido}</b>? Esta acción no se puede deshacer.</p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-danger" onClick={async () => {
-                  try {
-                    await confirmDelete();
-                    setDeleteError(null);
-                  } catch (err) {
-                    let msg = 'Error al eliminar usuario';
-                    if (err && err.response && err.response.data && err.response.data.message) {
-                      msg = err.response.data.message;
-                    }
-                    setDeleteError(msg);
-                  }
-                }}>Eliminar</button>
-                <button className="btn btn-secondary" onClick={() => { setDeleteUser(null); setDeleteError(null); }}>Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Dialog open={!!deleteUser} onClose={() => setDeleteUser(null)} PaperProps={{ sx: { borderRadius: 3, minWidth: 340 } }}>
+        <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>¿Eliminar usuario?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>¿Estás seguro que quieres eliminar a <b>{deleteUser?.nombre} {deleteUser?.apellido}</b>? Esta acción no se puede deshacer.</Typography>
+          <DialogActions sx={{ px: 0, pt: 2 }}>
+            <Button onClick={() => setDeleteUser(null)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+            <Button onClick={confirmDelete} color="error" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Eliminar</Button>
+          </DialogActions>
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }
 

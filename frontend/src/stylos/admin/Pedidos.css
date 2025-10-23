@@ -1,9 +1,16 @@
 /* Pedidos - Estilos específicos para el panel de administración de pedidos */
 
 /* Layout principal */
+.pedidos-page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, system-ui;
+  color: #111827;
+  background: #fafafa;
+  padding: 22px 28px;
+}
+
 .pedidos-container {
-  padding: 20px;
-  max-width: 1400px;
+  padding: 12px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -21,6 +28,33 @@
   font-size: 1.75rem;
   font-weight: 600;
   color: #333;
+}
+
+/* Primary pill button style (iOS-like) */
+.btn-pill {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  box-shadow: none;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.btn-pill:active { transform: translateY(1px); }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.btn-primary-pill {
+  background: linear-gradient(180deg,#0a84ff,#0060df);
+  color: white;
+  border: none;
+}
+
+.btn-success-pill {
+  background: linear-gradient(180deg,#34c759,#10a84d);
+  color: white;
+  border: none;
 }
 
 /* Filtros */
@@ -142,9 +176,10 @@
 /* Tabla */
 .pedidos-table {
   background: white;
-  border-radius: 0.5rem;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(0,0,0,0.04);
 }
 
 .pedidos-table table {
@@ -152,17 +187,21 @@
 }
 
 .pedidos-table th {
-  background-color: #f8f9fa;
+  background-color: #ffffff;
   font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
-  padding: 0.75rem;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 12px 32px 12px 14px;
   position: relative;
+  color: #374151;
+  font-size: 0.95rem;
+  overflow: visible;
 }
 
 .pedidos-table td {
   vertical-align: middle;
-  padding: 0.75rem;
-  border-top: 1px solid #dee2e6;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(0,0,0,0.03);
+  color: #111827;
 }
 
 .pedidos-table tbody tr:hover {
@@ -173,9 +212,8 @@
 .pedidos-sortable-header {
   cursor: pointer;
   user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  position: relative;
+  width: 100%;
 }
 
 .pedidos-sortable-header:hover {
@@ -184,7 +222,11 @@
 
 .pedidos-sort-icon {
   opacity: 0.5;
-  margin-left: 0.5rem;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .pedidos-sort-icon.active {
@@ -205,6 +247,148 @@
   z-index: 10;
 }
 
+/* Dropdowns usados en los headers (ID, Producto, Usuario, Cantidad, Total) */
+.pedidos-filter-dropdown,
+.pedidos-filter-dropdown-wide {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  z-index: 3200; /* mayor que la tabla y portales internos */
+  color: #111827;
+  box-sizing: border-box;
+  overflow-x: hidden; /* evitar scroll horizontal */
+  max-width: calc(100vw - 24px); /* no exceder viewport */
+}
+
+.pedidos-filter-dropdown { min-width: 220px; }
+.pedidos-filter-dropdown-wide { min-width: 320px; max-width: 540px; }
+
+/* Ensure inputs inside flex rows can shrink instead of causing horizontal overflow */
+.pedidos-filter-dropdown .d-flex.gap-1,
+.pedidos-filter-dropdown-wide .d-flex.gap-1 {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: nowrap;
+}
+
+/* action row: buttons inline on desktop, stacked on mobile */
+.pedidos-filter-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: flex-start;
+}
+.pedidos-filter-actions-row .btn {
+  min-width: 96px;
+}
+@media (max-width: 480px) {
+  .pedidos-filter-actions-row {
+    flex-direction: column;
+  }
+  .pedidos-filter-actions-row .btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+.pedidos-filter-dropdown .form-control.form-control-sm,
+.pedidos-filter-dropdown-wide .form-control.form-control-sm {
+  flex: 1 1 auto;
+  min-width: 0; /* allow shrinking */
+  background: #fff;
+  border: 1px solid rgba(15,23,42,0.08);
+  color: #111827;
+  padding: 8px 10px;
+}
+
+/* Inputs of type number should not force width beyond container */
+.pedidos-filter-dropdown input[type="number"],
+.pedidos-filter-dropdown-wide input[type="number"] {
+  max-width: 100%;
+}
+
+/* Make the action buttons clearer and separated */
+.pedidos-filter-dropdown .d-flex.gap-1 button,
+.pedidos-filter-dropdown-wide .d-flex.gap-1 button {
+  min-width: 88px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* visually separate the buttons row from the inputs */
+.pedidos-filter-dropdown .d-flex.gap-1 { margin-top: 10px; }
+.pedidos-filter-dropdown-wide .d-flex.gap-1 { margin-top: 10px; }
+
+/* Ensure placeholders are dark enough */
+.pedidos-filter-dropdown input::placeholder,
+.pedidos-filter-dropdown-wide input::placeholder {
+  color: rgba(17,24,39,0.45);
+}
+
+/* Portal wrapper to avoid accidental horizontal scroll caused by table containment */
+.pedidos-filter-portal {
+  overflow-x: hidden;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+}
+
+/* Asegurar inputs y botones ocupen el ancho y tengan separación visible */
+.pedidos-filter-dropdown .form-control.form-control-sm,
+.pedidos-filter-dropdown-wide .form-control.form-control-sm {
+  width: 100%;
+}
+.pedidos-filter-dropdown .d-flex.gap-1,
+.pedidos-filter-dropdown-wide .d-flex.gap-1 {
+  margin-top: 6px;
+}
+
+/* Contraste en botones dentro del dropdown */
+.pedidos-filter-dropdown .btn-primary,
+.pedidos-filter-dropdown-wide .btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+.pedidos-filter-dropdown .btn-secondary,
+.pedidos-filter-dropdown-wide .btn-secondary {
+  background-color: transparent;
+  border: 1px solid rgba(17,24,39,0.06);
+  color: rgba(17,24,39,0.6);
+}
+.pedidos-filter-dropdown .btn-secondary:hover,
+.pedidos-filter-dropdown-wide .btn-secondary:hover {
+  background-color: rgba(17,24,39,0.03);
+  color: rgba(17,24,39,0.8);
+}
+
+/* Make clear/secondary actions lighter and outlined */
+.pedidos-filter-dropdown .btn-secondary,
+.pedidos-filter-dropdown-wide .btn-secondary {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(17,24,39,0.06);
+  color: rgba(17,24,39,0.65);
+}
+
+/* Portal wrapper stronger contrast and subtle glass blur */
+.pedidos-filter-portal {
+  overflow-x: hidden;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Active trigger visual */
+.filter-trigger.active { background: linear-gradient(180deg,#eef2ff,#e5edff); border-radius: 6px; padding: 2px 6px; }
+
+/* Make active badges less saturated for a more Apple-like look */
+.pedidos-filter-badge { background-color: rgba(0,123,255,0.12); color: #0f172a; border: 1px solid rgba(0,123,255,0.08); }
+
 .pedidos-header-filter input,
 .pedidos-header-filter select {
   width: 100%;
@@ -214,26 +398,25 @@
   font-size: 0.875rem;
 }
 
-/* Estados de pedidos */
-.pedidos-status-pendiente {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.pedidos-status-procesando {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.pedidos-status-completado {
-  background-color: #28a745;
-  color: white;
-}
-
+.pedidos-status-pendiente,
+.pedidos-status-procesando,
+.pedidos-status-completado,
 .pedidos-status-cancelado {
-  background-color: #dc3545;
-  color: white;
+  display: inline-block;
+  min-width: 90px;
+  max-width: 100%;
+  padding: 0.35em 1em;
+  border-radius: 999px;
+  font-size: 0.95em;
+  font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
+.pedidos-status-pendiente { background-color: #ffc107; color: #212529; }
+.pedidos-status-procesando { background-color: #17a2b8; color: #fff; }
+.pedidos-status-completado { background-color: #28a745; color: #fff; }
+.pedidos-status-cancelado { background-color: #dc3545; color: #fff; }
 
 /* Botones de acción */
 .pedidos-btn-group {
@@ -271,18 +454,144 @@
 
 /* Modales */
 .pedidos-modal-backdrop {
-  background: rgba(0, 0, 0, 0.4) !important;
+  /* iOS-like blurred backdrop */
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.22);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1050;
+  padding: 20px;
 }
 
 .pedidos-modal-xl {
-  max-width: 1200px !important;
+  max-width: 1200px;
 }
 
-.pedidos-modal-content {
-  border-radius: 0.5rem;
-  border: none;
-  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+.pedidos-modal-dialog,
+.pedidos-modal-dialog-lg {
+  position: relative;
+  z-index: 1060;
+  margin: 0 1rem;
+  width: 100%;
 }
+
+.pedidos-modal-dialog { max-width: 540px; }
+.pedidos-modal-dialog-lg { max-width: 900px; }
+
+.pedidos-modal-content {
+  background: rgba(255,255,255,0.98);
+  border-radius: 14px;
+  border: none;
+  padding: 0;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+
+/* Header refinements: compact, subtle divider */
+.pedidos-modal-content .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  background: transparent;
+}
+.pedidos-modal-content .modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+.pedidos-modal-content .btn-close {
+  background: rgba(0,0,0,0.04);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.pedidos-modal-content .btn-close:focus { outline: none; box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+
+/* Body: inputs with soft background and rounded corners */
+.pedidos-modal-body {
+  padding: 18px;
+  max-height: 64vh;
+  overflow-y: auto;
+}
+.pedidos-modal-body .form-control,
+.pedidos-modal-body select,
+.pedidos-modal-body textarea {
+  background: #f7f7f8;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.pedidos-modal-body .form-control:focus,
+.pedidos-modal-body select:focus,
+.pedidos-modal-body textarea:focus {
+  border-color: rgba(0,123,255,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  outline: none;
+}
+
+/* Footer: pill buttons */
+.pedidos-modal-content .modal-footer {
+  padding: 12px 18px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  background: transparent;
+  border-top: 1px solid rgba(0,0,0,0.03);
+}
+.pedidos-modal-content .modal-footer .btn-success {
+  background: linear-gradient(180deg,#23c15a,#18a44a);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(35,193,90,0.14);
+}
+.pedidos-modal-content .modal-footer .btn-secondary {
+  background: rgba(0,0,0,0.06);
+  color: #111827;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+/* Make sure small form elements inside have tighter spacing */
+.pedidos-modal-body .mb-2 { margin-bottom: 12px; }
+.pedidos-modal-body label { display:block; margin-bottom:6px; font-weight:500; color:#374151; }
+
+@media (max-width: 768px) {
+  .pedidos-modal-dialog-lg { max-width: 95%; }
+  .pedidos-modal-body { padding: 14px; }
+  .pedidos-modal-content .modal-header { padding: 12px 14px; }
+  .pedidos-modal-content .modal-footer { padding: 10px 14px; }
+}
+
+/* Dialog wrappers centered by the fixed backdrop */
+.pedidos-modal-dialog,
+.pedidos-modal-dialog-lg {
+  position: relative;
+  z-index: 1060;
+  margin: 0 1rem;
+  width: 100%;
+}
+
+.pedidos-modal-dialog { max-width: 540px; }
+.pedidos-modal-dialog-lg { max-width: 900px; }
 
 .pedidos-modal-header {
   background-color: #f8f9fa;
@@ -297,8 +606,8 @@
 }
 
 .pedidos-modal-body {
-  padding: 1.5rem;
-  max-height: 70vh;
+  padding: 18px;
+  max-height: 64vh;
   overflow-y: auto;
 }
 
@@ -468,7 +777,7 @@
   }
   
   .pedidos-modal-xl {
-    max-width: 95% !important;
+  max-width: 95%;
   }
   
   .pedidos-form-row {

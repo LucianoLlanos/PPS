@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import api from '../api/axios';
 import '../stylos/admin/Admin.css';
 import '../stylos/admin/Productos.css';
+import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment } from '@mui/material';
+import { formatCurrency } from '../utils/format';
 
 function Productos() {
   const [productos, setProductos] = useState([]);
@@ -17,10 +19,10 @@ function Productos() {
   const [addProd, setAddProd] = useState(false);
   const [addForm, setAddForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
   const [addLoading, setAddLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  // single image legacy removed (usamos multiple images)
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [imagesToRemove, setImagesToRemove] = useState([]);
   const [editSucursal, setEditSucursal] = useState(null); // { idSucursal, idProducto, nombreProducto, stockDisponible }
   const [sucursales, setSucursales] = useState([]);
   // Asignación exclusiva: 'ALL' para todas o idSucursal específico
@@ -31,10 +33,17 @@ function Productos() {
   const [selectedProductForReconcile, setSelectedProductForReconcile] = useState(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef(null);
+  // refs for edit/delete modals not needed currently (kept inline overlays)
   
   // Estados para filtros de la tabla
   const [filtroNombre, setFiltroNombre] = useState('');
   const [filtroSucursal, setFiltroSucursal] = useState('');
+  // pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  // Persistir sort principal en sessionStorage para mantener orden al cambiar páginas
+  const [sortField, setSortField] = useState(() => sessionStorage.getItem('productos:sortField') || null);
+  const [sortOrder, setSortOrder] = useState(() => sessionStorage.getItem('productos:sortOrder') || 'asc');
 
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
   useEffect(() => {
@@ -43,6 +52,29 @@ function Productos() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [addProd]);
+
+  // Si cualquier modal está abierto: bloqueo de scroll del body y Escape para cerrar el modal activo
+  useEffect(() => {
+    const anyOpen = addProd || editProd || deleteProd || editSucursal || showBackfillModal || showSelectReconcileModal;
+    if (!anyOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (addProd) setAddProd(false);
+        if (editProd) setEditProd(null);
+        if (deleteProd) setDeleteProd(null);
+        if (editSucursal) setEditSucursal(null);
+        if (showBackfillModal) setShowBackfillModal(false);
+        if (showSelectReconcileModal) setShowSelectReconcileModal(false);
+      }
+    };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous || '';
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [addProd, editProd, deleteProd, editSucursal, showBackfillModal, showSelectReconcileModal]);
 
   useEffect(() => {
     const handleDocClick = (e) => {
@@ -78,6 +110,9 @@ function Productos() {
   const handleEdit = (prod) => {
     setEditProd(prod);
     setForm({ nombre: prod.nombre, descripcion: prod.descripcion, precio: prod.precio, stockTotal: prod.stock });
+    // inicializar previews con las imágenes existentes del producto (si las hay)
+    setImagePreviews(prod.imagenes ? [...prod.imagenes] : []);
+    setSelectedImages([]);
   };
 
   const handleDelete = (prod) => {
@@ -115,53 +150,53 @@ function Productos() {
     setAddForm({ ...addForm, [e.target.name]: e.target.value });
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedImage(file);
-      // Crear preview de la imagen
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setSelectedImage(null);
-      setImagePreview(null);
-    }
-  };
+  // single image handler removed; usamos handleMultipleImagesChange
 
   const handleMultipleImagesChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      setSelectedImages(files);
-      
-      // Crear previews para todas las imágenes
-      const previews = [];
-      let loadedCount = 0;
-      
-      files.forEach((file, index) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    // máximo total 5 (existentes + nuevas)
+    const currentCount = imagePreviews.length;
+    const allowed = Math.max(0, 5 - currentCount);
+    const toAdd = files.slice(0, allowed);
+    if (toAdd.length === 0) return;
+
+    // append new File objects to selectedImages
+    setSelectedImages((prev) => [...prev, ...toAdd]);
+
+    // crear previews para los nuevos archivos y añadir a imagePreviews
+    const readers = toAdd.map((file) => {
+      return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          previews[index] = reader.result;
-          loadedCount++;
-          if (loadedCount === files.length) {
-            setImagePreviews([...previews]);
-          }
-        };
+        reader.onloadend = () => resolve(reader.result);
         reader.readAsDataURL(file);
       });
-    } else {
-      setSelectedImages([]);
-      setImagePreviews([]);
-    }
+    });
+    Promise.all(readers).then((newPreviews) => {
+      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    });
+    // reset input value to allow selecting same file again
+    e.target.value = null;
   };
 
   const removeImage = (index) => {
-    const newImages = selectedImages.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-    setSelectedImages(newImages);
-    setImagePreviews(newPreviews);
+    // Determine if the removed preview corresponds to a locally selected file
+    const totalPreviews = imagePreviews.length;
+    const localCount = selectedImages.length;
+    const localStart = totalPreviews - localCount;
+
+    if (index >= localStart) {
+      // it's a local file
+      const localIndex = index - localStart;
+      setSelectedImages((prev) => prev.filter((_, i) => i !== localIndex));
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      // it's an existing server image; mark for removal and remove preview
+      const filename = imagePreviews[index];
+      setImagesToRemove((prev) => [...prev, filename]);
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+      // Note: existing server-side image rows will be removed on submit if backend supports it
+    }
   };
 
   const submitEdit = (e) => {
@@ -176,20 +211,52 @@ function Productos() {
     if (!form.stockTotal || isNaN(form.stockTotal) || Number(form.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setEditFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    api.put(`/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
-      .then(() => {
-        setSuccess('Producto actualizado correctamente');
-        setEditProd(null);
-        setEditFieldErrors({});
-        setError(null);
-      })
-      .catch((err) => {
-        let msg = 'Error al actualizar producto';
-        if (err.response && err.response.data && err.response.data.message) {
-          msg = err.response.data.message;
-        }
-        setError(msg);
-      });
+    // Si se cargaron imágenes nuevas, enviar como multipart/form-data
+    if (selectedImages && selectedImages.length > 0) {
+      const formData = new FormData();
+      formData.append('nombre', nombre);
+      formData.append('descripcion', descripcion);
+      formData.append('precio', Number(form.precio));
+      formData.append('stockTotal', Number(form.stockTotal));
+      // anexar imágenes nuevas
+      for (const img of selectedImages) formData.append('imagenes', img);
+      // anexar lista de imágenes a eliminar (si aplica)
+      if (imagesToRemove && imagesToRemove.length > 0) {
+        formData.append('removeImages', JSON.stringify(imagesToRemove));
+      }
+      api.put(`/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+        .then(() => {
+          setSuccess('Producto actualizado correctamente');
+          setEditProd(null);
+          setEditFieldErrors({});
+          setError(null);
+          setSelectedImages([]);
+          setImagePreviews([]);
+          setImagesToRemove([]);
+        })
+        .catch((err) => {
+          let msg = 'Error al actualizar producto';
+          if (err.response && err.response.data && err.response.data.message) {
+            msg = err.response.data.message;
+          }
+          setError(msg);
+        });
+    } else {
+      api.put(`/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
+        .then(() => {
+          setSuccess('Producto actualizado correctamente');
+          setEditProd(null);
+          setEditFieldErrors({});
+          setError(null);
+        })
+        .catch((err) => {
+          let msg = 'Error al actualizar producto';
+          if (err.response && err.response.data && err.response.data.message) {
+            msg = err.response.data.message;
+          }
+          setError(msg);
+        });
+    }
   };
 
   const confirmDelete = async () => {
@@ -253,9 +320,7 @@ function Productos() {
     
     // Agregar múltiples imágenes si fueron seleccionadas
     if (selectedImages.length > 0) {
-      selectedImages.forEach((image, index) => {
-        formData.append('imagenes', image);
-      });
+      for (const img of selectedImages) formData.append('imagenes', img);
     }
     
     try {
@@ -271,10 +336,7 @@ function Productos() {
       setSucursalAssignment('ALL');
       setSelectedImages([]);
       setImagePreviews([]);
-      setSelectedImage(null);
-      setImagePreview(null);
-      setSelectedImage(null);
-      setImagePreview(null);
+  // limpiamos previews e imágenes múltiples
       setError(null);
     } catch (err) {
       let msg = 'Error al crear producto';
@@ -309,15 +371,182 @@ function Productos() {
     return nombreMatch;
   });
 
-  // Función para filtrar stock por sucursal
+  // pagination helpers
+  // apply sorting
+  const productosFiltradosSorted = (() => {
+    const arr = [...productosFiltrados];
+    if (!sortField) return arr;
+    arr.sort((a, b) => {
+      if (sortField === 'precio' || sortField === 'stock') {
+        const va = Number(a[sortField] ?? 0);
+        const vb = Number(b[sortField] ?? 0);
+        return sortOrder === 'asc' ? va - vb : vb - va;
+      }
+      const sa = String(a[sortField] ?? '').toLowerCase();
+      const sb = String(b[sortField] ?? '').toLowerCase();
+      if (sa < sb) return sortOrder === 'asc' ? -1 : 1;
+      if (sa > sb) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  })();
+
+  const totalPages = Math.max(1, Math.ceil(productosFiltradosSorted.length / pageSize));
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const productosFiltradosPaged = productosFiltradosSorted.slice(startIndex, endIndex);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Guardar en sessionStorage cuando cambie el sort principal
+  useEffect(() => {
+    try {
+      if (sortField) sessionStorage.setItem('productos:sortField', sortField);
+      else sessionStorage.removeItem('productos:sortField');
+      if (sortOrder) sessionStorage.setItem('productos:sortOrder', sortOrder);
+      else sessionStorage.removeItem('productos:sortOrder');
+    } catch {
+      // sessionStorage puede fallar en entornos restringidos; ignorar
+    }
+  }, [sortField, sortOrder]);
+
+  // Filtrar stock por sucursal: usar los productos filtrados por nombre (por id) y filtrar por nombre de sucursal
+  const filteredProductIds = new Set(productosFiltrados.map(p => p.idProducto));
   const stockFiltrado = stockSucursal.filter(s => {
-    const nombreMatch = s.nombreProducto.toLowerCase().includes(filtroNombre.toLowerCase());
+    const productMatch = filteredProductIds.size === 0 ? true : filteredProductIds.has(s.idProducto);
     const sucursalMatch = filtroSucursal === '' || s.nombreSucursal.toLowerCase().includes(filtroSucursal.toLowerCase());
-    return nombreMatch && sucursalMatch;
+    return productMatch && sucursalMatch;
   });
 
+  // Small subcomponent: table for each sucursal with sorting & pagination
+  function StockTable({ items, nombreSucursal, idSucursal, onEdit }) {
+    const [page, setPage] = useState(1);
+    const [pageSizeLocal, setPageSizeLocal] = useState(6);
+    // Persistir sort local por sucursal usando idSucursal como sufijo
+    const keyField = idSucursal ? `productos:stock:${idSucursal}:sortField` : null;
+    const keyOrder = idSucursal ? `productos:stock:${idSucursal}:sortOrder` : null;
+    const [sortFieldLocal, setSortFieldLocal] = useState(() => {
+      try { return keyField ? sessionStorage.getItem(keyField) : null; } catch { return null; }
+    });
+    const [sortOrderLocal, setSortOrderLocal] = useState(() => {
+      try { return keyOrder ? sessionStorage.getItem(keyOrder) || 'asc' : 'asc'; } catch { return 'asc'; }
+    });
+
+    // Persistir cambios de sort local
+    useEffect(() => {
+      try {
+        if (keyField) {
+          if (sortFieldLocal) sessionStorage.setItem(keyField, sortFieldLocal);
+          else sessionStorage.removeItem(keyField);
+        }
+        if (keyOrder) {
+          if (sortOrderLocal) sessionStorage.setItem(keyOrder, sortOrderLocal);
+          else sessionStorage.removeItem(keyOrder);
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }, [keyField, keyOrder, sortFieldLocal, sortOrderLocal]);
+
+    const sorted = useMemo(() => {
+      const arr = [...items];
+      if (!sortFieldLocal) return arr;
+      arr.sort((a,b) => {
+        const fa = a[sortFieldLocal];
+        const fb = b[sortFieldLocal];
+        const na = Number(fa);
+        const nb = Number(fb);
+        // If both values are numeric, compare numerically
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+          return sortOrderLocal === 'asc' ? na - nb : nb - na;
+        }
+        // Fallback to case-insensitive string compare
+        const sa = String(fa ?? '').toLowerCase();
+        const sb = String(fb ?? '').toLowerCase();
+        if (sa < sb) return sortOrderLocal === 'asc' ? -1 : 1;
+        if (sa > sb) return sortOrderLocal === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return arr;
+    }, [items, sortFieldLocal, sortOrderLocal]);
+
+    const totalPagesLocal = Math.max(1, Math.ceil(sorted.length / pageSizeLocal));
+    useEffect(() => { if (page > totalPagesLocal) setPage(totalPagesLocal); }, [page, totalPagesLocal]);
+    const start = (page - 1) * pageSizeLocal;
+    const paged = sorted.slice(start, start + pageSizeLocal);
+
+    const toggleSortLocal = (f) => {
+      if (sortFieldLocal === f) setSortOrderLocal(prev => prev === 'asc' ? 'desc' : 'asc');
+      else { setSortFieldLocal(f); setSortOrderLocal('asc'); }
+      setPage(1);
+    };
+
+    return (
+      <div className="mb-4">
+        <h5 className="productos-sucursal-title">
+          <i className="bi bi-building me-2"></i>
+          {nombreSucursal}
+          <span className="badge bg-secondary ms-2">{items.length} productos</span>
+        </h5>
+        <TableContainer component={Paper} sx={{ maxHeight: 400, mb: 1 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell onClick={() => toggleSortLocal('nombre')} sx={{ cursor: 'pointer' }}>Producto {sortFieldLocal === 'nombre' ? (sortOrderLocal === 'asc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell align="center" onClick={() => toggleSortLocal('stockDisponible')} sx={{ cursor: 'pointer' }}>Stock Disponible {sortFieldLocal === 'stockDisponible' ? (sortOrderLocal === 'asc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell align="center">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paged.map(it => (
+                <TableRow key={`${it.idSucursal}-${it.idProducto}`} hover>
+                  <TableCell>{it.nombreProducto}</TableCell>
+                  <TableCell align="center">{it.stockDisponible}</TableCell>
+                  <TableCell align="center"><Button size="small" variant="contained" onClick={() => onEdit({ idSucursal: it.idSucursal, idProducto: it.idProducto, nombreProducto: it.nombreProducto, stockDisponible: it.stockDisponible })}>Editar</Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* pagination local */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2">Filas</Typography>
+            <FormControl size="small">
+              <Select value={pageSizeLocal} onChange={(e) => { setPageSizeLocal(Number(e.target.value)); setPage(1); }} sx={{ width: 80 }}>
+                <MenuItem value={3}>3</MenuItem>
+                <MenuItem value={6}>6</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button size="small" variant="outlined" disabled={page === 1} onClick={() => setPage(1)}>«</Button>
+            <Button size="small" variant="outlined" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>‹</Button>
+            <Typography variant="body2">Página {page} de {totalPagesLocal}</Typography>
+            <Button size="small" variant="outlined" disabled={page === totalPagesLocal} onClick={() => setPage(p => Math.min(totalPagesLocal, p + 1))}>›</Button>
+            <Button size="small" variant="outlined" disabled={page === totalPagesLocal} onClick={() => setPage(totalPagesLocal)}>»</Button>
+          </Box>
+        </Box>
+      </div>
+    );
+  }
+
   return (
-    <div className="productos-page">
+    <div className="productos-page root-apple">
       <div className="productos-header-container">
         <h2 className="productos-title">Productos</h2>
   <div ref={toolsRef} className="productos-tools-container">
@@ -341,469 +570,89 @@ function Productos() {
           )}
         </div>
       </div>
-      {/* Modal Agregar Producto - Estilo moderno como Login/Register */}
+      {/* Modal Agregar Producto - migrado a MUI Dialog */}
       {addProd && (
-        <>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            zIndex: 9999,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-          }}>
-            <div style={{
-              background: 'linear-gradient(180deg, #4A90E2 0%, #357ABD 50%, #1E3A8A 100%)',
-              borderRadius: '20px',
-              padding: '2px',
-              maxWidth: '500px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflow: 'auto'
-            }}>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '18px',
-                padding: '40px',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                textAlign: 'center'
-              }}>
-                {/* Header con ícono */}
-                <div style={{ marginBottom: '30px' }}>
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '50%',
-                    backgroundColor: '#E5E7EB',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 20px',
-                    border: '3px solid rgba(255,255,255,0.8)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}>
-                    <i className="bi bi-plus-circle-fill" style={{ fontSize: '32px', color: '#4A90E2' }}></i>
-                  </div>
-                  <h5 style={{
-                    fontSize: '24px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    margin: 0
-                  }}>Agregar Producto</h5>
-                </div>
-
-                <form onSubmit={submitAdd} noValidate>
-                  {error && (
-                    <div style={{
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      marginBottom: '20px',
-                      fontSize: '14px',
-                      border: '1px solid #fecaca'
-                    }}>{error}</div>
-                  )}
-
-                  {/* Nombre */}
-                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                    <div style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: fieldErrors.nombre ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="bi bi-tag" style={{ 
-                        fontSize: '16px', 
-                        color: '#9CA3AF', 
-                        marginLeft: '12px',
-                        marginRight: '8px'
-                      }}></i>
-                      <input
-                        type="text"
-                        name="nombre"
-                        value={addForm.nombre}
-                        onChange={handleAddChange}
-                        placeholder="Nombre del producto *"
-                        required
-                        style={{
-                          flex: 1,
-                          padding: '14px 12px 14px 0',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: '15px',
-                          outline: 'none',
-                          color: '#374151'
-                        }}
-                      />
-                    </div>
-                    {fieldErrors.nombre && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.nombre}</div>}
-                  </div>
-
-                  {/* Descripción */}
-                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                    <div style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: fieldErrors.descripcion ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="bi bi-card-text" style={{ 
-                        fontSize: '16px', 
-                        color: '#9CA3AF', 
-                        marginLeft: '12px',
-                        marginRight: '8px',
-                        marginTop: '14px'
-                      }}></i>
-                      <textarea
-                        name="descripcion"
-                        value={addForm.descripcion}
-                        onChange={handleAddChange}
-                        placeholder="Descripción del producto *"
-                        required
-                        rows="3"
-                        style={{
-                          flex: 1,
-                          padding: '14px 12px 14px 0',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: '15px',
-                          outline: 'none',
-                          color: '#374151',
-                          resize: 'vertical',
-                          minHeight: '60px'
-                        }}
-                      />
-                    </div>
-                    {fieldErrors.descripcion && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.descripcion}</div>}
-                  </div>
-
-                  {/* Múltiples Imágenes del producto */}
-                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                    <label style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '500', 
-                      color: '#374151',
-                      marginBottom: '8px',
-                      display: 'block'
-                    }}>
-                      <i className="bi bi-images me-2"></i>
-                      Imágenes del producto (máx. 5)
-                    </label>
-                    <div style={{
-                      position: 'relative',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(0, 0, 0, 0.1)',
-                      padding: '12px'
-                    }}>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleMultipleImagesChange}
-                        style={{
-                          padding: '8px',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: '14px',
-                          outline: 'none',
-                          color: '#374151'
-                        }}
-                      />
-                      <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0' }}>
-                        Selecciona hasta 5 imágenes para el producto
-                      </p>
-                      
-                      {/* Previews de múltiples imágenes */}
-                      {imagePreviews.length > 0 && (
-                        <div style={{ 
-                          marginTop: '12px',
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                          gap: '12px'
-                        }}>
-                          {imagePreviews.map((preview, index) => (
-                            <div key={index} style={{ position: 'relative' }}>
-                              <img 
-                                src={preview} 
-                                alt={`Preview ${index + 1}`} 
-                                style={{
-                                  width: '100%',
-                                  height: '100px',
-                                  borderRadius: '8px',
-                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                  objectFit: 'cover'
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(index)}
-                                style={{
-                                  position: 'absolute',
-                                  top: '4px',
-                                  right: '4px',
-                                  background: 'rgba(220, 53, 69, 0.9)',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '50%',
-                                  width: '24px',
-                                  height: '24px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
-                                }}
-                                title="Eliminar imagen"
-                              >
-                                ×
-                              </button>
-                              <p style={{ 
-                                fontSize: '10px', 
-                                color: '#6b7280', 
-                                textAlign: 'center',
-                                marginTop: '4px' 
-                              }}>
-                                Imagen {index + 1}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Precio y Stock en fila */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    {/* Precio */}
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '8px',
-                        border: fieldErrors.precio ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                        transition: 'all 0.3s ease'
-                      }}>
-                        <i className="bi bi-currency-dollar" style={{ 
-                          fontSize: '16px', 
-                          color: '#9CA3AF', 
-                          marginLeft: '12px',
-                          marginRight: '8px'
-                        }}></i>
-                        <input
-                          type="number"
-                          name="precio"
-                          value={addForm.precio}
-                          onChange={handleAddChange}
-                          placeholder="Precio *"
-                          required
-                          min="0"
-                          step="0.01"
-                          style={{
-                            flex: 1,
-                            padding: '14px 12px 14px 0',
-                            border: 'none',
-                            backgroundColor: 'transparent',
-                            fontSize: '15px',
-                            outline: 'none',
-                            color: '#374151'
-                          }}
-                        />
-                      </div>
-                      {fieldErrors.precio && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.precio}</div>}
-                    </div>
-
-                    {/* Stock */}
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '8px',
-                        border: fieldErrors.stockTotal ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                        transition: 'all 0.3s ease'
-                      }}>
-                        <i className="bi bi-box" style={{ 
-                          fontSize: '16px', 
-                          color: '#9CA3AF', 
-                          marginLeft: '12px',
-                          marginRight: '8px'
-                        }}></i>
-                        <input
-                          type="number"
-                          name="stockTotal"
-                          value={addForm.stockTotal}
-                          onChange={handleAddChange}
-                          placeholder="Stock *"
-                          required
-                          min="0"
-                          style={{
-                            flex: 1,
-                            padding: '14px 12px 14px 0',
-                            border: 'none',
-                            backgroundColor: 'transparent',
-                            fontSize: '15px',
-                            outline: 'none',
-                            color: '#374151'
-                          }}
-                        />
-                      </div>
-                      {fieldErrors.stockTotal && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{fieldErrors.stockTotal}</div>}
-                    </div>
-                  </div>
-
-                  {/* Sucursales */}
-                  <div style={{ marginBottom: '24px', textAlign: 'left' }}>
-                    <label style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '500', 
-                      color: '#374151',
-                      marginBottom: '8px',
-                      display: 'block'
-                    }}>
-                      <i className="bi bi-building me-2"></i>
-                      Asignar a sucursales
-                    </label>
-                    <div style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(0, 0, 0, 0.1)',
-                      padding: '12px'
-                    }}>
-                      <div style={{ marginBottom: '8px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="sucursal-assignment"
-                            value="ALL"
-                            checked={sucursalAssignment === 'ALL'}
-                            onChange={(e) => setSucursalAssignment(e.target.value)}
-                            style={{ marginRight: '8px' }}
-                          />
-                          Todas las sucursales
-                        </label>
-                      </div>
-                      {sucursales.map(s => (
-                        <div key={s.idSucursal} style={{ marginBottom: '8px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', cursor: 'pointer' }}>
-                            <input
-                              type="radio"
-                              name="sucursal-assignment"
-                              value={s.idSucursal}
-                              checked={String(sucursalAssignment) === String(s.idSucursal)}
-                              onChange={(e) => setSucursalAssignment(e.target.value)}
-                              style={{ marginRight: '8px' }}
-                            />
-                            {s.nombre}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Botones */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <button
-                      type="submit"
-                      disabled={addLoading}
-                      style={{
-                        padding: '14px',
-                        border: 'none',
-                        borderRadius: '8px',
-                        background: addLoading ? '#9CA3AF' : '#22c55e',
-                        color: 'white',
-                        fontSize: '15px',
-                        fontWeight: '500',
-                        cursor: addLoading ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s ease',
-                        letterSpacing: '0.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onMouseEnter={(e) => !addLoading && (e.target.style.background = '#16a34a')}
-                      onMouseLeave={(e) => !addLoading && (e.target.style.background = '#22c55e')}
-                    >
-                      {addLoading ? (
-                        <>
-                          <span style={{ 
-                            display: 'inline-block',
-                            width: '16px',
-                            height: '16px',
-                            border: '2px solid #ffffff',
-                            borderTop: '2px solid transparent',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite',
-                            marginRight: '8px'
-                          }}></span>
-                          CREANDO...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-check-circle me-2"></i>
-                          CREAR
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAddProd(false)}
-                      style={{
-                        padding: '14px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        background: 'white',
-                        color: '#6b7280',
-                        fontSize: '15px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        letterSpacing: '0.5px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#f9fafb';
-                        e.target.style.borderColor = '#9ca3af';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'white';
-                        e.target.style.borderColor = '#d1d5db';
-                      }}
-                    >
-                      <i className="bi bi-x-circle me-2"></i>
-                      CANCELAR
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </>
+        <Box>
+          <Dialog
+            open={addProd}
+            onClose={() => setAddProd(false)}
+            fullWidth
+            maxWidth="md"
+            scroll="paper"
+            PaperProps={{ sx: { borderRadius: 3 } }}
+          >
+            <DialogTitle>Agregar Producto</DialogTitle>
+            <DialogContent dividers sx={{ maxHeight: '68vh', overflow: 'auto', pt: 2 }}>
+              {error && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{error}</Box>}
+              <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
+                <Grid container spacing={2} alignItems="flex-start">
+                  <Grid item xs={12} md={3}>
+                    <TextField fullWidth size="small" variant="outlined" name="nombre" label="Nombre del producto *" value={addForm.nombre} onChange={handleAddChange} error={!!fieldErrors.nombre} helperText={fieldErrors.nombre || ''} />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      multiline
+                      minRows={3}
+                      maxRows={6}
+                      name="descripcion"
+                      label="Descripción *"
+                      value={addForm.descripcion}
+                      onChange={handleAddChange}
+                      error={!!fieldErrors.descripcion}
+                      helperText={fieldErrors.descripcion || ''}
+                      inputProps={{ style: { maxHeight: 160, overflow: 'auto', padding: '8px' } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField fullWidth size="small" variant="outlined" type="number" name="precio" label="Precio *" value={addForm.precio} onChange={handleAddChange} error={!!fieldErrors.precio} helperText={fieldErrors.precio || ''} inputProps={{ step: '0.01', min: 0 }} />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField fullWidth size="small" variant="outlined" type="number" name="stockTotal" label="Stock *" value={addForm.stockTotal} onChange={handleAddChange} error={!!fieldErrors.stockTotal} helperText={fieldErrors.stockTotal || ''} inputProps={{ min: 0 }} />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <InputLabel sx={{ mb: 1 }}>Imágenes del producto (máx.5)</InputLabel>
+                        <input type="file" accept="image/*" multiple onChange={handleMultipleImagesChange} />
+                        {imagePreviews.length > 0 && (
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                            {imagePreviews.map((preview, index) => (
+                              <Box key={index} sx={{ position: 'relative' }}>
+                                <img src={typeof preview === 'string' && preview.startsWith('data:') ? preview : (typeof preview === 'string' ? `http://localhost:3000/uploads/${preview}` : preview)} alt={`Preview ${index+1}`} style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
+                                <IconButton size="small" onClick={() => removeImage(index)} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}>×</IconButton>
+                                <Typography variant="caption" display="block" align="center">Imagen {index+1}</Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Grid>
+                      <Grid item xs={12}>
+                        <InputLabel sx={{ display: 'block', mb: 1 }}>Asignar a sucursales</InputLabel>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          <FormControl>
+                            <RadioGroup row value={sucursalAssignment} onChange={(e) => setSucursalAssignment(e.target.value)}>
+                              <FormControlLabel value="ALL" control={<Radio />} label="Todas las sucursales" />
+                              {sucursales.map(s => (
+                                <FormControlLabel key={s.idSucursal} value={String(s.idSucursal)} control={<Radio />} label={s.nombre} />
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button variant="outlined" onClick={() => setAddProd(false)}>Cancelar</Button>
+              <Button variant="contained" onClick={submitAdd} disabled={addLoading}>{addLoading ? 'CREANDO...' : 'CREAR'}</Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
       )}
 
       {/* Stock por sucursal */}
@@ -819,58 +668,48 @@ function Productos() {
               <i className="bi bi-funnel me-2"></i>
               Filtros de búsqueda
             </h6>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <label className="form-label">Buscar por nombre del producto:</label>
-                <div className="input-group">
-                  <span className="input-group-text">
-                    <i className="bi bi-search"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Ej: Bomba, Panel Solar..."
-                    value={filtroNombre}
-                    onChange={(e) => setFiltroNombre(e.target.value)}
-                  />
-                  {filtroNombre && (
-                    <button 
-                      className="btn btn-outline-secondary" 
-                      type="button"
-                      onClick={() => setFiltroNombre('')}
-                      title="Limpiar filtro"
-                    >
-                      <i className="bi bi-x"></i>
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Filtrar por sucursal:</label>
-                <div className="input-group">
-                  <span className="input-group-text">
-                    <i className="bi bi-building"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Ej: Centro, Norte, Sur..."
-                    value={filtroSucursal}
-                    onChange={(e) => setFiltroSucursal(e.target.value)}
-                  />
-                  {filtroSucursal && (
-                    <button 
-                      className="btn btn-outline-secondary" 
-                      type="button"
-                      onClick={() => setFiltroSucursal('')}
-                      title="Limpiar filtro"
-                    >
-                      <i className="bi bi-x"></i>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Buscar por nombre del producto"
+                  placeholder="Ej: Bomba, Panel Solar..."
+                  value={filtroNombre}
+                  onChange={(e) => setFiltroNombre(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><i className="bi bi-search" /></InputAdornment>
+                    ),
+                    endAdornment: filtroNombre ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setFiltroNombre('')}><i className="bi bi-x" /></IconButton>
+                      </InputAdornment>
+                    ) : null
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Filtrar por sucursal"
+                  placeholder="Ej: Centro, Norte, Sur..."
+                  value={filtroSucursal}
+                  onChange={(e) => setFiltroSucursal(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><i className="bi bi-building" /></InputAdornment>
+                    ),
+                    endAdornment: filtroSucursal ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setFiltroSucursal('')}><i className="bi bi-x" /></IconButton>
+                      </InputAdornment>
+                    ) : null
+                  }}
+                />
+              </Grid>
+            </Grid>
             <div className="mt-2">
               <small className="text-muted">
                 <i className="bi bi-info-circle me-1"></i>
@@ -882,63 +721,72 @@ function Productos() {
         </div>
       </div>
 
-      <div className="productos-table-wrapper mt-3">
-        <div className="productos-card">
-          <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            <table className="table table-striped table-bordered productos-table">
-           <thead className="table-dark" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-              <tr>
-               <th className="productos-table-header">ID</th>
-               <th className="productos-table-header">Nombre</th>
-               <th className="productos-table-header">Descripción</th>
-               <th className="productos-table-header">Precio</th>
-               <th className="productos-table-header">Stock</th>
-               <th className="productos-table-header">Acciones</th>
-               {sucursalesList.map(s => (
-                 <th key={s.idSucursal} className="productos-table-header text-center">{s.nombreSucursal}</th>
-               ))}
-             </tr>
-           </thead>
-           <tbody>
-             {productosFiltrados.map(p => (
-               <tr key={p.idProducto}>
-                 <td className="align-middle">{p.idProducto}</td>
-                 <td className="align-middle">{p.nombre}</td>
-                 <td className="productos-descripcion-cell">
-                   <div className="productos-descripcion-text" title={p.descripcion}>{p.descripcion}</div>
-                 </td>
-                 <td className="align-middle">${p.precio}</td>
-                 <td className="align-middle">{p.stock}</td>
-                 <td className="align-middle">
-                  <div className="productos-actions-container">
-                    <button className="btn btn-sm btn-primary" onClick={() => handleEdit(p)}>
-                      <i className="bi bi-pencil me-1"></i> Editar
-                    </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>
-                      <i className="bi bi-trash me-1"></i> Eliminar
-                    </button>
-                    {/* Reconciliación ahora disponible desde Herramientas -> Reconciliar producto */}
-                  </div>
-                 </td>
-                 {sucursalesList.map(s => {
-                   const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
-                   return <td key={`${p.idProducto}-${s.idSucursal}`} className="text-center align-middle">{stockRow ? stockRow.stockDisponible : 0}</td>;
-                 })}
-               </tr>
-             ))}
-             {productosFiltrados.length === 0 && (
-               <tr>
-                 <td colSpan={6 + sucursalesList.length} className="text-center text-muted py-4">
-                   <i className="bi bi-search me-2"></i>
-                   No se encontraron productos que coincidan con los filtros
-                 </td>
-               </tr>
-             )}
-           </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <Box sx={{ mt: 3 }}>
+        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 2 }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('nombre')}>Nombre {sortField === 'nombre' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell>Descripción</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell>Acciones</TableCell>
+                {sucursalesList.map(s => (
+                  <TableCell key={s.idSucursal} align="center">{s.nombreSucursal}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {productosFiltradosPaged.map(p => (
+                <TableRow key={p.idProducto} hover>
+                  <TableCell>{p.idProducto}</TableCell>
+                  <TableCell>{p.nombre}</TableCell>
+                  <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</TableCell>
+                  <TableCell>{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
+                  <TableCell>{p.stock}</TableCell>
+                  <TableCell>
+                    <Button size="small" variant="contained" sx={{ mr: 1 }} onClick={() => handleEdit(p)}>Editar</Button>
+                    <Button size="small" color="error" variant="outlined" onClick={() => handleDelete(p)}>Eliminar</Button>
+                  </TableCell>
+                  {sucursalesList.map(s => {
+                    const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
+                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} align="center">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
+                  })}
+                </TableRow>
+              ))}
+
+              {productosFiltrados.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6 + sucursalesList.length} align="center">No se encontraron productos que coincidan con los filtros</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2">Filas por página</Typography>
+            <FormControl size="small">
+              <Select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} sx={{ width: 90 }}>
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={8}>8</MenuItem>
+                <MenuItem value={12}>12</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button size="small" variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>« Primero</Button>
+            <Button size="small" variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>‹</Button>
+            <Typography variant="body2">Página {currentPage} de {totalPages}</Typography>
+            <Button size="small" variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>›</Button>
+            <Button size="small" variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>Último »</Button>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Stock por sucursal: grid de dos columnas en pantallas grandes con filtros aplicados */}
       <div className="productos-stock-grid">
@@ -956,722 +804,166 @@ function Productos() {
             return acc;
           }, {})).map(([key, items]) => {
             const [, nombreSucursal] = key.split('::');
-            return (
-              <div key={key} className="mb-4">
-                  <h5 className="productos-sucursal-title">
-                    <i className="bi bi-building me-2"></i>
-                    {nombreSucursal}
-                    <span className="badge bg-secondary ms-2">{items.length} productos</span>
-                  </h5>
-                  <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <table className="table table-sm table-bordered">
-                      <thead className="table-dark text-center" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
-                        <tr>
-                          <th>Producto</th>
-                          <th>Stock Disponible</th>
-                          <th>Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map(it => (
-                          <tr key={`${it.idSucursal}-${it.idProducto}`}>
-                            <td>{it.nombreProducto}</td>
-                            <td className="text-center align-middle">
-                              <span className={`badge ${it.stockDisponible > 0 ? 'bg-success' : 'bg-warning'}`}>
-                                {it.stockDisponible}
-                              </span>
-                            </td>
-                            <td className="text-center align-middle">
-                              <button className="btn btn-sm btn-primary" onClick={() => setEditSucursal({ idSucursal: it.idSucursal, idProducto: it.idProducto, nombreProducto: it.nombreProducto, stockDisponible: it.stockDisponible })}>
-                                <i className="bi bi-pencil me-1"></i> Editar
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-            );
+              return (
+                <StockTable key={key} items={items} nombreSucursal={nombreSucursal} idSucursal={items[0]?.idSucursal} onEdit={(payload) => setEditSucursal(payload)} />
+              );
           })
         )}
       </div>
-      {/* Modal Edición - Estilo moderno como Login/Register */}
+      {/* Modal Edición - migrado a MUI Dialog */}
       {editProd && (
-        <>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            zIndex: 9999,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-          }}>
-            <div style={{
-              background: 'linear-gradient(180deg, #4A90E2 0%, #357ABD 50%, #1E3A8A 100%)',
-              borderRadius: '20px',
-              padding: '2px',
-              maxWidth: '500px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflow: 'auto'
-            }}>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '18px',
-                padding: '40px',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                textAlign: 'center'
-              }}>
-                {/* Header con ícono */}
-                <div style={{ marginBottom: '30px' }}>
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '50%',
-                    backgroundColor: '#E5E7EB',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 20px',
-                    border: '3px solid rgba(255,255,255,0.8)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}>
-                    <i className="bi bi-pencil-fill" style={{ fontSize: '32px', color: '#4A90E2' }}></i>
-                  </div>
-                  <h5 style={{
-                    fontSize: '24px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    margin: 0
-                  }}>Editar Producto</h5>
-                </div>
-
-                <form onSubmit={submitEdit} noValidate>
-                  {error && (
-                    <div style={{
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      marginBottom: '20px',
-                      fontSize: '14px',
-                      border: '1px solid #fecaca'
-                    }}>{error}</div>
-                  )}
-
-                  {/* Nombre */}
-                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                    <div style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: editFieldErrors.nombre ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="bi bi-tag" style={{ 
-                        fontSize: '16px', 
-                        color: '#9CA3AF', 
-                        marginLeft: '12px',
-                        marginRight: '8px'
-                      }}></i>
-                      <input
-                        type="text"
-                        name="nombre"
-                        value={form.nombre}
-                        onChange={handleChange}
-                        placeholder="Nombre del producto *"
-                        required
-                        style={{
-                          flex: 1,
-                          padding: '14px 12px 14px 0',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: '15px',
-                          outline: 'none',
-                          color: '#374151'
-                        }}
-                      />
-                    </div>
-                    {editFieldErrors.nombre && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.nombre}</div>}
-                  </div>
-
-                  {/* Descripción */}
-                  <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-                    <div style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '8px',
-                      border: editFieldErrors.descripcion ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="bi bi-card-text" style={{ 
-                        fontSize: '16px', 
-                        color: '#9CA3AF', 
-                        marginLeft: '12px',
-                        marginRight: '8px',
-                        marginTop: '14px'
-                      }}></i>
-                      <textarea
-                        name="descripcion"
-                        value={form.descripcion}
-                        onChange={handleChange}
-                        placeholder="Descripción del producto *"
-                        required
-                        rows="3"
-                        style={{
-                          flex: 1,
-                          padding: '14px 12px 14px 0',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: '15px',
-                          outline: 'none',
-                          color: '#374151',
-                          resize: 'vertical',
-                          minHeight: '60px'
-                        }}
-                      />
-                    </div>
-                    {editFieldErrors.descripcion && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.descripcion}</div>}
-                  </div>
-
-                  {/* Precio y Stock en fila */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                    {/* Precio */}
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '8px',
-                        border: editFieldErrors.precio ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                        transition: 'all 0.3s ease'
-                      }}>
-                        <i className="bi bi-currency-dollar" style={{ 
-                          fontSize: '16px', 
-                          color: '#9CA3AF', 
-                          marginLeft: '12px',
-                          marginRight: '8px'
-                        }}></i>
-                        <input
-                          type="number"
-                          name="precio"
-                          value={form.precio}
-                          onChange={handleChange}
-                          placeholder="Precio *"
-                          required
-                          min="0"
-                          step="0.01"
-                          style={{
-                            flex: 1,
-                            padding: '14px 12px 14px 0',
-                            border: 'none',
-                            backgroundColor: 'transparent',
-                            fontSize: '15px',
-                            outline: 'none',
-                            color: '#374151'
-                          }}
-                        />
-                      </div>
-                      {editFieldErrors.precio && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.precio}</div>}
-                    </div>
-
-                    {/* Stock */}
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '8px',
-                        border: editFieldErrors.stockTotal ? '1px solid #dc3545' : '1px solid rgba(0, 0, 0, 0.1)',
-                        transition: 'all 0.3s ease'
-                      }}>
-                        <i className="bi bi-box" style={{ 
-                          fontSize: '16px', 
-                          color: '#9CA3AF', 
-                          marginLeft: '12px',
-                          marginRight: '8px'
-                        }}></i>
-                        <input
-                          type="number"
-                          name="stockTotal"
-                          value={form.stockTotal}
-                          onChange={handleChange}
-                          placeholder="Stock *"
-                          required
-                          min="0"
-                          style={{
-                            flex: 1,
-                            padding: '14px 12px 14px 0',
-                            border: 'none',
-                            backgroundColor: 'transparent',
-                            fontSize: '15px',
-                            outline: 'none',
-                            color: '#374151'
-                          }}
-                        />
-                      </div>
-                      {editFieldErrors.stockTotal && <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>{editFieldErrors.stockTotal}</div>}
-                    </div>
-                  </div>
-
-                  {/* Botones */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <button
-                      type="submit"
-                      style={{
-                        padding: '14px',
-                        border: 'none',
-                        borderRadius: '8px',
-                        background: '#22c55e',
-                        color: 'white',
-                        fontSize: '15px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        letterSpacing: '0.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onMouseEnter={(e) => (e.target.style.background = '#16a34a')}
-                      onMouseLeave={(e) => (e.target.style.background = '#22c55e')}
-                    >
-                      <i className="bi bi-check-circle me-2"></i>
-                      GUARDAR
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setEditProd(null)}
-                      style={{
-                        padding: '14px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        background: 'white',
-                        color: '#6b7280',
-                        fontSize: '15px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        letterSpacing: '0.5px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#f9fafb';
-                        e.target.style.borderColor = '#9ca3af';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'white';
-                        e.target.style.borderColor = '#d1d5db';
-                      }}
-                    >
-                      <i className="bi bi-x-circle me-2"></i>
-                      CANCELAR
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Modal Editar stock por sucursal - Estilo moderno */}
-      {editSucursal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 9999,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
-          <div style={{
-            background: 'linear-gradient(180deg, #8B5CF6 0%, #7C3AED 50%, #6D28D9 100%)',
-            borderRadius: '20px',
-            padding: '2px',
-            maxWidth: '450px',
-            width: '100%'
-          }}>
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '18px',
-              padding: '40px',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              textAlign: 'center'
-            }}>
-              {/* Header con ícono */}
-              <div style={{ marginBottom: '30px' }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  backgroundColor: '#EDE9FE',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 20px',
-                  border: '3px solid rgba(255,255,255,0.8)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}>
-                  <i className="bi bi-building" style={{ fontSize: '32px', color: '#8B5CF6' }}></i>
-                </div>
-                <h5 style={{
-                  fontSize: '20px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  margin: 0
-                }}>Editar Stock por Sucursal</h5>
-                <p style={{
-                  fontSize: '14px',
-                  color: '#6b7280',
-                  margin: '8px 0 0 0'
-                }}>
-                  {editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})
-                </p>
-              </div>
-
-              {/* Campo de stock */}
-              <div style={{ marginBottom: '20px', textAlign: 'left' }}>
-                <div style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.3s ease'
-                }}>
-                  <i className="bi bi-boxes" style={{ 
-                    fontSize: '16px', 
-                    color: '#9CA3AF', 
-                    marginLeft: '12px',
-                    marginRight: '8px'
-                  }}></i>
-                  <input
-                    type="number"
-                    name="stockDisponible"
-                    value={editSucursal.stockDisponible}
-                    onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })}
-                    placeholder="Stock disponible"
-                    min="0"
-                    style={{
-                      flex: 1,
-                      padding: '14px 12px 14px 0',
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      fontSize: '15px',
-                      outline: 'none',
-                      color: '#374151'
-                    }}
+        <Dialog open={!!editProd} onClose={() => setEditProd(null)} fullWidth maxWidth="md" scroll="paper" PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle>Editar Producto</DialogTitle>
+          <Box component="form" onSubmit={submitEdit} noValidate>
+            <DialogContent dividers sx={{ maxHeight: '68vh', overflow: 'auto', pt: 2 }}>
+              {error && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{error}</Box>}
+              <Grid container spacing={2} alignItems="flex-start">
+                <Grid item xs={12} md={3}>
+                  <TextField fullWidth size="small" variant="outlined" name="nombre" label="Nombre del producto *" value={form.nombre} onChange={handleChange} error={!!editFieldErrors.nombre} helperText={editFieldErrors.nombre || ''} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    multiline
+                    minRows={4}
+                    maxRows={8}
+                    name="descripcion"
+                    label="Descripción *"
+                    value={form.descripcion}
+                    onChange={handleChange}
+                    error={!!editFieldErrors.descripcion}
+                    helperText={editFieldErrors.descripcion || ''}
+                    inputProps={{ style: { maxHeight: 220, overflow: 'auto', padding: '8px' } }}
                   />
-                </div>
-              </div>
-
-              <div style={{
-                backgroundColor: '#F3F4F6',
-                padding: '12px',
-                borderRadius: '8px',
-                marginBottom: '24px',
-                fontSize: '12px',
-                color: '#6b7280',
-                textAlign: 'left'
-              }}>
-                <i className="bi bi-info-circle me-1"></i>
-                Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.
-              </div>
-
-              {/* Botones */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button
-                  onClick={async () => {
-                    try {
-                      const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                      await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
-                      setSuccess('Stock actualizado correctamente');
-                      setEditSucursal(null);
-                      setError(null);
-                    } catch (err) {
-                      let msg = 'Error al actualizar stock';
-                      if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
-                      setError(msg);
-                    }
-                  }}
-                  style={{
-                    padding: '14px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    background: '#8B5CF6',
-                    color: 'white',
-                    fontSize: '15px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    letterSpacing: '0.5px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  onMouseEnter={(e) => (e.target.style.background = '#7C3AED')}
-                  onMouseLeave={(e) => (e.target.style.background = '#8B5CF6')}
-                >
-                  <i className="bi bi-check-circle me-2"></i>
-                  GUARDAR
-                </button>
-
-                <button
-                  onClick={() => setEditSucursal(null)}
-                  style={{
-                    padding: '14px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#6b7280',
-                    fontSize: '15px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    letterSpacing: '0.5px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f9fafb';
-                    e.target.style.borderColor = '#9ca3af';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#d1d5db';
-                  }}
-                >
-                  <i className="bi bi-x-circle me-2"></i>
-                  CANCELAR
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth size="small" variant="outlined" type="number" name="precio" label="Precio *" value={form.precio} onChange={handleChange} error={!!editFieldErrors.precio} helperText={editFieldErrors.precio || ''} inputProps={{ step: '0.01', min: 0 }} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth size="small" variant="outlined" type="number" name="stockTotal" label="Stock *" value={form.stockTotal} onChange={handleChange} error={!!editFieldErrors.stockTotal} helperText={editFieldErrors.stockTotal || ''} inputProps={{ min: 0 }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <InputLabel sx={{ mb: 1 }}>Imágenes del producto (máx.5)</InputLabel>
+                      <input type="file" accept="image/*" multiple onChange={handleMultipleImagesChange} />
+                      {imagePreviews.length > 0 && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                          {imagePreviews.map((preview, index) => (
+                            <Box key={index} sx={{ position: 'relative' }}>
+                              <img src={typeof preview === 'string' && preview.startsWith('data:') ? preview : (typeof preview === 'string' ? `http://localhost:3000/uploads/${preview}` : preview)} alt={`Preview ${index+1}`} style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
+                              <IconButton size="small" onClick={() => removeImage(index)} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}>×</IconButton>
+                              <Typography variant="caption" display="block" align="center">Imagen {index+1}</Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button variant="outlined" onClick={() => setEditProd(null)}>Cancelar</Button>
+              <Button type="submit" variant="contained">Guardar</Button>
+            </DialogActions>
+          </Box>
+        </Dialog>
       )}
 
-      {/* Modal Eliminación - Estilo moderno como Login/Register */}
+      {/* Modal Editar stock por sucursal - migrado a MUI Dialog */}
+      {editSucursal && (
+        <Dialog open={!!editSucursal} onClose={() => setEditSucursal(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Editar Stock por Sucursal</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>{editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})</Typography>
+            <TextField fullWidth type="number" label="Stock disponible" value={editSucursal.stockDisponible} onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })} inputProps={{ min: 0 }} sx={{ mb: 2 }} />
+            <Box sx={{ bgcolor: '#F3F4F6', p: 2, borderRadius: 1, mb: 1, color: '#6b7280' }}>
+              <i className="bi bi-info-circle me-1"></i>
+              Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" onClick={() => setEditSucursal(null)}>Cancelar</Button>
+            <Button variant="contained" onClick={async () => {
+              try {
+                const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
+                await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                setSuccess('Stock actualizado correctamente');
+                setEditSucursal(null);
+                setError(null);
+              } catch (err) {
+                let msg = 'Error al actualizar stock';
+                if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
+                setError(msg);
+              }
+            }}>Guardar</Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Modal Eliminación - migrado a MUI Dialog */}
       {deleteProd && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 9999,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
-          <div style={{
-            background: 'linear-gradient(180deg, #EF4444 0%, #DC2626 50%, #B91C1C 100%)',
-            borderRadius: '20px',
-            padding: '2px',
-            maxWidth: '450px',
-            width: '100%'
-          }}>
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '18px',
-              padding: '40px',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              textAlign: 'center'
-            }}>
-              {/* Header con ícono */}
-              <div style={{ marginBottom: '30px' }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  backgroundColor: '#FEE2E2',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 20px',
-                  border: '3px solid rgba(255,255,255,0.8)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}>
-                  <i className="bi bi-exclamation-triangle-fill" style={{ fontSize: '32px', color: '#EF4444' }}></i>
-                </div>
-                <h5 style={{
-                  fontSize: '24px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  margin: 0
-                }}>¿Eliminar producto?</h5>
-              </div>
-
-              {deleteError && (
-                <div style={{
-                  backgroundColor: '#fef2f2',
-                  color: '#dc2626',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  marginBottom: '20px',
-                  fontSize: '14px',
-                  border: '1px solid #fecaca'
-                }}>{deleteError}</div>
-              )}
-
-              <p style={{
-                fontSize: '16px',
-                color: '#6b7280',
-                lineHeight: '1.5',
-                marginBottom: '30px'
-              }}>
-                ¿Estás seguro que quieres eliminar <strong style={{ color: '#374151' }}>{deleteProd.nombre}</strong>? 
-                <br />
-                Esta acción no se puede deshacer.
-              </p>
-
-              {/* Botones */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button
-                  onClick={confirmDelete}
-                  style={{
-                    padding: '14px',
-                    border: 'none',
-                    borderRadius: '8px',
-                    background: '#EF4444',
-                    color: 'white',
-                    fontSize: '15px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    letterSpacing: '0.5px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  onMouseEnter={(e) => (e.target.style.background = '#DC2626')}
-                  onMouseLeave={(e) => (e.target.style.background = '#EF4444')}
-                >
-                  <i className="bi bi-trash me-2"></i>
-                  ELIMINAR
-                </button>
-
-                <button
-                  onClick={() => { setDeleteProd(null); setDeleteError(null); }}
-                  style={{
-                    padding: '14px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: '#6b7280',
-                    fontSize: '15px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    letterSpacing: '0.5px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f9fafb';
-                    e.target.style.borderColor = '#9ca3af';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#d1d5db';
-                  }}
-                >
-                  <i className="bi bi-x-circle me-2"></i>
-                  CANCELAR
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Dialog open={!!deleteProd} onClose={() => { setDeleteProd(null); setDeleteError(null); }} fullWidth maxWidth="sm">
+          <DialogTitle>Eliminar producto</DialogTitle>
+          <DialogContent>
+            {deleteError && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{deleteError}</Box>}
+            <Typography sx={{ color: '#6b7280', mb: 1 }}>¿Estás seguro que quieres eliminar <strong style={{ color: '#374151' }}>{deleteProd.nombre}</strong>? Esta acción no se puede deshacer.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" onClick={() => { setDeleteProd(null); setDeleteError(null); }}>Cancelar</Button>
+            <Button color="error" variant="contained" onClick={confirmDelete}>Eliminar</Button>
+          </DialogActions>
+        </Dialog>
       )}
-    {/* Confirmación: actualizar filas/columnas faltantes */}
+    {/* Confirmación: actualizar filas/columnas faltantes (Dialog MUI) */}
     {showBackfillModal && (
-      <div className="productos-modal-backdrop">
-        <div className="productos-modal-dialog">
-          <div className="productos-modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Actualizar filas y columnas faltantes</h5>
-              <button className="btn-close" onClick={() => setShowBackfillModal(false)}></button>
-            </div>
-            <div className="modal-body">
-              <p>Esta acción creará o actualizará las filas y columnas faltantes en el inventario por sucursal para todos los productos. Las filas creadas tendrán stock=0 por defecto. ¿Deseas continuar?</p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-danger" onClick={async () => { await runBackfill(); setShowBackfillModal(false); }}>Actualizar</button>
-              <button className="btn btn-secondary" onClick={() => setShowBackfillModal(false)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Dialog open={showBackfillModal} onClose={() => setShowBackfillModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Actualizar filas y columnas faltantes</DialogTitle>
+        <DialogContent>
+          <Typography>Esta acción creará o actualizará las filas y columnas faltantes en el inventario por sucursal para todos los productos. Las filas creadas tendrán stock=0 por defecto. ¿Deseas continuar?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setShowBackfillModal(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={async () => { await runBackfill(); setShowBackfillModal(false); }}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
     )}
 
     {/* Reconcile confirmation modal removed; use Herramientas -> Reconciliar producto */}
     {/* Seleccionar producto para alinear stock por sucursal (desde Herramientas) */}
     {showSelectReconcileModal && (
-      <div className="productos-modal-backdrop">
-        <div className="productos-modal-dialog">
-          <div className="productos-modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Alinear stock por sucursal (producto)</h5>
-              <button className="btn-close" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}></button>
-            </div>
-            <div className="modal-body">
-              <p>Selecciona el producto que deseas alinear. Esta acción ajustará los stocks de cada sucursal para que su suma coincida con el stock total del producto.</p>
-              <div className="mb-2">
-                <label>Producto</label>
-                <select className="form-select" value={selectedProductForReconcile ?? ''} onChange={(e) => setSelectedProductForReconcile(Number(e.target.value))}>
-                  <option value="" disabled>-- Selecciona --</option>
-                  {productos.map(p => (
-                    <option key={p.idProducto} value={p.idProducto}>{p.nombre} (ID: {p.idProducto})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={async () => {
-                if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
-                try {
-                  await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
-                  setSuccess('Alineación ejecutada');
-                } catch {
-                  setError('Error al alinear stock');
-                }
-                setShowSelectReconcileModal(false);
-                setSelectedProductForReconcile(null);
-              }}>Alinear</button>
-              <button className="btn btn-secondary" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Dialog open={showSelectReconcileModal} onClose={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Alinear stock por sucursal (producto)</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 1 }}>Selecciona el producto que deseas alinear. Esta acción ajustará los stocks de cada sucursal para que su suma coincida con el stock total del producto.</Typography>
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel id="reconcile-product-label">Producto</InputLabel>
+            <Select labelId="reconcile-product-label" label="Producto" value={selectedProductForReconcile ?? ''} onChange={(e) => setSelectedProductForReconcile(Number(e.target.value))}>
+              <MenuItem value="" disabled>-- Selecciona --</MenuItem>
+              {productos.map(p => (
+                <MenuItem key={p.idProducto} value={p.idProducto}>{p.nombre} (ID: {p.idProducto})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}>Cancelar</Button>
+          <Button variant="contained" onClick={async () => {
+            if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
+            try {
+              await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
+              setSuccess('Alineación ejecutada');
+            } catch {
+              setError('Error al alinear stock');
+            }
+            setShowSelectReconcileModal(false);
+            setSelectedProductForReconcile(null);
+          }}>Alinear</Button>
+        </DialogActions>
+      </Dialog>
     )}
     </div>
   );

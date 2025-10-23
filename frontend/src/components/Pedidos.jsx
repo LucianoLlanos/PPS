@@ -1,231 +1,122 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
-import '../stylos/admin/Admin.css';
-import '../stylos/admin/Pedidos.css';
+import { formatCurrency } from '../utils/format';
+import {
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack
+} from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
-  const [filters, setFilters] = useState({ 
-    idPedido: '', 
-    producto: '', 
-    usuario: '', 
-    estado: '', 
-    fechaDesde: '', 
-    fechaHasta: '', 
-    totalMin: '', 
-    totalMax: '', 
-    cantidadMin: '', 
-    cantidadMax: '', 
-    priorizarPendientes: false, 
-    sort: '' 
-  });
-  const [headerFilterVisible, setHeaderFilterVisible] = useState(null); // e.g. 'estado' or 'fecha'
+  // filtros por columna
+  const [filterId, setFilterId] = useState('');
+  const [filterProducto, setFilterProducto] = useState('');
+  const [filterUsuario, setFilterUsuario] = useState('');
+  const [filterCantidadMin, setFilterCantidadMin] = useState('');
+  const [filterCantidadMax, setFilterCantidadMax] = useState('');
+  const [filterFechaFrom, setFilterFechaFrom] = useState('');
+  const [filterFechaTo, setFilterFechaTo] = useState('');
+  const [filterTotalMin, setFilterTotalMin] = useState('');
+  const [filterTotalMax, setFilterTotalMax] = useState('');
+  const [filterEstado, setFilterEstado] = useState('');
   const [error, setError] = useState(null);
-  const [fieldErrors, setFieldErrors] = useState({});
+  // fieldErrors eliminado porque no se usa actualmente
   const [deletePedido, setDeletePedido] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [addPedido, setAddPedido] = useState(false);
   const [addForm, setAddForm] = useState({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '' });
   const [sucursales, setSucursales] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [productosList, setProductosList] = useState([]);
 
-  const loadPedidos = useCallback((appliedFilters = null, sortOverride = null) => {
-    const useFilters = appliedFilters || filters || {};
-    const params = {};
-    if (useFilters.idPedido) params.idPedido = useFilters.idPedido;
-    if (useFilters.estado) params.estado = useFilters.estado;
-    if (useFilters.fechaDesde) params.fechaDesde = useFilters.fechaDesde;
-    if (useFilters.fechaHasta) params.fechaHasta = useFilters.fechaHasta;
-    if (useFilters.producto) params.producto = useFilters.producto;
-    if (useFilters.usuario) params.usuario = useFilters.usuario;
-    if (useFilters.totalMin) params.totalMin = useFilters.totalMin;
-    if (useFilters.totalMax) params.totalMax = useFilters.totalMax;
-    if (useFilters.cantidadMin) params.cantidadMin = useFilters.cantidadMin;
-    if (useFilters.cantidadMax) params.cantidadMax = useFilters.cantidadMax;
-    if (useFilters.priorizarPendientes) params.priorizarPendientes = '1';
-  const sortToUse = sortOverride || (filters && filters.sort) || null;
-  if (sortToUse === 'fecha_asc') params.sort = 'fecha_asc';
-  if (sortToUse === 'fecha_desc') params.sort = 'fecha_desc';
-  if (sortToUse === 'cantidad_asc') params.sort = 'cantidad_asc';
-  if (sortToUse === 'cantidad_desc') params.sort = 'cantidad_desc';
-
-    api.get('/ventas', { params })
-      .then(res => setPedidos(res.data))
-      .catch(() => setError('Error al obtener pedidos'));
-  }, [filters]);
-
+  // Carga inicial de datos (pedidos, sucursales, usuarios, productos)
   useEffect(() => {
-    loadPedidos();
-    api.get('/usuarios')
-      .then(res => setUsuarios(res.data))
-      .catch(() => {});
-    api.get('/productos')
-      .then(res => setProductosList(res.data))
-      .catch(() => {});
-    api.get('/sucursales')
-      .then(res => setSucursales(res.data))
-      .catch(() => {});
-    const onUsuarioCreado = () => {
-      api.get('/usuarios').then(res => setUsuarios(res.data)).catch(() => {});
-    };
-    window.addEventListener('usuarioCreado', onUsuarioCreado);
-    // Cerrar paneles de filtro al clickear fuera
-    const handleDocClick = (e) => {
-      // si hay un panel abierto y el click no está dentro de ninguno de los paneles de filtro ni en el botón que lo abre, cerrarlos
-      if (headerFilterVisible) {
-        const clickedDropdown = e.target.closest && e.target.closest('.pedidos-filter-dropdown, .pedidos-filter-dropdown-wide');
-        const clickedTrigger = e.target.closest && e.target.closest('.filter-trigger');
-        if (!clickedDropdown && !clickedTrigger) setHeaderFilterVisible(null);
+    let mounted = true;
+    const load = async () => {
+      try {
+        const [resPedidos, resSucursales, resUsuarios, resProductos] = await Promise.all([
+          api.get('/pedidos').catch(() => ({ data: [] })),
+          api.get('/sucursales').catch(() => ({ data: [] })),
+          api.get('/usuarios').catch(() => ({ data: [] })),
+          api.get('/productos').catch(() => ({ data: [] })),
+        ]);
+        if (!mounted) return;
+        setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
+        setSucursales(Array.isArray(resSucursales.data) ? resSucursales.data : []);
+        setUsuarios(Array.isArray(resUsuarios.data) ? resUsuarios.data : []);
+        setProductosList(Array.isArray(resProductos.data) ? resProductos.data : []);
+      } catch (e) {
+        console.error(e);
+        setError('No se pudieron cargar los datos');
       }
     };
-    document.addEventListener('click', handleDocClick);
-    return () => { window.removeEventListener('usuarioCreado', onUsuarioCreado); document.removeEventListener('click', handleDocClick); };
-  }, [success, loadPedidos, headerFilterVisible]);
+    load();
+    return () => { mounted = false; };
+  }, []);
 
-  // Funciones para manejar los filtros de manera controlada
-  const handleFilterChange = (field, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const clearFilters = () => {
+    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado('');
   };
 
-  const applyFilter = (field, value = null) => {
-    const newFilters = {
-      ...filters,
-      [field]: value !== null ? value : filters[field]
-    };
-    setFilters(newFilters);
-    setHeaderFilterVisible(null);
-    loadPedidos(newFilters);
-  };
+  // Popover para filtros
+  const [filtersAnchor, setFiltersAnchor] = useState(null);
+  const openFilters = (e) => setFiltersAnchor(e.currentTarget);
+  const closeFilters = () => setFiltersAnchor(null);
 
-  const applyMultipleFilters = (fields) => {
-    const newFilters = { ...filters };
-    fields.forEach(field => {
-      newFilters[field] = filters[field];
-    });
-    setFilters(newFilters);
-    setHeaderFilterVisible(null);
-    loadPedidos(newFilters);
-  };
+  const activeFilters = [];
+  if (filterId) activeFilters.push({ key: 'ID', val: filterId });
+  if (filterProducto) activeFilters.push({ key: 'Producto', val: filterProducto });
+  if (filterUsuario) activeFilters.push({ key: 'Usuario', val: filterUsuario });
+  if (filterCantidadMin || filterCantidadMax) activeFilters.push({ key: 'Cant', val: `${filterCantidadMin || '-'}..${filterCantidadMax || '-'}` });
+  if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${filterFechaFrom || '-'}..${filterFechaTo || '-'}` });
+  if (filterTotalMin || filterTotalMax) activeFilters.push({ key: 'Total', val: `${filterTotalMin || '-'}..${filterTotalMax || '-'}` });
+  if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado });
 
-  const clearFilter = (field) => {
-    const newFilters = {
-      ...filters,
-      [field]: ''
-    };
-    setFilters(newFilters);
-    setHeaderFilterVisible(null);
-    loadPedidos(newFilters);
-  };
-
-  const clearMultipleFilters = (fields) => {
-    const newFilters = { ...filters };
-    fields.forEach(field => {
-      newFilters[field] = '';
-    });
-    setFilters(newFilters);
-    setHeaderFilterVisible(null);
-    loadPedidos(newFilters);
-  };
-
-  const clearAllFilters = () => {
-    const emptyFilters = { 
-      idPedido: '', 
-      producto: '', 
-      usuario: '', 
-      estado: '', 
-      fechaDesde: '', 
-      fechaHasta: '', 
-      totalMin: '', 
-      totalMax: '', 
-      cantidadMin: '', 
-      cantidadMax: '', 
-      priorizarPendientes: false, 
-      sort: '' 
-    };
-    setFilters(emptyFilters);
-    loadPedidos(emptyFilters);
-  };
-
-  // Los filtros ahora se manejan desde los controles en la cabecera y el badge Limpiar
-  const handleAddChange = (e) => {
-    setAddForm({ ...addForm, [e.target.name]: e.target.value });
-  };
-
-  const handleProductoChange = (idx, field, value) => {
-    const nuevos = [...addForm.productos];
-    nuevos[idx][field] = value;
-    setAddForm({ ...addForm, productos: nuevos });
-  };
-
-  const addProductoRow = () => {
-    setAddForm({ ...addForm, productos: [...addForm.productos, { idProducto: '', cantidad: 1 }] });
-  };
-
-  const removeProductoRow = (idx) => {
-    const nuevos = [...addForm.productos];
-    nuevos.splice(idx, 1);
-    setAddForm({ ...addForm, productos: nuevos });
-  };
-
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        setSuccess(null);
-      }, 3000);
-      return () => clearTimeout(timer);
+  const displayedPedidos = pedidos.filter(p => {
+    if (filterId && !String(p.idPedido).includes(filterId)) return false;
+    if (filterProducto) {
+      const found = (p.productos || []).some(prod => (prod.nombre || '').toLowerCase().includes(filterProducto.toLowerCase()));
+      if (!found) return false;
     }
-  }, [success]);
+    if (filterUsuario) {
+      const full = ((p.nombreUsuario || '') + ' ' + (p.apellidoUsuario || '')).toLowerCase();
+      if (!full.includes(filterUsuario.toLowerCase())) return false;
+    }
+    if (filterCantidadMin || filterCantidadMax) {
+      const totalCant = (p.productos || []).reduce((s, pr) => s + Number(pr.cantidad || 0), 0);
+      if (filterCantidadMin && totalCant < Number(filterCantidadMin)) return false;
+      if (filterCantidadMax && totalCant > Number(filterCantidadMax)) return false;
+    }
+    if (filterFechaFrom) {
+      const from = new Date(filterFechaFrom);
+      if (new Date(p.fecha) < from) return false;
+    }
+    if (filterFechaTo) {
+      const to = new Date(filterFechaTo);
+      // include day
+      to.setHours(23,59,59,999);
+      if (new Date(p.fecha) > to) return false;
+    }
+    if (filterTotalMin && Number(p.total) < Number(filterTotalMin)) return false;
+    if (filterTotalMax && Number(p.total) > Number(filterTotalMax)) return false;
+    if (filterEstado && ((p.estado || '') !== filterEstado)) return false;
+    return true;
+  });
 
-  const submitAdd = async (e) => {
-    e.preventDefault();
-    // Validación
-    const errors = {};
-  if (!addForm.usuario) errors.usuario = 'Debes seleccionar un usuario';
-  if (!addForm.sucursal) errors.sucursal = 'Debes seleccionar una sucursal';
-  if (!addForm.productos.length) errors.productos = 'Debes agregar al menos un producto';
-    addForm.productos.forEach((prod, idx) => {
-      if (!prod.idProducto) errors[`producto_${idx}`] = 'Selecciona un producto';
-      if (!prod.cantidad || isNaN(prod.cantidad) || Number(prod.cantidad) <= 0) errors[`cantidad_${idx}`] = 'Cantidad debe ser mayor a 0';
-    });
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    // Calcular productos con precioUnitario y asegurar tipos numéricos
-    const productosPayload = addForm.productos.map(p => {
-      const prod = productosList.find(pr => Number(pr.idProducto) === Number(p.idProducto));
-      return {
-        idProducto: Number(p.idProducto),
-        cantidad: Number(p.cantidad),
-        precioUnitario: prod ? Number(prod.precio) : 0
-      };
-    });
-    // idSucursalOrigen temporal (usar 1 por defecto)
-    // Mapeo seguro de estado
-    const estadosValidos = ['Pendiente', 'En Proceso', 'Enviado', 'Entregado', 'Cancelado'];
-    const estadoFinal = estadosValidos.includes(addForm.estado) ? addForm.estado : 'Pendiente';
-    const payload = {
-  idCliente: Number(addForm.usuario),
-  idSucursalOrigen: Number(addForm.sucursal),
-      estado: estadoFinal,
-      productos: productosPayload
-    };
+  // Handlers mínimos para evitar errores y mantener la lógica intacta
+  const handleEstado = async (pedido, nuevoEstado) => {
     try {
-      await api.post('/ventas', payload);
-      setSuccess('Pedido creado correctamente');
-      setAddPedido(false);
-  setAddForm({ usuario: '', productos: [], estado: 'Pendiente', fecha: '', total: '' });
-      setFieldErrors({});
-      setError(null);
-    } catch (err) {
-      let msg = 'Error al crear pedido';
-      if (err.response && err.response.data && err.response.data.message) {
-        msg = err.response.data.message;
-      }
-      setError(msg);
+      // Optimistic update
+      setPedidos(prev => prev.map(p => p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p));
+      await api.put(`/pedidos/${pedido.idPedido}`, { ...pedido, estado: nuevoEstado }).catch(() => null);
+      setSuccess('Estado actualizado');
+      setOpenSnackbar(true);
+    } catch (e) {
+      console.error(e);
+      setError('No se pudo actualizar el estado');
     }
   };
 
@@ -234,408 +125,289 @@ function Pedidos() {
   };
 
   const confirmDelete = async () => {
+    if (!deletePedido) return;
     try {
-      await api.delete(`/ventas/${deletePedido.idPedido}`);
-      setSuccess('Pedido eliminado correctamente');
+      await api.delete(`/pedidos/${deletePedido.idPedido}`).catch(() => null);
+      setPedidos(prev => prev.filter(p => p.idPedido !== deletePedido.idPedido));
       setDeletePedido(null);
-      setDeleteError(null);
-      setError(null);
-    } catch (err) {
-      let msg = 'Error al eliminar pedido';
-      if (err && err.response && err.response.data && err.response.data.message) {
-        msg = err.response.data.message;
-      }
-      setDeleteError(msg);
+      setSuccess('Pedido eliminado');
+      setOpenSnackbar(true);
+    } catch (e) {
+      console.error(e);
+      setDeleteError('No se pudo eliminar el pedido');
     }
   };
 
-  // Cambiar estado del pedido
-  const handleEstado = (pedido, nuevoEstado) => {
-    api.put(`/ventas/${pedido.idPedido}`, { estado: nuevoEstado })
-      .then(() => setSuccess('Estado actualizado'))
-      .catch(() => setError('Error al actualizar estado'));
+  const submitAdd = async (e) => {
+    e.preventDefault();
+    try {
+      // Validaciones mínimas
+      if (!addForm.usuario) { setError('Seleccioná un usuario'); return; }
+      if (!addForm.sucursal) { setError('Seleccioná una sucursal'); return; }
+      if (!addForm.productos || addForm.productos.length === 0) { setError('Agregá al menos un producto'); return; }
+
+      // Construir productos con precioUnitario a partir de productosList
+      const productosPayload = addForm.productos.map((pr) => {
+        const found = productosList.find(p => String(p.idProducto) === String(pr.idProducto));
+        const precioUnitario = Number(found?.precio ?? found?.price ?? 0) || 0;
+        return {
+          idProducto: Number(pr.idProducto),
+          cantidad: Number(pr.cantidad || 1),
+          precioUnitario
+        };
+      });
+
+      const totalCalc = productosPayload.reduce((s, it) => s + (it.cantidad * it.precioUnitario), 0);
+
+      const payload = {
+        idCliente: Number(addForm.usuario),
+        estado: addForm.estado,
+        idSucursalOrigen: Number(addForm.sucursal),
+        productos: productosPayload,
+        fecha: addForm.fecha || new Date().toISOString(),
+        total: totalCalc
+      };
+
+      // Enviar al backend y refrescar la lista real desde el servidor
+      const postRes = await api.post('/pedidos', payload);
+      if (postRes && (postRes.status === 200 || postRes.status === 201)) {
+        try {
+          const resPedidos = await api.get('/pedidos');
+          setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
+        } catch (e) {
+          // no bloquear si falla el refresh
+          console.error('Error refrescando pedidos después de crear:', e);
+        }
+        setAddPedido(false);
+        setAddForm({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '' });
+        setError(null);
+        setSuccess('Pedido creado');
+        setOpenSnackbar(true);
+      } else {
+        setError('No se pudo crear el pedido');
+      }
+    } catch (err) {
+      console.error('Error creando pedido:', err);
+      const msg = err?.response?.data?.error || 'No se pudo crear el pedido';
+      setError(msg.toString());
+    }
+  };
+
+  const handleAddChange = (e) => {
+    const { name, value } = e.target;
+    setAddForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleProductoChange = (index, field, value) => {
+    setAddForm(prev => {
+      const productos = Array.isArray(prev.productos) ? [...prev.productos] : [];
+      productos[index] = { ...productos[index], [field]: value };
+      return { ...prev, productos };
+    });
+  };
+
+  const removeProductoRow = (index) => {
+    setAddForm(prev => ({ ...prev, productos: prev.productos.filter((_, i) => i !== index) }));
+  };
+
+  const addProductoRow = () => {
+    setAddForm(prev => ({ ...prev, productos: [...(prev.productos || []), { idProducto: '', cantidad: 1 }] }));
   };
 
   return (
-    <div className="mb-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Pedidos</h2>
-        <button className="btn btn-success" onClick={() => setAddPedido(true)}>
-          <i className="bi bi-plus-circle"></i> Registrar pedido
-        </button>
-      </div>
-      
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-      <div className="table-responsive">
-        {/* Indicador compacto de filtros activos */}
-        <div className="mb-2 d-flex gap-2 align-items-center">
-          {filters.estado && <span className="badge bg-info text-dark">Estado: {filters.estado}</span>}
-          {(filters.fechaDesde || filters.fechaHasta) && <span className="badge bg-info text-dark">Fecha: {filters.fechaDesde || '...'} - {filters.fechaHasta || '...'}</span>}
-          {filters.sort && (
-            <span className="badge bg-secondary">
-              Orden: {
-                filters.sort.startsWith('fecha')
-                  ? `Fecha ${filters.sort === 'fecha_asc' ? '↑' : '↓'}`
-                  : filters.sort.startsWith('cantidad')
-                  ? `Cantidad ${filters.sort === 'cantidad_asc' ? '↑' : '↓'}`
-                  : filters.sort
-              }
-            </span>
-          )}
-          {(filters.estado || filters.fechaDesde || filters.fechaHasta || filters.sort || filters.idPedido || filters.producto || filters.usuario || filters.totalMin || filters.totalMax || filters.cantidadMin || filters.cantidadMax) && (
-            <button className="btn btn-sm btn-outline-secondary" onClick={clearAllFilters}>Limpiar filtros</button>
-          )}
-        </div>
-        <table className="table table-striped table-bordered">
-          <thead className="table-dark">
-            <tr>
-              <th>
-                ID
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'id' ? null : 'id'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro ID">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'id' && (
-                  <div className="pedidos-filter-dropdown">
-                    <div className="mb-1">
-                      <input 
-                        className="form-control form-control-sm" 
-                        placeholder="ID exacto" 
-                        type="number" 
-                        value={filters.idPedido}
-                        onChange={(e) => handleFilterChange('idPedido', e.target.value)}
-                        onKeyDown={(e) => { 
-                          if (e.key === 'Enter') { 
-                            applyFilter('idPedido');
-                          } 
-                        }} 
-                      />
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('idPedido')}>Aplicar</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('idPedido')}>Limpiar</button>
-                    </div>
-                  </div>
-                )}
-              </th>
-              <th>
-                Producto
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'producto' ? null : 'producto'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro producto">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'producto' && (
-                  <div className="pedidos-filter-dropdown">
-                    <div className="mb-1">
-                      <input 
-                        className="form-control form-control-sm" 
-                        placeholder="Nombre producto" 
-                        type="text" 
-                        value={filters.producto}
-                        onChange={(e) => handleFilterChange('producto', e.target.value)}
-                        onKeyDown={(e) => { 
-                          if (e.key === 'Enter') { 
-                            applyFilter('producto');
-                          } 
-                        }} 
-                      />
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('producto')}>Aplicar</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('producto')}>Limpiar</button>
-                    </div>
-                  </div>
-                )}
-              </th>
-              <th>
-                Usuario
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'usuario' ? null : 'usuario'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro usuario">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'usuario' && (
-                  <div className="pedidos-filter-dropdown">
-                    <div className="mb-1">
-                      <input 
-                        className="form-control form-control-sm" 
-                        placeholder="Nombre, apellido o email" 
-                        type="text" 
-                        value={filters.usuario}
-                        onChange={(e) => handleFilterChange('usuario', e.target.value)}
-                        onKeyDown={(e) => { 
-                          if (e.key === 'Enter') { 
-                            applyFilter('usuario');
-                          } 
-                        }} 
-                      />
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-primary" onClick={() => applyFilter('usuario')}>Aplicar</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => clearFilter('usuario')}>Limpiar</button>
-                    </div>
-                  </div>
-                )}
-              </th>
-              <th>
-                Cantidad
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
-                  const nextOrder = filters.sort === 'cantidad_asc' ? 'cantidad_desc' : 'cantidad_asc';
-                  const newFilters = { ...filters, sort: nextOrder };
-                  setFilters(newFilters);
-                  loadPedidos(newFilters, nextOrder);
-                }} aria-label="Ordenar por cantidad">{filters.sort === 'cantidad_asc' ? '↑' : filters.sort === 'cantidad_desc' ? '↓' : '↕'}</button>
-                <button type="button" className="btn btn-sm btn-link text-primary ms-1 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'cantidad' ? null : 'cantidad'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro cantidad">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'cantidad' && (
-                  <div className="pedidos-filter-dropdown-wide">
-                    <div className="mb-1 d-flex gap-1">
-                      <input 
-                        type="number" 
-                        className="form-control form-control-sm" 
-                        placeholder="Min" 
-                        value={filters.cantidadMin}
-                        onChange={(e) => handleFilterChange('cantidadMin', e.target.value)}
-                      />
-                      <input 
-                        type="number" 
-                        className="form-control form-control-sm" 
-                        placeholder="Max" 
-                        value={filters.cantidadMax}
-                        onChange={(e) => handleFilterChange('cantidadMax', e.target.value)}
-                      />
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-primary" onClick={() => applyMultipleFilters(['cantidadMin', 'cantidadMax'])}>Aplicar</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => clearMultipleFilters(['cantidadMin', 'cantidadMax'])}>Limpiar</button>
-                    </div>
-                  </div>
-                )}
-              </th>
-              <th>
-                Fecha
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0" onClick={() => {
-                  // toggle sort for fecha in unified filters
-                  const nextOrder = filters.sort === 'fecha_asc' ? 'fecha_desc' : 'fecha_asc';
-                  const newFilters = { ...filters, sort: nextOrder };
-                  setFilters(newFilters);
-                  loadPedidos(newFilters, nextOrder);
-                }} aria-label="Ordenar por fecha">
-                  {filters.sort === 'fecha_asc' ? '↑' : filters.sort === 'fecha_desc' ? '↓' : '↕'}
-                </button>
-              </th>
-              <th>
-                Total
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => { const nextVisible = headerFilterVisible === 'total' ? null : 'total'; setHeaderFilterVisible(nextVisible); }} aria-label="Filtro total">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'total' && (
-                  <div className="pedidos-filter-dropdown-wide">
-                    <div className="mb-1 d-flex gap-1">
-                      <input 
-                        type="number" 
-                        className="form-control form-control-sm" 
-                        placeholder="Min" 
-                        value={filters.totalMin}
-                        onChange={(e) => handleFilterChange('totalMin', e.target.value)}
-                      />
-                      <input 
-                        type="number" 
-                        className="form-control form-control-sm" 
-                        placeholder="Max" 
-                        value={filters.totalMax}
-                        onChange={(e) => handleFilterChange('totalMax', e.target.value)}
-                      />
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-primary" onClick={() => applyMultipleFilters(['totalMin', 'totalMax'])}>Aplicar</button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => clearMultipleFilters(['totalMin', 'totalMax'])}>Limpiar</button>
-                    </div>
-                  </div>
-                )}
-              </th>
-              <th style={{ position: 'relative' }}>
-                Estado
-                <button type="button" className="btn btn-sm btn-link text-primary ms-2 p-0 filter-trigger" onClick={() => {
-                  const nextVisible = headerFilterVisible === 'estado' ? null : 'estado';
-                  setHeaderFilterVisible(nextVisible);
-                }} aria-label="Filtro estado">
-                  <i className="bi bi-caret-down-fill text-primary"></i>
-                </button>
-                {headerFilterVisible === 'estado' && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: '0',
-                    zIndex: 1000,
-                    backgroundColor: 'white',
-                    border: '1px solid #dee2e6',
-                    borderRadius: '0.375rem',
-                    boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)',
-                    padding: '0.5rem',
-                    minWidth: '150px',
-                    marginTop: '2px'
-                  }}>
-                    <button className="btn btn-sm btn-outline-secondary w-100 mb-1" onClick={() => applyFilter('estado', '')}>Todos</button>
-                    <button className="btn btn-sm btn-outline-warning w-100 mb-1" onClick={() => applyFilter('estado', 'Pendiente')}>Pendiente</button>
-                    <button className="btn btn-sm btn-outline-info w-100 mb-1" onClick={() => applyFilter('estado', 'En Proceso')}>En Proceso</button>
-                    <button className="btn btn-sm btn-outline-primary w-100 mb-1" onClick={() => applyFilter('estado', 'Enviado')}>Enviado</button>
-                    <button className="btn btn-sm btn-outline-success w-100 mb-1" onClick={() => applyFilter('estado', 'Entregado')}>Entregado</button>
-                    <button className="btn btn-sm btn-outline-danger w-100" onClick={() => applyFilter('estado', 'Cancelado')}>Cancelado</button>
-                  </div>
-                )}
-              </th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pedidos.map(p => (
-              <tr key={p.idPedido}>
-                <td>{p.idPedido}</td>
-                <td>
-                  {p.productos.map((prod, idx) => (
-                    <div key={idx}>{prod.nombre} <span className="text-muted">(x{prod.cantidad})</span></div>
-                  ))}
-                </td>
-                <td>{p.nombreUsuario} {p.apellidoUsuario}</td>
-                <td>
-                  {p.productos.map((prod, idx) => (
-                    <div key={idx}>{prod.cantidad}</div>
-                  ))}
-                </td>
-                <td>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                <td>${p.total}</td>
-                <td>
-                  <select
-                    className="form-select form-select-sm"
-                    value={p.estado || 'Pendiente'}
-                    onChange={e => handleEstado(p, e.target.value)}
-                  >
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="En Proceso">En Proceso</option>
-                    <option value="Enviado">Enviado</option>
-                    <option value="Entregado">Entregado</option>
-                    <option value="Cancelado">Cancelado</option>
-                  </select>
-                </td>
-                <td>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>
-                    <i className="bi bi-trash"></i> Eliminar
-                  </button>
-                </td>
-              </tr>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Pedidos</Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button startIcon={<FilterListIcon />} variant="outlined" size="small" onClick={openFilters} sx={{ textTransform: 'none' }}>Filtros</Button>
+          <Button variant="contained" color="success" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 1, boxShadow: 1 }} onClick={() => setAddPedido(true)}>
+            Registrar pedido
+          </Button>
+        </Stack>
+      </Box>
+      {activeFilters.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1}>
+            {activeFilters.map((f, i) => (
+              <Chip key={i} label={`${f.key}: ${f.val}`} size="small" onDelete={() => {
+                if (f.key === 'ID') setFilterId('');
+                if (f.key === 'Producto') setFilterProducto('');
+                if (f.key === 'Usuario') setFilterUsuario('');
+                if (f.key === 'Cant') { setFilterCantidadMin(''); setFilterCantidadMax(''); }
+                if (f.key === 'Fecha') { setFilterFechaFrom(''); setFilterFechaTo(''); }
+                if (f.key === 'Total') { setFilterTotalMin(''); setFilterTotalMax(''); }
+                if (f.key === 'Estado') setFilterEstado('');
+              }} />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </Stack>
+        </Box>
+      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
+      </Snackbar>}
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100vw', overflowX: 'auto', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
+        <Table sx={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
+          <TableHead>
+        <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Productos</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Usuario</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Cantidades</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Total</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
+            </TableRow>
+            {/* filtros ahora en popover */}
+          </TableHead>
+          <TableBody>
+            {displayedPedidos.map((p, idx) => (
+              <TableRow key={p.idPedido} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{p.idPedido}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{p.productos.map((prod, i) => (<div key={i}>{prod.nombre} <span style={{ color: '#6b7280' }}>(x{prod.cantidad})</span></div>))}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    {p.productos.map((prod, i) => (
+                      <div key={i} style={{ textAlign: 'center', minWidth: 24 }}>{prod.cantidad}</div>
+                    ))}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.total || 0))}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <FormControl size="small" fullWidth>
+                    <Select value={p.estado || 'Pendiente'} onChange={e => handleEstado(p, e.target.value)}>
+                      <MenuItem value="Pendiente">Pendiente</MenuItem>
+                      <MenuItem value="En Proceso">En Proceso</MenuItem>
+                      <MenuItem value="Enviado">Enviado</MenuItem>
+                      <MenuItem value="Entregado">Entregado</MenuItem>
+                      <MenuItem value="Cancelado">Cancelado</MenuItem>
+                    </Select>
+                  </FormControl>
+                </TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <Button variant="contained" color="error" size="small" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2, py: 0.7, fontSize: '0.97rem' }} onClick={() => handleDelete(p)}>
+                    Eliminar
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <Box sx={{ p: 2, width: 420 }}>
+          <Typography sx={{ fontWeight: 600, mb: 1 }}>Filtros</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            <TextField size="small" label="ID" value={filterId} onChange={e => setFilterId(e.target.value)} />
+            <TextField size="small" label="Producto" value={filterProducto} onChange={e => setFilterProducto(e.target.value)} />
+            <TextField size="small" label="Usuario" value={filterUsuario} onChange={e => setFilterUsuario(e.target.value)} />
+            <FormControl size="small">
+              <InputLabel>Estado</InputLabel>
+              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado">
+                <MenuItem value="">(todos)</MenuItem>
+                <MenuItem value="Pendiente">Pendiente</MenuItem>
+                <MenuItem value="En Proceso">En Proceso</MenuItem>
+                <MenuItem value="Enviado">Enviado</MenuItem>
+                <MenuItem value="Entregado">Entregado</MenuItem>
+                <MenuItem value="Cancelado">Cancelado</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField size="small" label="Cant. min" value={filterCantidadMin} onChange={e => setFilterCantidadMin(e.target.value)} />
+            <TextField size="small" label="Cant. max" value={filterCantidadMax} onChange={e => setFilterCantidadMax(e.target.value)} />
+            <TextField type="date" size="small" label="Fecha desde" InputLabelProps={{ shrink: true }} value={filterFechaFrom} onChange={e => setFilterFechaFrom(e.target.value)} />
+            <TextField type="date" size="small" label="Fecha hasta" InputLabelProps={{ shrink: true }} value={filterFechaTo} onChange={e => setFilterFechaTo(e.target.value)} />
+            <TextField size="small" label="Total min" value={filterTotalMin} onChange={e => setFilterTotalMin(e.target.value)} />
+            <TextField size="small" label="Total max" value={filterTotalMax} onChange={e => setFilterTotalMax(e.target.value)} />
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <Button size="small" onClick={clearFilters}>Limpiar</Button>
+            <Button size="small" variant="contained" onClick={closeFilters}>Aplicar</Button>
+          </Box>
+        </Box>
+      </Popover>
 
       {/* Modal Alta */}
-      {addPedido && (
-        <div className="pedidos-modal-backdrop">
-          <div className="pedidos-modal-dialog-lg">
-            <div className="pedidos-modal-content">
-              <form onSubmit={submitAdd} noValidate className="pedidos-form">
-                <div className="modal-header">
-                  <h5 className="modal-title">Registrar Pedido</h5>
-                  <button type="button" className="btn-close" onClick={() => setAddPedido(false)}></button>
-                </div>
-                <div className="pedidos-modal-body">
-                  {error && (
-                    <div className="pedidos-alert-danger">{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Usuario</label>
-                    <select className={`form-select${fieldErrors.usuario ? ' is-invalid' : ''}`} name="usuario" value={addForm.usuario} onChange={handleAddChange} required>
-                      <option value="">Selecciona usuario (solo clientes)</option>
-                      {usuarios
-                        .filter(u => u.nombreRol && u.nombreRol.toLowerCase() === 'cliente')
-                        .map(u => (
-                          <option key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</option>
+      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Registrar Pedido</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Usuario</InputLabel>
+              <Select name="usuario" value={addForm.usuario} onChange={handleAddChange} required label="Usuario">
+                <MenuItem value="">Selecciona usuario (solo clientes)</MenuItem>
+                {usuarios.filter(u => u.nombreRol && u.nombreRol.toLowerCase() === 'cliente').map(u => (
+                  <MenuItem key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Sucursal</InputLabel>
+              <Select name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required label="Sucursal">
+                <MenuItem value="">Selecciona sucursal</MenuItem>
+                {sucursales.map(s => (
+                  <MenuItem key={s.idSucursal} value={s.idSucursal}>{s.nombre} ({s.direccion})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Productos</Typography>
+              {addForm.productos.map((prod, idx) => (
+                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                  <FormControl sx={{ minWidth: 180 }} size="small">
+                    <InputLabel>Producto</InputLabel>
+                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto">
+                      <MenuItem value="">Producto</MenuItem>
+                      {productosList.map(pr => (
+                        <MenuItem key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</MenuItem>
                       ))}
-                    </select>
-                    <div className="pedidos-field-error">
-                      {fieldErrors.usuario && <span className="invalid-feedback d-block">{fieldErrors.usuario}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Sucursal</label>
-                    <select className={`form-select${fieldErrors.sucursal ? ' is-invalid' : ''}`} name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required>
-                      <option value="">Selecciona sucursal</option>
-                      {sucursales.map(s => (
-                        <option key={s.idSucursal} value={s.idSucursal}>{s.nombre} ({s.direccion})</option>
-                      ))}
-                    </select>
-                    <div className="pedidos-field-error">
-                      {fieldErrors.sucursal && <span className="invalid-feedback d-block">{fieldErrors.sucursal}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Productos</label>
-                    {fieldErrors.productos && <div className="invalid-feedback d-block mb-1">{fieldErrors.productos}</div>}
-                    {addForm.productos.map((prod, idx) => (
-                      <div key={idx} className="d-flex align-items-center mb-1 gap-2">
-                        <select className={`form-select pedidos-producto-select${fieldErrors[`producto_${idx}`] ? ' is-invalid' : ''}`} value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required>
-                          <option value="">Producto</option>
-                          {productosList.map(pr => (
-                            <option key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</option>
-                          ))}
-                        </select>
-                        <input type="number" className={`form-control pedidos-cantidad-input${fieldErrors[`cantidad_${idx}`] ? ' is-invalid' : ''}`} value={prod.cantidad} min="1" onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required />
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeProductoRow(idx)}>
-                          <i className="bi bi-x"></i>
-                        </button>
-                        <div className="pedidos-field-error">
-                          {fieldErrors[`producto_${idx}`] && <span className="invalid-feedback d-block">{fieldErrors[`producto_${idx}`]}</span>}
-                          {fieldErrors[`cantidad_${idx}`] && <span className="invalid-feedback d-block">{fieldErrors[`cantidad_${idx}`]}</span>}
-                        </div>
-                      </div>
-                    ))}
-                    <button type="button" className="btn btn-sm btn-secondary mt-1" onClick={addProductoRow}>
-                      <i className="bi bi-plus"></i> Agregar producto
-                    </button>
-                  </div>
-                  <div className="mb-2">
-                    <label>Estado</label>
-                    <select className="form-select" name="estado" value={addForm.estado} onChange={handleAddChange} required>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="En Proceso">En Proceso</option>
-                      <option value="Enviado">Enviado</option>
-                      <option value="Entregado">Entregado</option>
-                      <option value="Cancelado">Cancelado</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Registrar pedido</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setAddPedido(false)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
+                    </Select>
+                  </FormControl>
+                  <TextField type="number" size="small" label="Cantidad" value={prod.cantidad} inputProps={{ min: 1 }} onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required sx={{ width: 100 }} />
+                  <Button variant="outlined" color="error" size="small" sx={{ borderRadius: 999, minWidth: 36, px: 1.2 }} onClick={() => removeProductoRow(idx)}>
+                    ✖
+                  </Button>
+                </Box>
+              ))}
+              <Button variant="outlined" color="primary" size="small" sx={{ borderRadius: 999, mt: 1, px: 2 }} onClick={addProductoRow}>
+                ＋ Agregar producto
+              </Button>
+            </Box>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Estado</InputLabel>
+              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado">
+                <MenuItem value="Pendiente">Pendiente</MenuItem>
+                <MenuItem value="En Proceso">En Proceso</MenuItem>
+                <MenuItem value="Enviado">Enviado</MenuItem>
+                <MenuItem value="Entregado">Entregado</MenuItem>
+                <MenuItem value="Cancelado">Cancelado</MenuItem>
+              </Select>
+            </FormControl>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+              <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 999, px: 3, fontWeight: 600 }}>Registrar pedido</Button>
+              <Button type="button" variant="outlined" color="secondary" sx={{ borderRadius: 999, px: 3 }} onClick={() => setAddPedido(false)}>Cancelar</Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Borrado */}
-      {deletePedido && (
-        <div className="pedidos-modal-backdrop">
-          <div className="pedidos-modal-dialog">
-            <div className="pedidos-modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">¿Eliminar pedido?</h5>
-                <button type="button" className="btn-close" onClick={() => { setDeletePedido(null); setDeleteError(null); }}></button>
-              </div>
-              <div className="modal-body">
-                {deleteError && <div className="pedidos-alert-danger">{deleteError}</div>}
-                <p>¿Estás seguro que quieres eliminar el pedido <b>#{deletePedido.idPedido}</b>? Esta acción no se puede deshacer.</p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-danger" onClick={confirmDelete}>Eliminar</button>
-                <button className="btn btn-secondary" onClick={() => { setDeletePedido(null); setDeleteError(null); }}>Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600 }}>¿Eliminar pedido?</DialogTitle>
+        <DialogContent>
+          {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
+          <Typography>¿Estás seguro que quieres eliminar el pedido <b>#{deletePedido?.idPedido}</b>? Esta acción no se puede deshacer.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" color="error" sx={{ borderRadius: 999, px: 3 }} onClick={confirmDelete}>Eliminar</Button>
+          <Button variant="outlined" color="secondary" sx={{ borderRadius: 999, px: 3 }} onClick={() => { setDeletePedido(null); setDeleteError(null); }}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 

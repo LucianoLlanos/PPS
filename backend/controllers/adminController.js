@@ -545,24 +545,79 @@ const reconcileStockProducto = (req, res) => {
 const actualizarProducto = (req, res) => {
   const { id } = req.params;
   const { nombre, descripcion, precio, stockTotal } = req.body;
+  console.log('[DEBUG actualizarProducto] id=', id);
+  console.log('[DEBUG actualizarProducto] body=', req.body);
+  console.log('[DEBUG actualizarProducto] files=', req.files ? req.files.map(f=>f.filename) : 'no files');
   
-  // Si se sube una nueva imagen, usarla; si no, mantener la existente
-  if (req.file) {
-    const nuevaImagen = req.file.filename;
-    const query =
-      'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=?, imagen=? WHERE idProducto=?';
-    connection.query(query, [nombre, descripcion, precio, stockTotal, nuevaImagen, id], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
-      res.json({ mensaje: 'Producto actualizado con nueva imagen' });
+  // Manejo de múltiples imágenes si vienen en req.files (Multer)
+  const nuevasImagenes = req.files ? req.files.map(f => f.filename) : [];
+
+  // Actualizar campos básicos primero
+  const baseQuery = 'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
+  connection.query(baseQuery, [nombre, descripcion, precio, stockTotal, id], (err) => {
+    if (err) {
+      console.error('[ERROR actualizarProducto] baseQuery err=', err);
+      return res.status(500).json({ error: 'Error al actualizar producto' });
+    }
+    console.log('[DEBUG actualizarProducto] baseQuery OK for id=', id);
+    // Manejar eliminación solicitada de imágenes existentes (si viene removeImages en body)
+    let removeList = [];
+    if (req.body && req.body.removeImages) {
+      try {
+        removeList = typeof req.body.removeImages === 'string' ? JSON.parse(req.body.removeImages) : req.body.removeImages;
+      } catch (e) {
+        removeList = [];
+      }
+    }
+
+    const handleRemoveExisting = (done) => {
+      if (!removeList || removeList.length === 0) return done();
+      // Borrar filas de producto_imagenes y archivos del disco si existen
+      let remCount = 0;
+      removeList.forEach((filename) => {
+        connection.query('DELETE FROM producto_imagenes WHERE producto_id = ? AND imagen = ?', [id, filename], (errRem) => {
+          if (errRem) console.error('[ERROR] al borrar fila imagen DB:', errRem);
+          // intentar borrar archivo fisico
+          const imgPath = require('path').join(__dirname, '..', 'uploads', filename);
+          const fs = require('fs');
+          fs.unlink(imgPath, (unlinkErr) => {
+            // ignorar errores de unlink (archivo puede no existir)
+            remCount++;
+            if (remCount === removeList.length) done();
+          });
+        });
+      });
+    };
+
+    handleRemoveExisting(() => {
+      // Si no hay nuevas imágenes, respondemos ya después de procesar remociones
+      if (!nuevasImagenes || nuevasImagenes.length === 0) {
+        return res.json({ mensaje: 'Producto actualizado' });
+      }
+
+      // Insertar nuevas imágenes en producto_imagenes y actualizar imagen principal
+      connection.query('SELECT MAX(orden) AS maxOrden FROM producto_imagenes WHERE producto_id = ?', [id], (err2, rows) => {
+        if (err2) return res.status(500).json({ error: 'Error al obtener orden de imágenes' });
+        let startOrden = (rows && rows[0] && rows[0].maxOrden != null) ? rows[0].maxOrden + 1 : 0;
+
+        let inserted = 0;
+        nuevasImagenes.forEach((img) => {
+          connection.query('INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [id, img, startOrden++], (err3) => {
+            if (err3) console.error('[ERROR] al insertar imagen:', err3);
+            inserted++;
+            if (inserted === nuevasImagenes.length) {
+              // Actualizar imagen principal en tabla productos al primer archivo nuevo (si se desea)
+              const primera = nuevasImagenes[0];
+              connection.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [primera, id], (err4) => {
+                if (err4) console.error('[ERROR] al actualizar imagen principal:', err4);
+                return res.json({ mensaje: 'Producto actualizado con nuevas imágenes' });
+              });
+            }
+          });
+        });
+      });
     });
-  } else {
-    const query =
-      'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
-    connection.query(query, [nombre, descripcion, precio, stockTotal, id], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
-      res.json({ mensaje: 'Producto actualizado' });
-    });
-  }
+  });
 };
 
 const eliminarProducto = (req, res) => {
@@ -647,23 +702,28 @@ const listarPedidos = (req, res) => {
   }
 
   // Filtrar por total del pedido (subconsulta que suma cantidad * precioUnitario)
-  if (totalMin) {
+  // Aceptar 0 y valores numéricos enviados como strings. Ignorar valores vacíos o no numéricos.
+  const parsedTotalMin = typeof totalMin !== 'undefined' && totalMin !== '' ? Number(totalMin) : undefined;
+  const parsedTotalMax = typeof totalMax !== 'undefined' && totalMax !== '' ? Number(totalMax) : undefined;
+  if (typeof parsedTotalMin !== 'undefined' && !isNaN(parsedTotalMin)) {
     where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
-    params.push(totalMin);
+    params.push(parsedTotalMin);
   }
-  if (totalMax) {
+  if (typeof parsedTotalMax !== 'undefined' && !isNaN(parsedTotalMax)) {
     where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
-    params.push(totalMax);
+    params.push(parsedTotalMax);
   }
 
   // Filtrar por cantidad total (sum cantidad)
-  if (cantidadMin) {
+  const parsedCantidadMin = typeof cantidadMin !== 'undefined' && cantidadMin !== '' ? Number(cantidadMin) : undefined;
+  const parsedCantidadMax = typeof cantidadMax !== 'undefined' && cantidadMax !== '' ? Number(cantidadMax) : undefined;
+  if (typeof parsedCantidadMin !== 'undefined' && !isNaN(parsedCantidadMin)) {
     where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
-    params.push(cantidadMin);
+    params.push(parsedCantidadMin);
   }
-  if (cantidadMax) {
+  if (typeof parsedCantidadMax !== 'undefined' && !isNaN(parsedCantidadMax)) {
     where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
-    params.push(cantidadMax);
+    params.push(parsedCantidadMax);
   }
 
   if (where.length) sql += ' WHERE ' + where.join(' AND ');

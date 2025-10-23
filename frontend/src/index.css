@@ -19,7 +19,7 @@ body {
   background-color: #f8f9fa;
   color: #212529;
   line-height: 1.5;
-  padding-top: 76px; /* Altura del navbar */
+  padding-top: 10px; /* Altura del navbar (ajustada a 10px) */
   min-height: 100vh;
 }
 

@@ -168,3 +168,96 @@
 .usuarios-badge-client {
   background-color: #007bff;
 }
+
+/* ------------------------------------------------------------------
+   Apple-like overrides scoped to .usuarios-card
+   These rules adapt the Productos/AdminTables look to Usuarios
+   ------------------------------------------------------------------ */
+.usuarios-card {
+  background: linear-gradient(180deg,#ffffff,#fbfcfd);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 20px 48px rgba(15,23,42,0.06);
+  border: 1px solid rgba(15,23,42,0.04);
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, system-ui;
+}
+
+.usuarios-card .table-responsive {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 6px 20px rgba(15,23,42,0.03) inset;
+  box-sizing: border-box;
+  overflow-x: auto;
+  padding-right: 48px;
+}
+
+.usuarios-card .apple-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.usuarios-card .apple-table thead th {
+  background: linear-gradient(180deg,#ffffff,#f3f6f9) !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  padding: 0.85rem 1rem !important;
+  border-bottom: none !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  font-size: 0.78rem !important;
+}
+
+.usuarios-card .apple-table tbody td {
+  background: #fff !important;
+  padding: 0.75rem 0.9rem !important;
+  border-top: 1px solid rgba(15,23,42,0.04) !important;
+  vertical-align: middle !important;
+  color: #374151 !important;
+}
+
+.usuarios-card .apple-table tbody tr:hover { background: rgba(15,23,42,0.035) !important; }
+
+/* Ajustes de columnas */
+.usuarios-card .apple-table thead th:first-child,
+.usuarios-card .apple-table tbody td:first-child { min-width: 40px; width: 40px; }
+
+.usuarios-card .apple-table thead th:nth-child(4),
+.usuarios-card .apple-table tbody td:nth-child(4) { min-width: 220px; }
+
+/* Acciones */
+.usuarios-card .apple-table thead th:last-child,
+.usuarios-card .apple-table tbody td:last-child {
+  min-width: 140px !important;
+  width: 140px !important;
+  text-align: center !important;
+}
+
+.usuarios-card .apple-table td:last-child .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+}
+
+@media (max-width: 992px) {
+  .usuarios-card .apple-table thead th:last-child,
+  .usuarios-card .apple-table tbody td:last-child { min-width: 100px !important; width: 100px !important; }
+  .usuarios-card .apple-table td:last-child .btn { padding: 8px !important; font-size: 0 !important; width: 40px; height: 40px; border-radius: 50%; }
+  .usuarios-card .apple-table td:last-child .btn .bi { font-size: 18px !important; margin: 0 !important; }
+}
+
+/* Truncado para direcciones largas */
+.usuarios-card .direccion-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-clamp: 2; overflow: hidden; text-overflow: ellipsis; max-height: calc(1.2rem * 2); }
+
+/* --- Unificación de tipografía encabezado Apple-like (máxima especificidad) --- */
+.usuarios-card .apple-table thead th, .usuarios-card .table thead th {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 0.85rem !important;
+}

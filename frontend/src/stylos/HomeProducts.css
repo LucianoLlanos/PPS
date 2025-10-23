@@ -16,6 +16,31 @@
   margin-bottom: 0.5rem;
 }
 
+/* Hero styles for catalog page */
+.catalog-hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.catalog-hero .brand {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #0b2545;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.6rem;
+}
+.catalog-hero .search-box {
+  width: 100%;
+  /* keep the search box visually narrower than the hero but centered; restore previous sensible width */
+  max-width: 720px;
+  box-shadow: 0 8px 28px rgba(13,38,59,0.06);
+  border-radius: 12px;
+  padding: 14px;
+  background: white;
+}
+
 .home-products-subtitle {
   font-size: 1.25rem;
   color: #718096;
@@ -140,32 +165,64 @@
 
 .home-products-grid {
   display: grid;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+  justify-content: center;
 }
 
 .home-products-grid.grid-view {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
+
+/* Ensure cards don't expand beyond their maxWidth and grid centers items on wide screens */
+.home-products-grid.grid-view .product-card {
+  margin: 0 auto;
+  max-width: 300px;
+  width: 300px;
+  border-radius: 18px;
+  padding: 14px;
+}
+
+/* Ensure card width consistency at breakpoints */
+@media (min-width: 1200px) {
+  .home-products-grid.grid-view { grid-template-columns: repeat(4, 1fr); }
+  .home-products-grid.grid-view .product-card { max-width: 280px; }
+}
+
+/* Make the expandable text overlay so it doesn't push CardActions down */
+.product-card-content { padding-bottom: 72px; }
+.product-card-content .expandable-wrap {
+  transition: max-height 220ms ease;
+}
+.product-card-content .expandable-wrap.expanded {
+  position: relative !important;
+  background: #fff;
+  padding: 6px 0 0 0 !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  max-height: 140px !important; /* a bit more visible space so description shows further down */
+  overflow-y: auto !important;
+}
+.product-card-content .expandable-wrap.clamped { position: relative; }
 
 .home-products-grid.list-view {
   grid-template-columns: 1fr;
 }
 
 .home-products-card {
-  background: white;
-  border-radius: 0.75rem;
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(11, 37, 70, 0.06);
+  border: 1px solid rgba(11,37,70,0.06);
+  transition: transform 220ms ease, box-shadow 220ms ease;
   display: flex;
   flex-direction: column;
 }
 
 .home-products-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-10px);
+  box-shadow: 0 26px 60px rgba(11, 37, 70, 0.12);
 }
 
 .home-products-card.list-view {
@@ -179,7 +236,7 @@
 }
 
 .home-products-image-container.grid-view {
-  aspect-ratio: 4/3;
+  height: 240px; /* match carousel height */
 }
 
 .home-products-image-container.list-view {
@@ -214,10 +271,10 @@
 }
 
 .home-products-content {
-  padding: 1.5rem;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+    padding: 1rem 1.25rem;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .home-products-content.list-view {
@@ -256,9 +313,9 @@
 }
 
 .home-products-price {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2d3748;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #0b2545;
 }
 
 .home-products-add-btn {
@@ -414,26 +471,65 @@
 }
 
 .product-card {
-  padding: 12px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
 }
 
+/* Make sure long descriptions wrap and the card can grow vertically */
+.product-card { min-width: 0; }
+.product-card .expandable-wrap { overflow: hidden; }
+.product-card .expandable-content, .home-products-grid .product-card .expandable-content {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  overflow: hidden !important;
+  /* slightly larger base size to reduce perceived jump on expand */
+  font-size: 0.86rem !important;
+  line-height: 1.28 !important;
+}
+.product-card .expandable-content.expanded, .home-products-grid .product-card .expandable-content.expanded {
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  display: block !important;
+  /* make expanded font-size only slightly larger to avoid huge jumps */
+  font-size: 0.90rem !important;
+  line-height: 1.32 !important;
+}
+.product-expandable + .servicios-leer-mas { margin-top: 6px; display: inline-block; font-size: 0.82rem !important; }
+
+/* Position the toggle button absolutely so it doesn't push CardActions. It will sit just above the actions area. */
+.product-card .servicios-leer-mas {
+  position: absolute !important;
+  bottom: 82px !important; /* sits above the CardActions and slightly higher to account for larger expanded area */
+  left: 12px !important;
+  right: 12px !important;
+  display: block !important;
+  text-align: left !important;
+  background: transparent !important;
+  padding: 4px 0 !important;
+  z-index: 90 !important;
+}
+
+/* When the wrapper is clamped and smaller, keep the inline margin so layout doesn't jump */
+.product-card .expandable-wrap.clamped + .servicios-leer-mas { position: absolute !important; bottom: 70px !important; }
+
 .product-image-container {
-  height: 160px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  border-radius: 12px;
 }
 
 .product-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .product-title {
@@ -447,11 +543,69 @@
   min-height: 40px;
 }
 
+/* Force wrapping and avoid overflow on very long words or sequences */
+.product-card .expandable-content, .product-card .expandable-wrap {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* Prevent description text from widening the card: ensure content stays within card's width */
+.product-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.product-card, .product-card * {
+  box-sizing: border-box;
+}
+
+.product-card .expandable-wrap, .product-card .expandable-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* When expanded, allow the text area to scroll internally but keep the card height fixed */
+.product-card .expandable-wrap.expanded {
+  max-height: 200px !important; /* limit visible expanded area and allow more vertical description */
+  overflow-y: auto !important;
+  padding-bottom: 96px !important; /* reserve more space so expanded text isn't hidden behind CardActions */
+}
+
+.product-card .expandable-wrap.clamped {
+  overflow: hidden !important;
+}
+
+/* Ensure grid items don't force a wider column */
+.home-products-grid .MuiGrid-item, .home-products-grid > div {
+  min-width: 0 !important;
+}
+
+/* Keep overlay texts from forcing width */
+.home-products-content, .home-products-content * {
+  min-width: 0 !important;
+}
+
+/* On wide cards, let the description area be comfortably narrow so text flows down */
+@media (min-width: 1200px) {
+  .product-card .expandable-content { max-width: 80% !important; }
+}
+
 .product-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
+
+/* Card actions fixed appearance */
+.product-card-actions {
+    border-top: 1px solid rgba(15,23,42,0.03);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96));
 }
 
 .product-price {
@@ -482,4 +636,33 @@
 
 .pagination-info {
   padding: 6px 10px;
+}
+
+/* Force the top visual area of product cards to a fixed box so text expansion
+   doesn't resize images. Use high specificity to override inline/layout styles. */
+.product-card > div:first-child {
+  height: 220px !important;
+  min-height: 220px !important;
+  max-height: 220px !important;
+  overflow: hidden !important;
+}
+
+/* Ensure any img inside a product-card fills the fixed box without changing layout */
+.product-card img {
+  display: block !important;
+  width: 100% !important;
+  height: 220px !important;
+  max-height: 220px !important;
+  object-fit: cover !important;
+}
+
+/* Strengthen rules for carousel images specifically when rendered inside product cards */
+.product-card .carousel-image {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 220px !important;
+  object-fit: cover !important;
+  max-height: 220px !important;
 }

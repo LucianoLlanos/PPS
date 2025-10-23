@@ -1,0 +1,71 @@
+/* Wrapper and content basics */
+.expandable-wrap { overflow: hidden; }
+.expandable-content { white-space: normal; /* allow wrapping */
+  overflow-wrap: anywhere; /* prefer break opportunities */
+  word-break: break-word; /* fallback */
+}
+
+.servicios-leer-mas {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  padding: 6px 0;
+  font-size: 0.85rem;
+}
+
+/* Dialog content styling for ExpandableText modal */
+.expandable-dialog-content {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  color: #374151;
+  font-size: 0.95rem;
+  line-height: 1.4rem;
+}
+
+/* Prefer modern line-clamp when available (no JS or inline styles required) */
+.expandable-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* lines-N helpers provide a fallback max-height based on ems for browsers without -webkit-line-clamp support */
+.lines-1.expandable-content, .lines-1.expandable-wrap { -webkit-line-clamp: 1; line-clamp: 1; }
+.lines-2.expandable-content, .lines-2.expandable-wrap { -webkit-line-clamp: 2; line-clamp: 2; }
+.lines-3.expandable-content, .lines-3.expandable-wrap { -webkit-line-clamp: 3; }
+.lines-4.expandable-content, .lines-4.expandable-wrap { -webkit-line-clamp: 4; }
+.lines-5.expandable-content, .lines-5.expandable-wrap { -webkit-line-clamp: 5; }
+.lines-6.expandable-content, .lines-6.expandable-wrap { -webkit-line-clamp: 6; }
+.lines-7.expandable-content, .lines-7.expandable-wrap { -webkit-line-clamp: 7; }
+.lines-8.expandable-content, .lines-8.expandable-wrap { -webkit-line-clamp: 8; }
+
+/* Fallback: set approximate max-height using em (1.2em per line) on the wrapper when clamped */
+.expandable-wrap.clamped.lines-1 { max-height: 1.2em; }
+.expandable-wrap.clamped.lines-2 { max-height: 2.4em; }
+.expandable-wrap.clamped.lines-3 { max-height: 3.6em; }
+.expandable-wrap.clamped.lines-4 { max-height: 4.8em; }
+.expandable-wrap.clamped.lines-5 { max-height: 6.0em; }
+.expandable-wrap.clamped.lines-6 { max-height: 7.2em; }
+.expandable-wrap.clamped.lines-7 { max-height: 8.4em; }
+.expandable-wrap.clamped.lines-8 { max-height: 9.6em; }
+
+.expandable-wrap.expanded { max-height: none; }
+.expandable-content.expanded { -webkit-line-clamp: unset; display: block; font-size: 0.8rem !important; line-height: 1.25rem !important; }
+
+/* Admin specific: force clamp with higher specificity to avoid any accidental inline overrides */
+
+/* Admin/service card overrides: keep 2 lines clamped by default in product-like cards */
+.servicio-card .expandable-wrap.clamped { max-height: 2.4em !important; overflow: hidden !important; }
+.servicio-card .expandable-wrap.expanded { max-height: none !important; overflow: visible !important; }
+
+/* Extra overrides targeting the inner content element as well, in case inline styles are present */
+.servicio-card .expandable-content { display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; line-clamp: 2 !important; overflow: hidden !important; max-width: 100% !important; }
+.servicio-card .expandable-content.expanded { -webkit-line-clamp: unset !important; line-clamp: unset !important; display: block !important; overflow: visible !important; }
+
+/* Generic product-card specific clamp: ensure product listings use 2-line clamp */
+.product-card .expandable-wrap.clamped { max-height: 2.4em !important; }
+.product-card .expandable-wrap.clamped .expandable-content { line-height: 1.2rem !important; }
+.product-card .expandable-content { max-width: 100% !important; width: 100% !important; white-space: normal !important; overflow-wrap: anywhere !important; word-break: break-word !important; }
+.product-card .expandable-content.lines-2 { -webkit-line-clamp: 2 !important; line-clamp: 2 !important; }

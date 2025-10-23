@@ -3,25 +3,34 @@ const CART_KEY_PREFIX = 'app_cart_v2_user_';
 // Función para obtener el usuario actual desde el store de auth
 function getCurrentUser() {
   try {
-    // Leer directamente del localStorage ya que useAuthStore puede no estar disponible aquí
+    // Leer directamente del localStorage. soportar dos formatos:
+    // 1) la key 'user' (nuevo store useAuthStore)
+    // 2) la key 'auth-store' (posible formato anterior)
+    const rawUser = localStorage.getItem('user');
+    if (rawUser) {
+      try { return JSON.parse(rawUser); } catch { return null; }
+    }
     const authData = localStorage.getItem('auth-store');
     if (authData) {
-      const parsed = JSON.parse(authData);
-      return parsed.state?.user || null;
+      try {
+        const parsed = JSON.parse(authData);
+        return parsed.state?.user || null;
+      } catch { return null; }
     }
     return null;
-  } catch (e) {
+  } catch { /* ignore */
     return null;
   }
 }
 
 function getUserCartKey() {
   const user = getCurrentUser();
-  if (!user || !user.idUsuario) {
+  const id = user && (user.idUsuario || user.id || user.idUser || user.userId);
+  if (!user || !id) {
     // Si no hay usuario logueado, usar carrito temporal
     return CART_KEY_PREFIX + 'guest';
   }
-  return CART_KEY_PREFIX + user.idUsuario;
+  return CART_KEY_PREFIX + id;
 }
 
 function read() {
@@ -29,7 +38,7 @@ function read() {
     const cartKey = getUserCartKey();
     const raw = localStorage.getItem(cartKey);
     return raw ? JSON.parse(raw) : [];
-  } catch (e) {
+  } catch { /* ignore */
     return [];
   }
 }
@@ -68,6 +77,15 @@ export function getCount() {
 }
 
 export function addToCart(product, qty = 1) {
+  // prevent admins from adding to cart
+  try {
+    const user = getCurrentUser();
+    if (user && Number(user.idRol) === 3) {
+      // dispatch an event so UI can notify the user
+      window.dispatchEvent(new CustomEvent('cart:forbidden', { detail: { message: 'Administradores no pueden agregar al carrito' } }));
+      return null;
+    }
+  } catch { /* ignore */ }
   // Normalizar el producto para asegurar que el precio sea un número
   const normalizedProduct = {
     ...product,
@@ -178,7 +196,7 @@ export function migrateGuestCart(user) {
       localStorage.removeItem(guestCartKey);
       window.dispatchEvent(new CustomEvent('cart:updated', { detail: { count: getCount() } }));
     }
-  } catch (e) {
+  } catch { /* ignore */
     // Error silencioso al migrar carrito
   }
 }
@@ -186,10 +204,18 @@ export function migrateGuestCart(user) {
 // Limpiar carrito del usuario actual al cerrar sesión
 export function clearUserCart() {
   const user = getCurrentUser();
-  if (user && user.idUsuario) {
-    const userCartKey = CART_KEY_PREFIX + user.idUsuario;
-    localStorage.removeItem(userCartKey);
-  }
+  // remove both user-specific cart and guest cart to ensure no leftover items
+  try {
+    if (user) {
+      const id = user.idUsuario || user.id || user.idUser || user.userId;
+      if (id) {
+        const userCartKey = CART_KEY_PREFIX + id;
+        localStorage.removeItem(userCartKey);
+      }
+    }
+    // always remove guest cart as well
+    localStorage.removeItem(CART_KEY_PREFIX + 'guest');
+  } catch { /* ignore */ }
   window.dispatchEvent(new CustomEvent('cart:updated', { detail: { count: 0 } }));
 }
 
@@ -213,7 +239,7 @@ export function migrateOldCart() {
       // Limpiar carrito viejo
       localStorage.removeItem(OLD_CART_KEY);
     }
-  } catch (e) {
+  } catch { /* ignore */
     // Error silencioso al migrar carrito v1
   }
 }

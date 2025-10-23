@@ -19,17 +19,18 @@ import cart from './utils/cart';
 import { useEffect, useState } from 'react';
 
 function App() {
-  const user = useAuthStore((s) => s.user);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
-  const [cartCount, setCartCount] = useState(cart.getCount());
+  // user and clearAuth are currently unused in this component; keep hooks if needed later
+  useAuthStore((s) => s.user);
+  useAuthStore((s) => s.clearAuth);
+  const [_, setCartCount] = useState(cart.getCount());
 
   useEffect(() => {
-    const h = (e) => setCartCount(cart.getCount());
+    const h = () => setCartCount(cart.getCount());
     window.addEventListener('cart:updated', h);
     return () => window.removeEventListener('cart:updated', h);
   }, []);
 
-  const handleLogin = (user) => {
+  const handleLogin = () => {
     // Store already updated by Login component
   };
   

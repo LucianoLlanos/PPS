@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import { getStatusInfo } from '../utils/statusColors';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
@@ -105,6 +106,28 @@ function Pedidos() {
     if (filterEstado && ((p.estado || '') !== filterEstado)) return false;
     return true;
   });
+
+  const renderStatusValue = (value) => {
+    const info = getStatusInfo(value);
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
+        <Box component="span" sx={{ color: info.color, fontWeight: 600, fontSize: '0.95rem' }}>{info.label || value}</Box>
+      </Box>
+    );
+  };
+
+  const renderStatusMenuItem = (value, label) => {
+    const info = getStatusInfo(value);
+    return (
+      <MenuItem value={value} key={value}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
+          <Box component="span" sx={{ color: info.color }}>{label}</Box>
+        </Box>
+      </MenuItem>
+    );
+  };
 
   // Handlers mínimos para evitar errores y mantener la lógica intacta
   const handleEstado = async (pedido, nuevoEstado) => {
@@ -277,13 +300,17 @@ function Pedidos() {
                 <TableCell sx={{ py: 1.2, px: 2 }}>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.total || 0))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <FormControl size="small" fullWidth>
-                    <Select value={p.estado || 'Pendiente'} onChange={e => handleEstado(p, e.target.value)}>
-                      <MenuItem value="Pendiente">Pendiente</MenuItem>
-                      <MenuItem value="En Proceso">En Proceso</MenuItem>
-                      <MenuItem value="Enviado">Enviado</MenuItem>
-                      <MenuItem value="Entregado">Entregado</MenuItem>
-                      <MenuItem value="Cancelado">Cancelado</MenuItem>
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <Select
+                      value={p.estado || 'Pendiente'}
+                      onChange={e => handleEstado(p, e.target.value)}
+                      renderValue={renderStatusValue}
+                    >
+                      {renderStatusMenuItem('Pendiente', 'Pendiente')}
+                      {renderStatusMenuItem('En Proceso', 'En Proceso')}
+                      {renderStatusMenuItem('Enviado', 'Enviado')}
+                      {renderStatusMenuItem('Entregado', 'Entregado')}
+                      {renderStatusMenuItem('Cancelado', 'Cancelado')}
                     </Select>
                   </FormControl>
                 </TableCell>
@@ -307,13 +334,13 @@ function Pedidos() {
             <TextField size="small" label="Usuario" value={filterUsuario} onChange={e => setFilterUsuario(e.target.value)} />
             <FormControl size="small">
               <InputLabel>Estado</InputLabel>
-              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado">
+              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')}>
                 <MenuItem value="">(todos)</MenuItem>
-                <MenuItem value="Pendiente">Pendiente</MenuItem>
-                <MenuItem value="En Proceso">En Proceso</MenuItem>
-                <MenuItem value="Enviado">Enviado</MenuItem>
-                <MenuItem value="Entregado">Entregado</MenuItem>
-                <MenuItem value="Cancelado">Cancelado</MenuItem>
+                {renderStatusMenuItem('Pendiente', 'Pendiente')}
+                {renderStatusMenuItem('En Proceso', 'En Proceso')}
+                {renderStatusMenuItem('Enviado', 'Enviado')}
+                {renderStatusMenuItem('Entregado', 'Entregado')}
+                {renderStatusMenuItem('Cancelado', 'Cancelado')}
               </Select>
             </FormControl>
             <TextField size="small" label="Cant. min" value={filterCantidadMin} onChange={e => setFilterCantidadMin(e.target.value)} />
@@ -379,12 +406,12 @@ function Pedidos() {
             </Box>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Estado</InputLabel>
-              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado">
-                <MenuItem value="Pendiente">Pendiente</MenuItem>
-                <MenuItem value="En Proceso">En Proceso</MenuItem>
-                <MenuItem value="Enviado">Enviado</MenuItem>
-                <MenuItem value="Entregado">Entregado</MenuItem>
-                <MenuItem value="Cancelado">Cancelado</MenuItem>
+              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado" renderValue={renderStatusValue}>
+                {renderStatusMenuItem('Pendiente', 'Pendiente')}
+                {renderStatusMenuItem('En Proceso', 'En Proceso')}
+                {renderStatusMenuItem('Enviado', 'Enviado')}
+                {renderStatusMenuItem('Entregado', 'Entregado')}
+                {renderStatusMenuItem('Cancelado', 'Cancelado')}
               </Select>
             </FormControl>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>

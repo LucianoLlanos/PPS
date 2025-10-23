@@ -10,7 +10,7 @@ export default function CarouselManager() {
     try {
       const res = await api.get('/seller/carousel');
       setSlides(res.data);
-    } catch (err) { /* Error silencioso */ }
+  } catch { /* Error silencioso */ }
   };
 
   useEffect(() => { fetch(); }, []);
@@ -27,7 +27,7 @@ export default function CarouselManager() {
       setSlides([...slides, res.data]);
       setForm({ title: '', caption: '', link: '' });
       setFile(null);
-    } catch (err) { /* Error silencioso */ }
+  } catch { /* Error silencioso */ }
   };
 
   const handleDelete = async (id) => {
@@ -35,7 +35,7 @@ export default function CarouselManager() {
     try {
       await api.delete('/seller/carousel/' + id);
       setSlides(slides.filter(s => s.id !== id));
-    } catch (err) { /* Error silencioso */ }
+  } catch { /* Error silencioso */ }
   };
 
   return (

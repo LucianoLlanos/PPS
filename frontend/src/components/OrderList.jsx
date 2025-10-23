@@ -43,7 +43,7 @@ export default function OrderList() {
     try {
       await api.put('/seller/orders/' + id + '/status', { status });
       setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
-    } catch (err) {
+    } catch {
       // Error silencioso
     }
   };

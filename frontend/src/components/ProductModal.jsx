@@ -22,6 +22,12 @@ export default function ProductModal({ product, onClose, onAdded }) {
       setTimeout(() => { navigate('/login'); }, 800);
       return;
     }
+    if (Number(user.idRol) === 3) {
+      // Administradores no pueden agregar al carrito
+      if (onAdded) onAdded('⚠️ Los administradores no pueden usar el carrito', 'warning');
+      onClose();
+      return;
+    }
     cart.addToCart(product, 1);
     if (onAdded) onAdded(`✅ ${title} agregado al carrito`, 'success');
     onClose();

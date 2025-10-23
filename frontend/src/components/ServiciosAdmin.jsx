@@ -1,6 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
-import '../stylos/admin/Admin.css';
+import {
+  Container,
+  Grid,
+  Paper,
+  Typography,
+  Button,
+  Select,
+  MenuItem,
+  TextField,
+  Chip,
+  Card,
+  CardHeader,
+  CardContent,
+  CardActions,
+  Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  CircularProgress
+} from '@mui/material';
+import ExpandableText from './ExpandableText';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import EditIcon from '@mui/icons-material/Edit';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import '../stylos/admin/ServiciosAdmin.css';
+import { STATUSES, getStatusInfo } from '../utils/statusColors';
 
 function ServiciosAdmin() {
   const [servicios, setServicios] = useState([]);
@@ -11,26 +38,16 @@ function ServiciosAdmin() {
   const [editandoServicio, setEditandoServicio] = useState(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [observaciones, setObservaciones] = useState('');
-  
-  // Estados para filtros de fecha
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [filtroFechaRapido, setFiltroFechaRapido] = useState('');
 
-  // Estados disponibles
-  const estados = [
-    { value: 'pendiente', label: 'Pendiente', color: '#ffc107', bgColor: '#fff3cd' },
-    { value: 'confirmado', label: 'Confirmado', color: '#17a2b8', bgColor: '#d1ecf1' },
-    { value: 'en_proceso', label: 'En Proceso', color: '#fd7e14', bgColor: '#fdf2e9' },
-    { value: 'completado', label: 'Completado', color: '#28a745', bgColor: '#d4edda' },
-    { value: 'cancelado', label: 'Cancelado', color: '#dc3545', bgColor: '#f8d7da' }
-  ];
+  // Los estados y colores vienen de ../utils/statusColors (STATUSES)
 
-  // Tipos de servicios
   const tiposServicio = {
-    'instalacion': 'Instalación de producto',
-    'mantenimiento': 'Mantenimiento',
-    'garantia': 'Arreglo por garantía'
+    instalacion: 'Instalación de producto',
+    mantenimiento: 'Mantenimiento',
+    garantia: 'Arreglo por garantía'
   };
 
   useEffect(() => {
@@ -41,7 +58,7 @@ function ServiciosAdmin() {
     setLoading(true);
     try {
       const response = await api.get('/servicios/admin/todas');
-      setServicios(response.data);
+      setServicios(response.data || []);
       setError(null);
     } catch (err) {
       setError('Error al cargar los servicios');
@@ -53,522 +70,268 @@ function ServiciosAdmin() {
 
   const filtrarServicios = () => {
     let serviciosFiltrados = [...servicios];
-
-    // Filtrar por estado
-    if (filtroEstado !== 'todos') {
-      serviciosFiltrados = serviciosFiltrados.filter(servicio => servicio.estado === filtroEstado);
-    }
-
-    // Filtrar por fechas
+    if (filtroEstado !== 'todos') serviciosFiltrados = serviciosFiltrados.filter(s => s.estado === filtroEstado);
     if (fechaDesde) {
-      const fechaDesdeObj = new Date(fechaDesde);
-      serviciosFiltrados = serviciosFiltrados.filter(servicio => {
-        const fechaCreacion = new Date(servicio.fechaCreacion);
-        return fechaCreacion >= fechaDesdeObj;
-      });
+      // Interpretar fechaDesde como inicio del día en zona local
+      const desde = new Date(fechaDesde + 'T00:00:00');
+      serviciosFiltrados = serviciosFiltrados.filter(s => new Date(s.fechaCreacion) >= desde);
     }
-
     if (fechaHasta) {
-      const fechaHastaObj = new Date(fechaHasta);
-      fechaHastaObj.setHours(23, 59, 59, 999); // Incluir todo el día
-      serviciosFiltrados = serviciosFiltrados.filter(servicio => {
-        const fechaCreacion = new Date(servicio.fechaCreacion);
-        return fechaCreacion <= fechaHastaObj;
-      });
+      // Interpretar fechaHasta como fin del día en zona local
+      const hasta = new Date(fechaHasta + 'T23:59:59.999');
+      serviciosFiltrados = serviciosFiltrados.filter(s => new Date(s.fechaCreacion) <= hasta);
     }
-
     return serviciosFiltrados;
   };
 
-  // Función para establecer filtros rápidos de fecha
   const aplicarFiltroFechaRapido = (filtro) => {
     const hoy = new Date();
+    // Formatea fecha en formato local 'YYYY-MM-DD'
+    const formatLocalDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     let desde = '';
     let hasta = '';
-
     switch (filtro) {
       case 'hoy':
-        desde = hoy.toISOString().split('T')[0];
-        hasta = hoy.toISOString().split('T')[0];
+        desde = hasta = formatLocalDate(hoy);
         break;
-      case 'semana':
+      case 'semana': {
         const inicioSemana = new Date(hoy);
+        // inicio de semana (domingo)
         inicioSemana.setDate(hoy.getDate() - hoy.getDay());
-        desde = inicioSemana.toISOString().split('T')[0];
-        hasta = hoy.toISOString().split('T')[0];
+        desde = formatLocalDate(inicioSemana);
+        hasta = formatLocalDate(hoy);
         break;
-      case 'mes':
+      }
+      case 'mes': {
         const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        desde = inicioMes.toISOString().split('T')[0];
-        hasta = hoy.toISOString().split('T')[0];
+        desde = formatLocalDate(inicioMes);
+        hasta = formatLocalDate(hoy);
         break;
-      case 'ultimo-mes':
-        const hace30dias = new Date(hoy);
-        hace30dias.setDate(hoy.getDate() - 30);
-        desde = hace30dias.toISOString().split('T')[0];
-        hasta = hoy.toISOString().split('T')[0];
+      }
+      case 'ultimo-mes': {
+        const hace30 = new Date(hoy);
+        hace30.setDate(hoy.getDate() - 30);
+        desde = formatLocalDate(hace30);
+        hasta = formatLocalDate(hoy);
         break;
+      }
       case 'limpiar':
-        desde = '';
-        hasta = '';
+        desde = hasta = '';
         setFiltroFechaRapido('');
+        break;
+      default:
         break;
     }
 
     setFechaDesde(desde);
     setFechaHasta(hasta);
-    if (filtro !== 'limpiar') {
-      setFiltroFechaRapido(filtro);
-    }
+    if (filtro !== 'limpiar') setFiltroFechaRapido(filtro);
   };
 
-  const getEstadoInfo = (estado) => {
-    return estados.find(e => e.value === estado) || { label: estado, color: '#6c757d', bgColor: '#f8f9fa' };
-  };
+  // Use helper centralizado
+  // getStatusInfo está importado desde ../utils/statusColors
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'No especificada';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatearFechaCorta = (fecha) => {
-    if (!fecha) return 'No especificada';
-    return new Date(fecha).toLocaleDateString('es-ES');
-  };
+  const formatearFechaCorta = (fecha) => fecha ? new Date(fecha).toLocaleDateString('es-ES') : 'No especificada';
 
   const handleCambiarEstado = async () => {
     if (!editandoServicio || !nuevoEstado) return;
-
     try {
-      await api.put(`/servicios/admin/solicitud/${editandoServicio.idSolicitud}`, {
-        estado: nuevoEstado,
-        observacionesAdmin: observaciones
-      });
-
+      await api.put(`/servicios/admin/solicitud/${editandoServicio.idSolicitud}`, { estado: nuevoEstado, observacionesAdmin: observaciones });
       setSuccess('Estado actualizado correctamente');
-      setEditandoServicio(null);
-      setNuevoEstado('');
-      setObservaciones('');
+      setEditandoServicio(null); setNuevoEstado(''); setObservaciones('');
       cargarServicios();
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('servicios:updated', { detail: { id: editandoServicio.idSolicitud, estado: nuevoEstado } }));
+      }
     } catch (err) {
-      setError('Error al actualizar el estado');
-      console.error('Error:', err);
+      setError('Error al actualizar el estado'); console.error(err);
     }
   };
 
-  const abrirModalEdicion = (servicio) => {
-    setEditandoServicio(servicio);
-    setNuevoEstado(servicio.estado);
-    setObservaciones(servicio.observacionesAdmin || '');
-  };
-
-  const cerrarModal = () => {
-    setEditandoServicio(null);
-    setNuevoEstado('');
-    setObservaciones('');
-  };
+  const abrirModalEdicion = (servicio) => { setEditandoServicio(servicio); setNuevoEstado(servicio.estado); setObservaciones(servicio.observacionesAdmin || ''); };
+  const cerrarModal = () => { setEditandoServicio(null); setNuevoEstado(''); setObservaciones(''); };
 
   const serviciosFiltrados = filtrarServicios();
 
-  if (loading) {
-    return (
-      <div className="admin-container">
-        <div className="loading-spinner">Cargando servicios...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <h1>
-          <i className="bi bi-tools me-2"></i>
-          Gestión de Servicios Post-Venta
-        </h1>
-        <button 
-          onClick={cargarServicios} 
-          className="btn btn-outline-primary"
-          disabled={loading}
-        >
-          <i className="bi bi-arrow-clockwise me-1"></i>
-          Actualizar
-        </button>
+    <Container maxWidth="lg" className="servicios-admin-container">
+      <div className="servicios-admin-header">
+        <div>
+          <Typography variant="h3" component="h1" className="servicios-title">Gestión de Servicios Post-Venta</Typography>
+          <Typography className="servicios-subtitle">Administra y modifica el estado de las solicitudes</Typography>
+        </div>
+        <div>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={cargarServicios} disabled={loading}>{loading ? <CircularProgress size={18} /> : 'Actualizar'}</Button>
+        </div>
       </div>
 
-      {/* Mensajes */}
-      {error && (
-        <div className="alert alert-danger alert-dismissible">
-          {error}
-          <button 
-            type="button" 
-            className="btn-close" 
-            onClick={() => setError(null)}
-          ></button>
+      {(error || success) && (
+        <div className="servicios-alerts">
+          {error && <Paper className="servicio-alert servicio-alert-error">{error}</Paper>}
+          {success && <Paper className="servicio-alert servicio-alert-success">{success}</Paper>}
         </div>
       )}
 
-      {success && (
-        <div className="alert alert-success alert-dismissible">
-          {success}
-          <button 
-            type="button" 
-            className="btn-close" 
-            onClick={() => setSuccess(null)}
-          ></button>
-        </div>
-      )}
-
-      {/* Filtros */}
-      <div className="filters-section mb-4">
-        <div className="row">
-          <div className="col-md-3">
-            <label className="form-label">Filtrar por estado:</label>
-            <select 
-              className="form-select"
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-            >
-              <option value="todos">Todos los estados</option>
-              {estados.map(estado => (
-                <option key={estado.value} value={estado.value}>
-                  {estado.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="col-md-9">
-            <label className="form-label">Filtros por fecha:</label>
-            <div className="row g-2">
-              {/* Filtros rápidos */}
-              <div className="col-md-6">
-                <div className="d-flex gap-2 flex-wrap">
-                  <button 
-                    className={`btn btn-sm ${filtroFechaRapido === 'hoy' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => aplicarFiltroFechaRapido('hoy')}
-                  >
-                    Hoy
-                  </button>
-                  <button 
-                    className={`btn btn-sm ${filtroFechaRapido === 'semana' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => aplicarFiltroFechaRapido('semana')}
-                  >
-                    Esta semana
-                  </button>
-                  <button 
-                    className={`btn btn-sm ${filtroFechaRapido === 'mes' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => aplicarFiltroFechaRapido('mes')}
-                  >
-                    Este mes
-                  </button>
-                  <button 
-                    className={`btn btn-sm ${filtroFechaRapido === 'ultimo-mes' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => aplicarFiltroFechaRapido('ultimo-mes')}
-                  >
-                    Últimos 30 días
-                  </button>
-                  <button 
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => aplicarFiltroFechaRapido('limpiar')}
-                  >
-                    <i className="bi bi-x-circle me-1"></i>
-                    Limpiar
-                  </button>
-                </div>
-              </div>
-              
-              {/* Filtros personalizados */}
-              <div className="col-md-6">
-                <div className="row g-2">
-                  <div className="col-6">
-                    <label className="form-label text-muted" style={{ fontSize: '0.85rem' }}>Desde:</label>
-                    <input 
-                      type="date"
-                      className="form-control form-control-sm"
-                      value={fechaDesde}
-                      onChange={(e) => {
-                        setFechaDesde(e.target.value);
-                        setFiltroFechaRapido(''); // Limpiar filtro rápido si se usa personalizado
-                      }}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label text-muted" style={{ fontSize: '0.85rem' }}>Hasta:</label>
-                    <input 
-                      type="date"
-                      className="form-control form-control-sm"
-                      value={fechaHasta}
-                      onChange={(e) => {
-                        setFechaHasta(e.target.value);
-                        setFiltroFechaRapido(''); // Limpiar filtro rápido si se usa personalizado
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+      <Paper className="servicios-filters-paper" elevation={1}>
+        <Grid container spacing={3} alignItems="flex-start">
+          <Grid item xs={12} md={4} className="servicios-filter-estado">
+            <Typography variant="subtitle2" className="servicios-subtitle2">Filtrar por estado</Typography>
+            <div className="servicios-filter-estado">
+              <Select fullWidth value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
+                <MenuItem value="todos">Todos los estados</MenuItem>
+                {STATUSES.map(e => <MenuItem key={e.value} value={e.value}>{e.label}</MenuItem>)}
+              </Select>
             </div>
-          </div>
-        </div>
-        
+          </Grid>
+
+          <Grid item xs={12} md={8} className="servicios-filter-fecha">
+            <Typography variant="subtitle2" className="servicios-subtitle2">Filtros por fecha</Typography>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={7}>
+                <div className="servicios-filter-fecha">
+                  <Button size="small" variant={filtroFechaRapido === 'hoy' ? 'contained' : 'outlined'} onClick={() => aplicarFiltroFechaRapido('hoy')}>Hoy</Button>
+                  <Button size="small" variant={filtroFechaRapido === 'semana' ? 'contained' : 'outlined'} onClick={() => aplicarFiltroFechaRapido('semana')}>Esta semana</Button>
+                  <Button size="small" variant={filtroFechaRapido === 'mes' ? 'contained' : 'outlined'} onClick={() => aplicarFiltroFechaRapido('mes')}>Este mes</Button>
+                  <Button size="small" variant={filtroFechaRapido === 'ultimo-mes' ? 'contained' : 'outlined'} onClick={() => aplicarFiltroFechaRapido('ultimo-mes')}>Últimos 30 días</Button>
+                  <Button size="small" variant="outlined" color="inherit" onClick={() => aplicarFiltroFechaRapido('limpiar')}>Limpiar</Button>
+                </div>
+              </Grid>
+              <Grid item xs={12} md={5} className="servicios-filter-dates">
+                <Grid container spacing={1}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Desde</Typography>
+                    <TextField fullWidth size="small" type="date" value={fechaDesde} onChange={(e) => { setFechaDesde(e.target.value); setFiltroFechaRapido(''); }} />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Hasta</Typography>
+                    <TextField fullWidth size="small" type="date" value={fechaHasta} onChange={(e) => { setFechaHasta(e.target.value); setFiltroFechaRapido(''); }} />
+                  </Grid>
+                </Grid>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+
         {/* Estadísticas */}
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <label className="form-label mb-2">Estadísticas {(fechaDesde || fechaHasta) && '(filtradas)'}:</label>
-                <div className="d-flex gap-3 align-items-center flex-wrap">
-                  {estados.map(estado => {
-                    const count = filtrarServicios().filter(s => s.estado === estado.value).length;
-                    return (
-                      <span key={estado.value} className="badge" style={{ 
-                        backgroundColor: estado.bgColor, 
-                        color: estado.color,
-                        fontSize: '0.9rem',
-                        padding: '8px 12px'
-                      }}>
-                        {estado.label}: {count}
-                      </span>
-                    );
-                  })}
-                  <span className="badge bg-dark">
-                    Total: {filtrarServicios().length}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Información de filtros activos */}
-              {(fechaDesde || fechaHasta || filtroEstado !== 'todos') && (
-                <div className="text-muted">
-                  <small>
-                    <i className="bi bi-funnel me-1"></i>
-                    Filtros activos
-                    {fechaDesde && (
-                      <span className="ms-2">
-                        <i className="bi bi-calendar-date me-1"></i>
-                        Desde: {new Date(fechaDesde).toLocaleDateString('es-ES')}
-                      </span>
-                    )}
-                    {fechaHasta && (
-                      <span className="ms-2">
-                        <i className="bi bi-calendar-date me-1"></i>
-                        Hasta: {new Date(fechaHasta).toLocaleDateString('es-ES')}
-                      </span>
-                    )}
-                  </small>
-                </div>
-              )}
-            </div>
-          </div>
+        <Divider className="divider-wide" />
+        <div className="servicios-stats">
+          {STATUSES.map(st => {
+            const count = filtrarServicios().filter(s => s.estado === st.value).length;
+            return <Chip key={st.value} label={`${st.label}: ${count}`} className={`estado-chip chip-${st.value}`} />;
+          })}
+          <Chip label={`Total: ${filtrarServicios().length}`} color="default" className="chip-total" />
         </div>
-      </div>
+      </Paper>
 
-      {/* Lista de servicios */}
-      <div className="services-grid">
-        {serviciosFiltrados.length === 0 ? (
-          <div className="text-center py-5">
-            <i className="bi bi-inbox display-1 text-muted"></i>
-            <p className="text-muted mt-3">
-              {filtroEstado === 'todos' 
-                ? 'No hay servicios registrados' 
-                : `No hay servicios con estado "${getEstadoInfo(filtroEstado).label}"`
-              }
-            </p>
-          </div>
-        ) : (
-          serviciosFiltrados.map(servicio => {
-            const estadoInfo = getEstadoInfo(servicio.estado);
+      {/* Lista de tarjetas */}
+      {serviciosFiltrados.length === 0 ? (
+        <Paper className="servicios-no-results">
+          <Typography variant="h6" color="text.secondary">No hay servicios</Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={2} alignItems="stretch">
+          {serviciosFiltrados.map(servicio => {
+            const estadoInfo = getStatusInfo(servicio.estado);
             return (
-              <div key={servicio.idSolicitud} className="service-card card mb-3">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="mb-0">
-                      <i className="bi bi-hash me-1"></i>
-                      Solicitud #{servicio.idSolicitud}
-                    </h6>
-                    <small className="text-muted">
-                      Creado: {formatearFecha(servicio.fechaCreacion)}
-                    </small>
-                  </div>
-                  <span 
-                    className="badge" 
-                    style={{ 
-                      backgroundColor: estadoInfo.bgColor, 
-                      color: estadoInfo.color,
-                      fontSize: '0.9rem',
-                      padding: '8px 12px'
-                    }}
-                  >
-                    {estadoInfo.label}
-                  </span>
-                </div>
-
-                <div className="card-body">
-                  <div className="row">
-                    <div className="col-md-6">
-                      <h6><i className="bi bi-person me-1"></i>Cliente</h6>
-                      <p className="mb-1">
-                        <strong>{servicio.nombre} {servicio.apellido}</strong>
-                      </p>
-                      <p className="mb-1 text-muted">
-                        <i className="bi bi-envelope me-1"></i>
-                        {servicio.email}
-                      </p>
-                      {servicio.telefono && (
-                        <p className="mb-3 text-muted">
-                          <i className="bi bi-telephone me-1"></i>
-                          {servicio.telefono}
-                        </p>
-                      )}
-
-                      <h6><i className="bi bi-geo-alt me-1"></i>Dirección</h6>
-                      <p className="mb-3">{servicio.direccion}</p>
-                    </div>
-
-                    <div className="col-md-6">
-                      <h6><i className="bi bi-tools me-1"></i>Tipo de Servicio</h6>
-                      <p className="mb-3">
-                        <span className="badge bg-info">
-                          {tiposServicio[servicio.tipoServicio] || servicio.tipoServicio}
-                        </span>
-                      </p>
-
-                      <h6><i className="bi bi-chat-text me-1"></i>Descripción</h6>
-                      <p className="mb-3">{servicio.descripcion}</p>
-
-                      {(servicio.fechaPreferida || servicio.horaPreferida) && (
-                        <>
-                          <h6><i className="bi bi-calendar me-1"></i>Fecha Preferida</h6>
-                          <p className="mb-3">
-                            {formatearFechaCorta(servicio.fechaPreferida)}
-                            {servicio.horaPreferida && ` a las ${servicio.horaPreferida}`}
-                          </p>
-                        </>
-                      )}
-
-                      {servicio.observacionesAdmin && (
-                        <>
-                          <h6><i className="bi bi-clipboard me-1"></i>Observaciones Admin</h6>
-                          <p className="mb-3 text-muted">{servicio.observacionesAdmin}</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card-footer">
-                  <button 
-                    className="btn btn-primary btn-sm"
-                    onClick={() => abrirModalEdicion(servicio)}
-                  >
-                    <i className="bi bi-pencil me-1"></i>
-                    Cambiar Estado
-                  </button>
-                  {servicio.fechaActualizacion && (
-                    <small className="text-muted ms-3">
-                      Última actualización: {formatearFecha(servicio.fechaActualizacion)}
-                    </small>
-                  )}
-                </div>
-              </div>
+              <Grid item xs={12} md={6} key={servicio.idSolicitud} className="services-grid-item">
+                <Card className="servicio-card">
+                    <CardHeader
+                    title={`Solicitud #${servicio.idSolicitud}`}
+                    subheader={`Creado: ${formatearFecha(servicio.fechaCreacion)}`}
+                    action={<Chip label={estadoInfo.label} className={`estado-chip chip-${servicio.estado} estado-chip-header`} />}
+                  />
+                  <CardContent className="servicio-card-content">
+                    <Grid container spacing={1}>
+                      <Grid item xs={12} sm={6} className="right-column">
+                        <Typography variant="subtitle2">Cliente</Typography>
+                        <Typography><strong>{servicio.nombre} {servicio.apellido}</strong></Typography>
+                        <Typography variant="body2" color="text.secondary">{servicio.email}</Typography>
+                        {servicio.telefono && <Typography variant="body2" color="text.secondary">{servicio.telefono}</Typography>}
+                        <Divider className="divider-compact" />
+                        <Typography variant="subtitle2">Dirección</Typography>
+                        <Typography variant="body2">{servicio.direccion}</Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="subtitle2">Tipo de Servicio</Typography>
+                        <Chip label={tiposServicio[servicio.tipoServicio] || servicio.tipoServicio} color="info" className="chip-tipo" />
+                        <Typography variant="subtitle2">Descripción</Typography>
+                        <ExpandableText text={servicio.descripcion || ''} lines={3} className="servicios-history-description" />
+                        {(servicio.fechaPreferida || servicio.horaPreferida) && (
+                          <>
+                            <Divider className="divider-compact" />
+                            <Typography variant="subtitle2">Fecha Preferida</Typography>
+                            <Typography variant="body2">{formatearFechaCorta(servicio.fechaPreferida)}{servicio.horaPreferida ? ` a las ${servicio.horaPreferida}` : ''}</Typography>
+                          </>
+                        )}
+                        {servicio.observacionesAdmin && (
+                          <>
+                            <Divider className="divider-compact" />
+                            <Typography variant="subtitle2">Observaciones Admin</Typography>
+                            <Typography variant="body2" color="text.secondary">{servicio.observacionesAdmin}</Typography>
+                          </>
+                        )}
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                  <CardActions>
+                    <Button size="small" startIcon={<EditIcon />} onClick={() => abrirModalEdicion(servicio)}>Cambiar Estado</Button>
+                    {servicio.fechaActualizacion && <Typography variant="caption" color="text.secondary" className="servicio-updated">Última actualización: {formatearFecha(servicio.fechaActualizacion)}</Typography>}
+                  </CardActions>
+                </Card>
+              </Grid>
             );
-          })
-        )}
-      </div>
+          })}
+        </Grid>
+      )}
 
-      {/* Modal para cambiar estado */}
-      {editandoServicio && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  Cambiar Estado - Solicitud #{editandoServicio.idSolicitud}
-                </h5>
-                <button 
-                  type="button" 
-                  className="btn-close" 
-                  onClick={cerrarModal}
-                ></button>
+      {/* Dialog de edición */}
+      <Dialog open={!!editandoServicio} onClose={cerrarModal} fullWidth maxWidth="sm">
+        <DialogTitle>Cambiar Estado - {editandoServicio ? `Solicitud #${editandoServicio.idSolicitud}` : ''}</DialogTitle>
+        <DialogContent dividers>
+          {editandoServicio && (
+            <div className="dialog-grid">
+              <div>
+                <Typography variant="caption" color="text.secondary">Cliente</Typography>
+                <Typography><strong>{editandoServicio.nombre} {editandoServicio.apellido}</strong></Typography>
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label">Cliente:</label>
-                  <p><strong>{editandoServicio.nombre} {editandoServicio.apellido}</strong></p>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Tipo de servicio:</label>
-                  <p>{tiposServicio[editandoServicio.tipoServicio]}</p>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Estado actual:</label>
-                  <span 
-                    className="badge ms-2" 
-                    style={{ 
-                      backgroundColor: getEstadoInfo(editandoServicio.estado).bgColor, 
-                      color: getEstadoInfo(editandoServicio.estado).color 
-                    }}
-                  >
-                    {getEstadoInfo(editandoServicio.estado).label}
-                  </span>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Nuevo estado:</label>
-                  <select 
-                    className="form-select"
-                    value={nuevoEstado}
-                    onChange={(e) => setNuevoEstado(e.target.value)}
-                  >
-                    {estados.map(estado => (
-                      <option key={estado.value} value={estado.value}>
-                        {estado.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Observaciones (opcional):</label>
-                  <textarea 
-                    className="form-control"
-                    rows="3"
-                    value={observaciones}
-                    onChange={(e) => setObservaciones(e.target.value)}
-                    placeholder="Agregar observaciones sobre el estado del servicio..."
-                  ></textarea>
-                </div>
+              <div>
+                <Typography variant="caption" color="text.secondary">Tipo de servicio</Typography>
+                <Typography>{tiposServicio[editandoServicio.tipoServicio] || editandoServicio.tipoServicio}</Typography>
               </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={cerrarModal}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-primary"
-                  onClick={handleCambiarEstado}
-                  disabled={!nuevoEstado}
-                >
-                  Actualizar Estado
-                </button>
+              <div>
+                <Typography variant="caption" color="text.secondary">Estado actual</Typography>
+                <Chip label={getStatusInfo(editandoServicio.estado).label} className={`estado-chip chip-${editandoServicio.estado}`} />
+              </div>
+              <div>
+                <Typography variant="caption" color="text.secondary">Nuevo estado</Typography>
+                <Select fullWidth value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}>
+                  {STATUSES.map(st => <MenuItem key={st.value} value={st.value}>{st.label}</MenuItem>)}
+                </Select>
+              </div>
+              <div>
+                <Typography variant="caption" color="text.secondary">Observaciones (opcional)</Typography>
+                <TextField fullWidth multiline rows={3} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      {editandoServicio && <div className="modal-backdrop fade show"></div>}
-    </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cerrarModal}>Cancelar</Button>
+          <Button onClick={handleCambiarEstado} variant="contained" disabled={!nuevoEstado}>Actualizar Estado</Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 }
 

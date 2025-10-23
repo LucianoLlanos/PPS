@@ -2,11 +2,15 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import ProductModal from './ProductModal';
 import ProductImageCarousel from './ProductImageCarousel';
+import ExpandableText from './ExpandableText';
+import CatalogSearch from './CatalogSearch';
+import '../stylos/HomeProducts.css';
+// import ProductCardClean from './ProductCardClean';
 import cart from '../utils/cart';
 import { formatCurrency } from '../utils/format';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
-import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, Chip, IconButton } from '@mui/material';
+import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, IconButton } from '@mui/material';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -20,7 +24,8 @@ export default function HomeProducts() {
   const [page, setPage] = useState(1);
   const perPage = 12;
   const [selected, setSelected] = useState(null);
-  const [showExamples, setShowExamples] = useState(false);
+  const [expandedMap, setExpandedMap] = useState({});
+  const [canToggleMap, setCanToggleMap] = useState({});
   
   // Estados para notificaciones toast
   const [toastMessage, setToastMessage] = useState('');
@@ -29,6 +34,8 @@ export default function HomeProducts() {
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+
+  // (insertBreaks removed) ProductCardClean handles long words now
 
   // Función para mostrar notificación toast
   const showToastNotification = (message, type = 'success') => {
@@ -48,8 +55,8 @@ export default function HomeProducts() {
       try {
         res = await api.get('/productos');
         setProductos(res.data || []);
-      } catch (err) {
-        console.error(err);
+      } catch (_err) {
+        console.error(_err);
         // fallback
         res = await api.get('/seller/products');
         const normalized = (res.data || []).map(p => ({
@@ -62,8 +69,8 @@ export default function HomeProducts() {
         }));
         setProductos(normalized);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (_err) {
+      console.error(_err);
       setError('No se pudieron cargar los productos');
     } finally {
       setLoading(false);
@@ -78,6 +85,17 @@ export default function HomeProducts() {
     setQuery(q);
     fetch();
   }, [location.search]);
+
+  // Listen for live search events from CatalogSearch to update query without routing
+  useEffect(() => {
+    const onLive = (e) => {
+      const q = e?.detail?.q || '';
+      setQuery(q);
+      // do not re-fetch products here; filtering is client-side
+    };
+    window.addEventListener('catalog:query', onLive);
+    return () => window.removeEventListener('catalog:query', onLive);
+  }, []);
 
   const filtered = productos.filter(p => {
     const text = (p.nombre || p.name || '').toString().toLowerCase() + ' ' + (p.descripcion || p.description || '').toString().toLowerCase();
@@ -98,86 +116,124 @@ export default function HomeProducts() {
       }, 1500);
       return;
     }
+    // prevent admin from adding to cart
+    if (Number(user.idRol) === 3) {
+      showToastNotification('⚠️ Los administradores no pueden usar el carrito', 'warning');
+      return;
+    }
     cart.addToCart(p, 1);
     // Mostrar notificación de éxito
     showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
   };
 
-  const sampleProducts = [
-    { idProducto: 's1', nombre: 'Ejemplo A', descripcion: 'Producto de ejemplo A', precio: 1000 },
-    { idProducto: 's2', nombre: 'Ejemplo B', descripcion: 'Producto de ejemplo B', precio: 2000 },
-    { idProducto: 's3', nombre: 'Ejemplo C', descripcion: 'Producto de ejemplo C', precio: 3000 },
-  ];
-
-  const itemsToRender = showExamples ? sampleProducts : visible;
-
-  // loadExamples removed (no se usa)
+  const itemsToRender = visible;
 
   if (loading) return <Box sx={{ py: 6, textAlign: 'center' }}>Cargando productos...</Box>;
   if (error) return <Box sx={{ py: 6, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
 
   return (
     <Box sx={{ width: '100%', py: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>Catálogo de productos</Typography>
-        <Button variant="outlined" size="small" onClick={() => setShowExamples(s => !s)} sx={{ borderRadius: 999, textTransform: 'none' }}>{showExamples ? 'Mostrar reales' : 'Mostrar ejemplos'}</Button>
+      {/* Hero: company name + catalog search centered */}
+      <Box className="catalog-hero" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+        <Typography className="brand" variant="h3" sx={{ fontWeight: 800, mb: 1 }}>AtilioMarola</Typography>
+        <Typography variant="h6" sx={{ color: '#51637a', mb: 1 }}>Herramientas y soluciones para agua y energía — calidad industrial</Typography>
+        <Box className="search-box">
+          <CatalogSearch initialQuery={query} />
+        </Box>
       </Box>
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {itemsToRender.map((p, idx) => {
-          const isNew = idx === itemsToRender.length - 1;
-          return (
-            <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} lg={isNew ? 6 : 3}>
-            <Card
-              sx={{
-                borderRadius: 3,
-                boxShadow: 3,
-                height: '100%',
-                minHeight: 360,
-                display: 'flex',
-                flexDirection: 'column',
-                transition: 'transform 0.18s ease, box-shadow 0.18s ease',
-                '&:hover': { transform: 'translateY(-6px)', boxShadow: 8 }
-              }}
-            >
-              <Box sx={{ position: 'relative' }}>
-                <Box sx={{ width: '100%', height: 220, backgroundColor: '#f6f6f6', display: 'block', overflow: 'hidden', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
-                  <ProductImageCarousel imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} nombre={p.nombre || p.name} />
-                </Box>
-                <Chip label={p.stock ? `Stock: ${p.stock}` : 'Sin stock'} size="small" color={p.stock > 0 ? 'primary' : 'default'} sx={{ position: 'absolute', top: 12, left: 12, zIndex: 50, bgcolor: 'rgba(255,255,255,0.95)', fontWeight: 700 }} />
-                <Box sx={{ position: 'absolute', left: 0, bottom: 0, right: 0, p: 1.5, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)', color: '#fff' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{p.nombre}</Typography>
-                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.95 }}>{(p.descripcion || '').slice(0,80)}</Typography>
-                </Box>
-              </Box>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
+        <Grid container spacing={3} sx={{ mb: 2, justifyContent: 'center', alignItems: 'flex-start' }}>
+            {itemsToRender.map((p, idx) => {
+              const isNew = idx === itemsToRender.length - 1;
+              return (
+                <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} lg={isNew ? 6 : 3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <Card className="product-card"
+                    sx={{
+                      borderRadius: 3,
+                      boxShadow: 3,
+                      height: 480, /* fixed height so all cards match */
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                      '&:hover': { transform: 'translateY(-6px)', boxShadow: 8 },
+                      overflow: 'hidden',
+                      width: 280,
+                      minWidth: 280,
+                      maxWidth: 280,
+                      position: 'relative'
+                    }}
+                  >
+                    <Box sx={{ position: 'relative' }}>
+                      <Box sx={{ width: '100%', height: 220, backgroundColor: '#f6f6f6', display: 'block', overflow: 'hidden', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+                        <ProductImageCarousel imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} nombre={p.nombre || p.name} stock={p.stock} showNameOnly={true} />
+                      </Box>
+                      {/* Name overlay and stock chip are rendered inside ProductImageCarousel now; keep image area clean */}
+                    </Box>
 
-              <CardContent sx={{ flex: '0 0 auto', pt: 2 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 18 }}>{formatCurrency(Number(p.precio || p.price || 0))}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}</Typography>
-              </CardContent>
+                    <CardContent className="product-card-content" sx={{ flex: '1 1 auto', pt: 2, pb: 10, display: 'flex', flexDirection: 'column' }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 18 }}>{formatCurrency(Number(p.precio || p.price || 0))}</Typography>
+                      <div>
+                        <ExpandableText
+                          text={p.descripcion || ''}
+                          lines={3}
+                          className="product-expandable"
+                          useModal={false}
+                          hideToggle={true}
+                          expanded={!!expandedMap[p.idProducto || p.id]}
+                          onToggle={(next) => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: next }))}
+                          onCanToggle={(available) => {
+                            const key = (p.idProducto || p.id);
+                            setCanToggleMap(m => {
+                              // if it's no longer available, also ensure we close expanded state
+                              if (!available) {
+                                setExpandedMap(em => {
+                                  if (!em || !em[key]) return em;
+                                  const copy = { ...em };
+                                  delete copy[key];
+                                  return copy;
+                                });
+                              }
+                              return { ...m, [key]: available };
+                            });
+                          }}
+                        />
+                      </div>
+                    </CardContent>
 
-              <CardActions sx={{ mt: 'auto', px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <IconButton size="small" onClick={() => setSelected(p)} aria-label="ver" sx={{ mr: 1 }}>
-                    <VisibilityIcon />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => add(p)} color="primary" aria-label="agregar">
-                    <AddShoppingCartIcon />
-                  </IconButton>
-                </Box>
-                <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
-                  <FavoriteBorderIcon fontSize="small" />
-                </IconButton>
-              </CardActions>
-            </Card>
-            </Grid>
-          );
-        })}
+                    <CardActions className="product-card-actions" sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 56, position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+                      <Box>
+                        <IconButton size="small" onClick={() => setSelected(p)} aria-label="ver" sx={{ mr: 1 }}>
+                          <VisibilityIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => add(p)} color="primary" aria-label="agregar">
+                          <AddShoppingCartIcon />
+                        </IconButton>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Toggle moved to the actions bar so it doesn't push icons. Show only when needed. */}
+                        {canToggleMap[p.idProducto || p.id] && (
+                          <Button size="small" onClick={() => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: !m[p.idProducto || p.id] }))}>
+                            {expandedMap[p.idProducto || p.id] ? 'Mostrar menos' : 'Leer más'}
+                          </Button>
+                        )}
+                        <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
+                          <FavoriteBorderIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+        </Grid>
+      </Box>
 
-        {itemsToRender.length === 0 && (
-          <Grid item xs={12}><Typography align="center" color="text.secondary">No hay productos para mostrar</Typography></Grid>
-        )}
-      </Grid>
+      {itemsToRender.length === 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography align="center" color="text.secondary">No hay productos para mostrar</Typography>
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center', mt: 2 }}>
         <Button disabled={page<=1} onClick={()=>setPage(page-1)} variant="outlined">Anterior</Button>

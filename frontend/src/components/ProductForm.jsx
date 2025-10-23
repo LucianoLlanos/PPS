@@ -50,7 +50,7 @@ export default function ProductForm({ onSaved, editingProduct, clearEditing }) {
       setFile(null);
       if (onSaved) onSaved(res.data);
       if (clearEditing) clearEditing();
-    } catch (err) {
+    } catch {
       alert('Error al guardar producto');
     } finally {
       setLoading(false);

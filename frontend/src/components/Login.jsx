@@ -18,17 +18,20 @@ export default function Login() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const handleDemoAdmin = async () => {
-    setEmail('admin@example.com');
-    setPassword('admin123');
-    const fakeEvent = { preventDefault: () => {} };
-    await submit(fakeEvent);
+    const demoCreds = { email: 'admin@example.com', password: 'admin123' };
+    // also fill form fields for visibility
+    setEmail(demoCreds.email);
+    setPassword(demoCreds.password);
+    // small visual delay so user sees fields populated before auto-login
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await submit(null, demoCreds);
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (e, overrideCreds = null) => {
+    if (e && e.preventDefault) e.preventDefault();
     setLoading(true);
     try {
-      const payload = { email, password };
+      const payload = overrideCreds ? overrideCreds : { email, password };
       const res = await api.post('/auth/login', payload);
       const { token, user } = res.data;
       setAuth(user, token);
@@ -54,6 +57,23 @@ export default function Login() {
       setSnack({ open: true, message: 'Credenciales inválidas', severity: 'error' });
       setLoading(false);
     }
+  };
+
+  const getDisplayName = (u) => {
+    if (!u) return '';
+    // common possibilities
+    const candidates = [u.nombre, u.apellido, u.name, u.firstName, u.lastName, u.fullName, u.nombreCompleto, u.usuario];
+    // if there is separate nombre and apellido prefer full combo
+    if (u.nombre || u.apellido) {
+      const n = [u.nombre, u.apellido].filter(Boolean).join(' ');
+      if (n) return n;
+    }
+    for (const c of candidates) {
+      if (c && typeof c === 'string' && c.trim().length > 0) return c.trim();
+    }
+    // fallback to email prefix
+    if (u.email && typeof u.email === 'string') return u.email.split('@')[0];
+    return '';
   };
 
   return (
@@ -86,7 +106,7 @@ export default function Login() {
 
       {showWelcome && welcomeUser && (
         <Snackbar open anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-          <Alert severity="success">¡Hola, {welcomeUser.nombre} {welcomeUser.apellido}! Redirigiendo en {countdown}...</Alert>
+          <Alert severity="success">¡Hola, {getDisplayName(welcomeUser)}! Redirigiendo en {countdown}...</Alert>
         </Snackbar>
       )}
     </Box>

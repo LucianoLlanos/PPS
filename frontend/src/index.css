@@ -13,6 +13,14 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+/* Prevent layout shift when the vertical scrollbar appears: always reserve scrollbar space
+   or let the browser keep the gutter stable. This avoids the centered content jumping left/right
+   when pages become scrollable. If you prefer the scrollbar to be always visible, use
+   `html { overflow-y: scroll; }` — currently we keep the default but request a stable gutter. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -71,3 +79,37 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
+
+/* Custom aesthetic scrollbars (WebKit browsers) */
+/* thin, translucent track and soft thumb that brightens on hover */
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(15,23,42,0.04);
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.18);
+  border-radius: 10px;
+  border: 2px solid transparent; /* creates padding effect */
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(15,23,42,0.28);
+}
+
+/* Firefox: use scrollbar-color and scrollbar-width */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15,23,42,0.18) rgba(15,23,42,0.04);
+}
+
+/* Helper classes for small scrollable areas */
+.scroll-compact {
+  scrollbar-width: thin; /* Firefox */
+}
+.scroll-compact::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-compact::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.16); }
+

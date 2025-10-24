@@ -43,6 +43,7 @@ const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null
     if (!isHovered || imageList.length <= 1) return;
 
     intervalRef.current = setInterval(() => {
+      // debug counter removed
       setCurrentIndex((prev) => (prev + 1) % imageList.length);
     }, 900);
 

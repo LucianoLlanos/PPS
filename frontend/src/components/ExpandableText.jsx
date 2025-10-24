@@ -10,6 +10,7 @@ export default function ExpandableText({ text = '', lines = 3, className = '', c
   const [openModal, setOpenModal] = useState(false);
   const contentRef = useRef(null);
   const wrapperRef = useRef(null);
+  const onCanToggleRef = useRef(onCanToggle);
   const [expandedInternal, setExpandedInternal] = useState(false);
   const expanded = typeof controlledExpanded === 'boolean' ? controlledExpanded : expandedInternal;
   const [canToggle, setCanToggle] = useState(false);
@@ -31,15 +32,19 @@ export default function ExpandableText({ text = '', lines = 3, className = '', c
       const needed = fullH > visibleH + 1;
       setCanToggle(needed);
       // notify parent if it wants to know whether a toggle is needed
-      if (typeof onCanToggle === 'function') {
-        try { onCanToggle(needed); } catch { /* ignore handler errors */ }
+      const fn = onCanToggleRef.current;
+      if (typeof fn === 'function') {
+        try { fn(needed); } catch { /* ignore handler errors */ }
       }
     };
 
     compute();
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
-  }, [text, lines, onCanToggle]);
+  }, [text, lines]);
+
+  // keep ref updated when parent passes a new callback identity
+  useEffect(() => { onCanToggleRef.current = onCanToggle; }, [onCanToggle]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;

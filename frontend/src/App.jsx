@@ -9,6 +9,7 @@ import HomeProducts from './components/HomeProducts';
 import Cart from './components/Cart';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
 import ServiciosAdmin from './components/ServiciosAdmin';
+import VentasAnalytics from './components/admin/VentasAnalytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -59,6 +60,7 @@ function App() {
               <Route path="/pedidos" element={<ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute>} />
               <Route path="/servicios-admin" element={<ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute>} />
+              <Route path="/ventas-analytics" element={<ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute>} />
             </Routes>
             <Footer />
           </div>

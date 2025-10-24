@@ -49,6 +49,7 @@ export default function HomeProducts() {
   };
 
   const fetch = async () => {
+  // debug counter removed
     setLoading(true);
     try {
       let res;
@@ -185,6 +186,9 @@ export default function HomeProducts() {
                           onCanToggle={(available) => {
                             const key = (p.idProducto || p.id);
                             setCanToggleMap(m => {
+                              // if value unchanged, avoid creating a new object to prevent re-renders
+                              if (m && m[key] === available) return m;
+                              const next = { ...m, [key]: available };
                               // if it's no longer available, also ensure we close expanded state
                               if (!available) {
                                 setExpandedMap(em => {
@@ -194,7 +198,7 @@ export default function HomeProducts() {
                                   return copy;
                                 });
                               }
-                              return { ...m, [key]: available };
+                              return next;
                             });
                           }}
                         />

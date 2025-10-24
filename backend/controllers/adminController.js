@@ -1143,10 +1143,120 @@ const actualizarPedido = (req, res) => {
         results[0].idCliente || null,
         `Estado actualizado a: ${estado}`
       );
-      res.json({ mensaje: 'Pedido actualizado' });
+      // Si se marca como "Entregado", intentar registrar fecha de entrega si la columna existe
+      if (String(estado).toLowerCase() === 'entregado') {
+        // Comprobar si la columna fecha_entrega existe en la tabla pedidos
+        const colCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1`;
+        connection.query(colCheck, (errCol, rowsCol) => {
+          if (!errCol && rowsCol && rowsCol.length > 0) {
+            // Actualizar fecha_entrega a NOW() para este pedido
+            connection.query('UPDATE pedidos SET fecha_entrega = NOW() WHERE idPedido = ?', [id], (errUpd) => {
+              if (errUpd) console.error('Error al setear fecha_entrega:', errUpd);
+              // Responder igual aunque haya error en la columna extra
+              return res.json({ mensaje: 'Pedido actualizado' });
+            });
+          } else {
+            return res.json({ mensaje: 'Pedido actualizado' });
+          }
+        });
+      } else {
+        res.json({ mensaje: 'Pedido actualizado' });
+      }
     });
   });
 };
+
+// --------- Analytics de ventas (basado en pedidos con estado 'Entregado')
+const ventasSummary = (req, res) => {
+  const { fechaDesde, fechaHasta, idSucursal } = req.query;
+  // Default últimos 30 días
+  const end = fechaHasta || new Date().toISOString().slice(0, 10);
+  const start = fechaDesde || (() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10);
+  })();
+
+  let sql = `
+    SELECT
+      COUNT(DISTINCT pe.idPedido) AS pedidos_entregados,
+      COALESCE(SUM(dp.cantidad * dp.precioUnitario), 0) AS ingresos_totales,
+      COALESCE(SUM(dp.cantidad), 0) AS unidades_vendidas
+    FROM pedidos pe
+    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+  `;
+  const params = [start, end];
+  if (idSucursal) {
+    sql += ' AND pe.idSucursalOrigen = ?';
+    params.push(idSucursal);
+  }
+
+  connection.query(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Error al calcular resumen de ventas' });
+    const r = rows && rows[0] ? rows[0] : { pedidos_entregados:0, ingresos_totales:0, unidades_vendidas:0 };
+    const aov = (r.pedidos_entregados && Number(r.pedidos_entregados) > 0) ? (Number(r.ingresos_totales) / Number(r.pedidos_entregados)) : 0;
+    res.json({ pedidos: Number(r.pedidos_entregados), ingresos: Number(r.ingresos_totales), unidades: Number(r.unidades_vendidas), aov: Number(aov) });
+  });
+};
+
+const ventasTimeseries = (req, res) => {
+  const { fechaDesde, fechaHasta, idSucursal } = req.query;
+  const end = fechaHasta || new Date().toISOString().slice(0, 10);
+  const start = fechaDesde || (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); })();
+
+  let sql = `
+    SELECT DATE(pe.fecha) AS fecha, 
+      COUNT(DISTINCT pe.idPedido) AS pedidos,
+      COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) AS ingresos,
+      COALESCE(SUM(dp.cantidad),0) AS unidades
+    FROM pedidos pe
+    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+    GROUP BY DATE(pe.fecha)
+    ORDER BY DATE(pe.fecha) ASC
+  `;
+  const params = [start, end];
+  if (idSucursal) {
+    // inject filter by sucursal
+    sql = sql.replace("WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?", "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+    params.push(idSucursal);
+  }
+
+  connection.query(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Error al calcular series temporales de ventas' });
+    res.json(rows.map(r => ({ fecha: r.fecha, pedidos: Number(r.pedidos), ingresos: Number(r.ingresos), unidades: Number(r.unidades) })));
+  });
+};
+
+const ventasTopProducts = (req, res) => {
+  const { fechaDesde, fechaHasta, limit, idSucursal } = req.query;
+  const end = fechaHasta || new Date().toISOString().slice(0, 10);
+  const start = fechaDesde || (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); })();
+  const lim = limit ? Number(limit) : 10;
+
+  let sql = `
+    SELECT dp.idProducto, pr.nombre AS nombre, SUM(dp.cantidad) AS cantidad_vendida, SUM(dp.cantidad * dp.precioUnitario) AS ingresos
+    FROM detalle_pedido dp
+    JOIN pedidos pe ON dp.idPedido = pe.idPedido
+    JOIN productos pr ON dp.idProducto = pr.idProducto
+    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+    GROUP BY dp.idProducto
+    ORDER BY ingresos DESC
+    LIMIT ?
+  `;
+  const params = [start, end, lim];
+  if (idSucursal) {
+    // add filter to SQL (pe.idSucursalOrigen)
+    sql = sql.replace("WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?", "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+    // params become [start, end, idSucursal, lim]
+    params.splice(2, 0, idSucursal);
+  }
+
+  connection.query(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener top de productos' });
+    res.json(rows.map(r => ({ idProducto: r.idProducto, nombre: r.nombre, cantidad: Number(r.cantidad_vendida), ingresos: Number(r.ingresos) })));
+  });
+};
+
 
 module.exports = {
   listarUsuarios,
@@ -1171,4 +1281,7 @@ module.exports = {
   verCliente,
   actualizarCliente,
   listarServicios,
+  ventasSummary,
+  ventasTimeseries,
+  ventasTopProducts,
 };

@@ -32,16 +32,22 @@ router.delete('/productos/:id', adminController.eliminarProducto);
 // Pedidos
 router.get('/pedidos', adminController.listarPedidos);
 router.post('/pedidos', adminController.crearPedido);
-router.get('/pedidos/:id', adminController.verDetallePedido);
-router.delete('/pedidos/:id', adminController.eliminarPedido);
-router.put('/pedidos/:id', adminController.actualizarPedido);
+// Asegurar que los endpoints que toman :id sólo acepten IDs numéricos (evita colisiones con rutas como /pedidos/summary)
+router.get('/pedidos/:id(\\d+)', adminController.verDetallePedido);
+router.delete('/pedidos/:id(\\d+)', adminController.eliminarPedido);
+router.put('/pedidos/:id(\\d+)', adminController.actualizarPedido);
 
 // Ventas (alias de pedidos para compatibilidad frontend)
 router.get('/ventas', adminController.listarPedidos);
 router.post('/ventas', adminController.crearPedido);
-router.get('/ventas/:id', adminController.verDetallePedido);
-router.delete('/ventas/:id', adminController.eliminarPedido);
-router.put('/ventas/:id', adminController.actualizarPedido);
+// Analytics de ventas (solo pedidos con estado 'Entregado')
+router.get('/ventas/summary', adminController.ventasSummary);
+router.get('/ventas/timeseries', adminController.ventasTimeseries);
+router.get('/ventas/top-products', adminController.ventasTopProducts);
+router.get('/ventas/:id(\\d+)', adminController.verDetallePedido);
+router.delete('/ventas/:id(\\d+)', adminController.eliminarPedido);
+router.put('/ventas/:id(\\d+)', adminController.actualizarPedido);
+// (Las rutas de analytics ya están registradas más arriba; evitar duplicados)
 
 // Sucursales, clientes, servicios
 router.get('/sucursales', adminController.listarSucursales);

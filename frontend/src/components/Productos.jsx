@@ -1,5 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import api from '../api/axios';
+import '../stylos/admin/Admin.css';
+import '../stylos/admin/Productos.css';
+import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment } from '@mui/material';
+import { formatCurrency } from '../utils/format';
 
 function Productos() {
   const [productos, setProductos] = useState([]);
@@ -14,6 +18,11 @@ function Productos() {
   const [success, setSuccess] = useState(null);
   const [addProd, setAddProd] = useState(false);
   const [addForm, setAddForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
+  const [addLoading, setAddLoading] = useState(false);
+  // single image legacy removed (usamos multiple images)
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [imagesToRemove, setImagesToRemove] = useState([]);
   const [editSucursal, setEditSucursal] = useState(null); // { idSucursal, idProducto, nombreProducto, stockDisponible }
   const [sucursales, setSucursales] = useState([]);
   // Asignación exclusiva: 'ALL' para todas o idSucursal específico
@@ -24,8 +33,49 @@ function Productos() {
   const [selectedProductForReconcile, setSelectedProductForReconcile] = useState(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef(null);
+  // refs for edit/delete modals not needed currently (kept inline overlays)
+  
+  // Estados para filtros de la tabla
+  const [filtroNombre, setFiltroNombre] = useState('');
+  const [filtroSucursal, setFiltroSucursal] = useState('');
+  // pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  // Persistir sort principal en sessionStorage para mantener orden al cambiar páginas
+  const [sortField, setSortField] = useState(() => sessionStorage.getItem('productos:sortField') || null);
+  const [sortOrder, setSortOrder] = useState(() => sessionStorage.getItem('productos:sortOrder') || 'asc');
 
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
+  useEffect(() => {
+    if (addProd) {
+      // Scroll hacia arriba cuando se abre el modal de agregar producto
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [addProd]);
+
+  // Si cualquier modal está abierto: bloqueo de scroll del body y Escape para cerrar el modal activo
+  useEffect(() => {
+    const anyOpen = addProd || editProd || deleteProd || editSucursal || showBackfillModal || showSelectReconcileModal;
+    if (!anyOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (addProd) setAddProd(false);
+        if (editProd) setEditProd(null);
+        if (deleteProd) setDeleteProd(null);
+        if (editSucursal) setEditSucursal(null);
+        if (showBackfillModal) setShowBackfillModal(false);
+        if (showSelectReconcileModal) setShowSelectReconcileModal(false);
+      }
+    };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous || '';
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [addProd, editProd, deleteProd, editSucursal, showBackfillModal, showSelectReconcileModal]);
+
   useEffect(() => {
     const handleDocClick = (e) => {
       if (toolsRef.current && !toolsRef.current.contains(e.target)) {
@@ -60,6 +110,9 @@ function Productos() {
   const handleEdit = (prod) => {
     setEditProd(prod);
     setForm({ nombre: prod.nombre, descripcion: prod.descripcion, precio: prod.precio, stockTotal: prod.stock });
+    // inicializar previews con las imágenes existentes del producto (si las hay)
+    setImagePreviews(prod.imagenes ? [...prod.imagenes] : []);
+    setSelectedImages([]);
   };
 
   const handleDelete = (prod) => {
@@ -97,6 +150,55 @@ function Productos() {
     setAddForm({ ...addForm, [e.target.name]: e.target.value });
   };
 
+  // single image handler removed; usamos handleMultipleImagesChange
+
+  const handleMultipleImagesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    // máximo total 5 (existentes + nuevas)
+    const currentCount = imagePreviews.length;
+    const allowed = Math.max(0, 5 - currentCount);
+    const toAdd = files.slice(0, allowed);
+    if (toAdd.length === 0) return;
+
+    // append new File objects to selectedImages
+    setSelectedImages((prev) => [...prev, ...toAdd]);
+
+    // crear previews para los nuevos archivos y añadir a imagePreviews
+    const readers = toAdd.map((file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+    Promise.all(readers).then((newPreviews) => {
+      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    });
+    // reset input value to allow selecting same file again
+    e.target.value = null;
+  };
+
+  const removeImage = (index) => {
+    // Determine if the removed preview corresponds to a locally selected file
+    const totalPreviews = imagePreviews.length;
+    const localCount = selectedImages.length;
+    const localStart = totalPreviews - localCount;
+
+    if (index >= localStart) {
+      // it's a local file
+      const localIndex = index - localStart;
+      setSelectedImages((prev) => prev.filter((_, i) => i !== localIndex));
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      // it's an existing server image; mark for removal and remove preview
+      const filename = imagePreviews[index];
+      setImagesToRemove((prev) => [...prev, filename]);
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+      // Note: existing server-side image rows will be removed on submit if backend supports it
+    }
+  };
+
   const submitEdit = (e) => {
     e.preventDefault();
     // Validación final antes de enviar
@@ -109,20 +211,52 @@ function Productos() {
     if (!form.stockTotal || isNaN(form.stockTotal) || Number(form.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setEditFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    api.put(`/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
-      .then(() => {
-        setSuccess('Producto actualizado correctamente');
-        setEditProd(null);
-        setEditFieldErrors({});
-        setError(null);
-      })
-      .catch((err) => {
-        let msg = 'Error al actualizar producto';
-        if (err.response && err.response.data && err.response.data.message) {
-          msg = err.response.data.message;
-        }
-        setError(msg);
-      });
+    // Si se cargaron imágenes nuevas, enviar como multipart/form-data
+    if (selectedImages && selectedImages.length > 0) {
+      const formData = new FormData();
+      formData.append('nombre', nombre);
+      formData.append('descripcion', descripcion);
+      formData.append('precio', Number(form.precio));
+      formData.append('stockTotal', Number(form.stockTotal));
+      // anexar imágenes nuevas
+      for (const img of selectedImages) formData.append('imagenes', img);
+      // anexar lista de imágenes a eliminar (si aplica)
+      if (imagesToRemove && imagesToRemove.length > 0) {
+        formData.append('removeImages', JSON.stringify(imagesToRemove));
+      }
+      api.put(`/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+        .then(() => {
+          setSuccess('Producto actualizado correctamente');
+          setEditProd(null);
+          setEditFieldErrors({});
+          setError(null);
+          setSelectedImages([]);
+          setImagePreviews([]);
+          setImagesToRemove([]);
+        })
+        .catch((err) => {
+          let msg = 'Error al actualizar producto';
+          if (err.response && err.response.data && err.response.data.message) {
+            msg = err.response.data.message;
+          }
+          setError(msg);
+        });
+    } else {
+      api.put(`/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
+        .then(() => {
+          setSuccess('Producto actualizado correctamente');
+          setEditProd(null);
+          setEditFieldErrors({});
+          setError(null);
+        })
+        .catch((err) => {
+          let msg = 'Error al actualizar producto';
+          if (err.response && err.response.data && err.response.data.message) {
+            msg = err.response.data.message;
+          }
+          setError(msg);
+        });
+    }
   };
 
   const confirmDelete = async () => {
@@ -152,6 +286,8 @@ function Productos() {
 
   const submitAdd = async (e) => {
     e.preventDefault();
+    setAddLoading(true);
+    
     // Validación y limpieza
     const errors = {};
     const nombre = addForm.nombre.trim();
@@ -161,7 +297,11 @@ function Productos() {
     if (!addForm.precio || isNaN(addForm.precio) || Number(addForm.precio) <= 0) errors.precio = 'El precio debe ser mayor a 0';
     if (!addForm.stockTotal || isNaN(addForm.stockTotal) || Number(addForm.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      setAddLoading(false);
+      return;
+    }
+    
     // Resolver listado de sucursales según la asignación exclusiva
     let sucursalesIds = [];
     if (sucursalAssignment === 'ALL') {
@@ -169,21 +309,34 @@ function Productos() {
     } else if (sucursalAssignment !== '' && sucursalAssignment !== null && typeof sucursalAssignment !== 'undefined') {
       sucursalesIds = [Number(sucursalAssignment)];
     }
-    const payload = {
-      ...addForm,
-      nombre,
-      descripcion,
-      precio: Number(addForm.precio),
-      stockTotal: Number(addForm.stockTotal),
-      sucursales: sucursalesIds
-    };
+    
+    // Crear FormData para enviar archivo
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('descripcion', descripcion);
+    formData.append('precio', Number(addForm.precio));
+    formData.append('stockTotal', Number(addForm.stockTotal));
+    formData.append('sucursales', JSON.stringify(sucursalesIds));
+    
+    // Agregar múltiples imágenes si fueron seleccionadas
+    if (selectedImages.length > 0) {
+      for (const img of selectedImages) formData.append('imagenes', img);
+    }
+    
     try {
-      await api.post('/productos', payload);
+      await api.post('/productos', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       setSuccess('Producto creado correctamente');
       setAddProd(false);
       setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
       setFieldErrors({});
       setSucursalAssignment('ALL');
+      setSelectedImages([]);
+      setImagePreviews([]);
+  // limpiamos previews e imágenes múltiples
       setError(null);
     } catch (err) {
       let msg = 'Error al crear producto';
@@ -191,6 +344,8 @@ function Productos() {
         msg = err.response.data.message;
       }
       setError(msg);
+    } finally {
+      setAddLoading(false);
     }
   };
 
@@ -210,17 +365,197 @@ function Productos() {
     return acc;
   }, []);
 
+  // Función para filtrar productos
+  const productosFiltrados = productos.filter(p => {
+    const nombreMatch = p.nombre.toLowerCase().includes(filtroNombre.toLowerCase());
+    return nombreMatch;
+  });
+
+  // pagination helpers
+  // apply sorting
+  const productosFiltradosSorted = (() => {
+    const arr = [...productosFiltrados];
+    if (!sortField) return arr;
+    arr.sort((a, b) => {
+      if (sortField === 'precio' || sortField === 'stock') {
+        const va = Number(a[sortField] ?? 0);
+        const vb = Number(b[sortField] ?? 0);
+        return sortOrder === 'asc' ? va - vb : vb - va;
+      }
+      const sa = String(a[sortField] ?? '').toLowerCase();
+      const sb = String(b[sortField] ?? '').toLowerCase();
+      if (sa < sb) return sortOrder === 'asc' ? -1 : 1;
+      if (sa > sb) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  })();
+
+  const totalPages = Math.max(1, Math.ceil(productosFiltradosSorted.length / pageSize));
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const productosFiltradosPaged = productosFiltradosSorted.slice(startIndex, endIndex);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Guardar en sessionStorage cuando cambie el sort principal
+  useEffect(() => {
+    try {
+      if (sortField) sessionStorage.setItem('productos:sortField', sortField);
+      else sessionStorage.removeItem('productos:sortField');
+      if (sortOrder) sessionStorage.setItem('productos:sortOrder', sortOrder);
+      else sessionStorage.removeItem('productos:sortOrder');
+    } catch {
+      // sessionStorage puede fallar en entornos restringidos; ignorar
+    }
+  }, [sortField, sortOrder]);
+
+  // Filtrar stock por sucursal: usar los productos filtrados por nombre (por id) y filtrar por nombre de sucursal
+  const filteredProductIds = new Set(productosFiltrados.map(p => p.idProducto));
+  const stockFiltrado = stockSucursal.filter(s => {
+    const productMatch = filteredProductIds.size === 0 ? true : filteredProductIds.has(s.idProducto);
+    const sucursalMatch = filtroSucursal === '' || s.nombreSucursal.toLowerCase().includes(filtroSucursal.toLowerCase());
+    return productMatch && sucursalMatch;
+  });
+
+  // Small subcomponent: table for each sucursal with sorting & pagination
+  function StockTable({ items, nombreSucursal, idSucursal, onEdit }) {
+    const [page, setPage] = useState(1);
+    const [pageSizeLocal, setPageSizeLocal] = useState(6);
+    // Persistir sort local por sucursal usando idSucursal como sufijo
+    const keyField = idSucursal ? `productos:stock:${idSucursal}:sortField` : null;
+    const keyOrder = idSucursal ? `productos:stock:${idSucursal}:sortOrder` : null;
+    const [sortFieldLocal, setSortFieldLocal] = useState(() => {
+      try { return keyField ? sessionStorage.getItem(keyField) : null; } catch { return null; }
+    });
+    const [sortOrderLocal, setSortOrderLocal] = useState(() => {
+      try { return keyOrder ? sessionStorage.getItem(keyOrder) || 'asc' : 'asc'; } catch { return 'asc'; }
+    });
+
+    // Persistir cambios de sort local
+    useEffect(() => {
+      try {
+        if (keyField) {
+          if (sortFieldLocal) sessionStorage.setItem(keyField, sortFieldLocal);
+          else sessionStorage.removeItem(keyField);
+        }
+        if (keyOrder) {
+          if (sortOrderLocal) sessionStorage.setItem(keyOrder, sortOrderLocal);
+          else sessionStorage.removeItem(keyOrder);
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }, [keyField, keyOrder, sortFieldLocal, sortOrderLocal]);
+
+    const sorted = useMemo(() => {
+      const arr = [...items];
+      if (!sortFieldLocal) return arr;
+      arr.sort((a,b) => {
+        const fa = a[sortFieldLocal];
+        const fb = b[sortFieldLocal];
+        const na = Number(fa);
+        const nb = Number(fb);
+        // If both values are numeric, compare numerically
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+          return sortOrderLocal === 'asc' ? na - nb : nb - na;
+        }
+        // Fallback to case-insensitive string compare
+        const sa = String(fa ?? '').toLowerCase();
+        const sb = String(fb ?? '').toLowerCase();
+        if (sa < sb) return sortOrderLocal === 'asc' ? -1 : 1;
+        if (sa > sb) return sortOrderLocal === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return arr;
+    }, [items, sortFieldLocal, sortOrderLocal]);
+
+    const totalPagesLocal = Math.max(1, Math.ceil(sorted.length / pageSizeLocal));
+    useEffect(() => { if (page > totalPagesLocal) setPage(totalPagesLocal); }, [page, totalPagesLocal]);
+    const start = (page - 1) * pageSizeLocal;
+    const paged = sorted.slice(start, start + pageSizeLocal);
+
+    const toggleSortLocal = (f) => {
+      if (sortFieldLocal === f) setSortOrderLocal(prev => prev === 'asc' ? 'desc' : 'asc');
+      else { setSortFieldLocal(f); setSortOrderLocal('asc'); }
+      setPage(1);
+    };
+
+    return (
+      <div className="mb-4">
+        <h5 className="productos-sucursal-title">
+          <i className="bi bi-building me-2"></i>
+          {nombreSucursal}
+          <span className="badge bg-secondary ms-2">{items.length} productos</span>
+        </h5>
+        <TableContainer component={Paper} sx={{ maxHeight: 400, mb: 1 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell onClick={() => toggleSortLocal('nombre')} sx={{ cursor: 'pointer' }}>Producto {sortFieldLocal === 'nombre' ? (sortOrderLocal === 'asc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell align="center" onClick={() => toggleSortLocal('stockDisponible')} sx={{ cursor: 'pointer' }}>Stock Disponible {sortFieldLocal === 'stockDisponible' ? (sortOrderLocal === 'asc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell align="center">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paged.map(it => (
+                <TableRow key={`${it.idSucursal}-${it.idProducto}`} hover>
+                  <TableCell>{it.nombreProducto}</TableCell>
+                  <TableCell align="center">{it.stockDisponible}</TableCell>
+                  <TableCell align="center"><Button size="small" variant="contained" onClick={() => onEdit({ idSucursal: it.idSucursal, idProducto: it.idProducto, nombreProducto: it.nombreProducto, stockDisponible: it.stockDisponible })}>Editar</Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* pagination local */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2">Filas</Typography>
+            <FormControl size="small">
+              <Select value={pageSizeLocal} onChange={(e) => { setPageSizeLocal(Number(e.target.value)); setPage(1); }} sx={{ width: 80 }}>
+                <MenuItem value={3}>3</MenuItem>
+                <MenuItem value={6}>6</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button size="small" variant="outlined" disabled={page === 1} onClick={() => setPage(1)}>«</Button>
+            <Button size="small" variant="outlined" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>‹</Button>
+            <Typography variant="body2">Página {page} de {totalPagesLocal}</Typography>
+            <Button size="small" variant="outlined" disabled={page === totalPagesLocal} onClick={() => setPage(p => Math.min(totalPagesLocal, p + 1))}>›</Button>
+            <Button size="small" variant="outlined" disabled={page === totalPagesLocal} onClick={() => setPage(totalPagesLocal)}>»</Button>
+          </Box>
+        </Box>
+      </div>
+    );
+  }
+
   return (
-    <div className="productos-page">
-      <div className="productos-header d-flex justify-content-between align-items-center mb-3" style={{borderBottom: '1px solid #e9ecef', paddingBottom: 12, marginBottom: 12}}>
-        <h2 className="mb-0" style={{fontWeight:700}}>Productos</h2>
-  <div ref={toolsRef} style={{position: 'relative', display: 'inline-block'}}>
+    <div className="productos-page root-apple">
+      <div className="productos-header-container">
+        <h2 className="productos-title">Productos</h2>
+  <div ref={toolsRef} className="productos-tools-container">
           <button className="btn btn-success" onClick={() => setAddProd(true)}>
             <i className="bi bi-plus-circle me-1"></i> Agregar producto
           </button>
           <button className="btn btn-secondary ms-2" onClick={() => setToolsOpen(!toolsOpen)} title="Herramientas">Herramientas <i className="bi bi-caret-down-fill ms-1"></i></button>
           {toolsOpen && (
-            <div style={{position: 'absolute', right: 0, marginTop: 8, zIndex: 50, minWidth: 220}} className="card shadow-sm">
+            <div className="productos-tools-dropdown card shadow-sm">
               <div className="list-group list-group-flush">
                 <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
                   <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
@@ -235,358 +570,400 @@ function Productos() {
           )}
         </div>
       </div>
+      {/* Modal Agregar Producto - migrado a MUI Dialog */}
+      {addProd && (
+        <Box>
+          <Dialog
+            open={addProd}
+            onClose={() => setAddProd(false)}
+            fullWidth
+            maxWidth="md"
+            scroll="paper"
+            PaperProps={{ sx: { borderRadius: 3 } }}
+          >
+            <DialogTitle>Agregar Producto</DialogTitle>
+            <DialogContent dividers sx={{ maxHeight: '68vh', overflow: 'auto', pt: 2 }}>
+              {error && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{error}</Box>}
+              <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
+                <Grid container spacing={2} alignItems="flex-start">
+                  <Grid item xs={12} md={3}>
+                    <TextField fullWidth size="small" variant="outlined" name="nombre" label="Nombre del producto *" value={addForm.nombre} onChange={handleAddChange} error={!!fieldErrors.nombre} helperText={fieldErrors.nombre || ''} />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      multiline
+                      minRows={3}
+                      maxRows={6}
+                      name="descripcion"
+                      label="Descripción *"
+                      value={addForm.descripcion}
+                      onChange={handleAddChange}
+                      error={!!fieldErrors.descripcion}
+                      helperText={fieldErrors.descripcion || ''}
+                      inputProps={{ style: { maxHeight: 160, overflow: 'auto', padding: '8px' } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField fullWidth size="small" variant="outlined" type="number" name="precio" label="Precio *" value={addForm.precio} onChange={handleAddChange} error={!!fieldErrors.precio} helperText={fieldErrors.precio || ''} inputProps={{ step: '0.01', min: 0 }} />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField fullWidth size="small" variant="outlined" type="number" name="stockTotal" label="Stock *" value={addForm.stockTotal} onChange={handleAddChange} error={!!fieldErrors.stockTotal} helperText={fieldErrors.stockTotal || ''} inputProps={{ min: 0 }} />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <InputLabel sx={{ mb: 1 }}>Imágenes del producto (máx.5)</InputLabel>
+                        <input type="file" accept="image/*" multiple onChange={handleMultipleImagesChange} />
+                        {imagePreviews.length > 0 && (
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                            {imagePreviews.map((preview, index) => (
+                              <Box key={index} sx={{ position: 'relative' }}>
+                                <img src={typeof preview === 'string' && preview.startsWith('data:') ? preview : (typeof preview === 'string' ? `http://localhost:3000/uploads/${preview}` : preview)} alt={`Preview ${index+1}`} style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
+                                <IconButton size="small" onClick={() => removeImage(index)} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}>×</IconButton>
+                                <Typography variant="caption" display="block" align="center">Imagen {index+1}</Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Grid>
+                      <Grid item xs={12}>
+                        <InputLabel sx={{ display: 'block', mb: 1 }}>Asignar a sucursales</InputLabel>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          <FormControl>
+                            <RadioGroup row value={sucursalAssignment} onChange={(e) => setSucursalAssignment(e.target.value)}>
+                              <FormControlLabel value="ALL" control={<Radio />} label="Todas las sucursales" />
+                              {sucursales.map(s => (
+                                <FormControlLabel key={s.idSucursal} value={String(s.idSucursal)} control={<Radio />} label={s.nombre} />
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button variant="outlined" onClick={() => setAddProd(false)}>Cancelar</Button>
+              <Button variant="contained" onClick={submitAdd} disabled={addLoading}>{addLoading ? 'CREANDO...' : 'CREAR'}</Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
+      )}
+
       {/* Stock por sucursal */}
   {/* productos table arriba (se renderiza más abajo) */}
       {error && <div className="alert alert-danger">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
-      <div className="productos-table-wrapper mt-3">
-        <div className="productos-card">
-          <div className="table-responsive">
-            <table className="table table-striped table-bordered productos-table">
-           <thead className="table-dark">
-              <tr>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>ID</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Nombre</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Descripción</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Precio</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Stock</th>
-               <th style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>Acciones</th>
-               {sucursalesList.map(s => (
-                 <th key={s.idSucursal} className="text-center" style={{paddingTop: '14px', paddingBottom: '14px', verticalAlign: 'middle'}}>{s.nombreSucursal}</th>
-               ))}
-             </tr>
-           </thead>
-           <tbody>
-             {productos.map(p => (
-               <tr key={p.idProducto}>
-                 <td className="align-middle">{p.idProducto}</td>
-                 <td className="align-middle">{p.nombre}</td>
-                 <td className="align-middle" style={{maxWidth: 360}}>
-                   <div className="text-truncate" style={{maxWidth: 360}} title={p.descripcion}>{p.descripcion}</div>
-                 </td>
-                 <td className="align-middle">${p.precio}</td>
-                 <td className="align-middle">{p.stock}</td>
-                 <td className="align-middle">
-                  <div className="d-flex gap-2" style={{whiteSpace: 'nowrap'}}>
-                    <button className="btn btn-sm btn-primary" onClick={() => handleEdit(p)}>
-                      <i className="bi bi-pencil me-1"></i> Editar
-                    </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>
-                      <i className="bi bi-trash me-1"></i> Eliminar
-                    </button>
-                    {/* Reconciliación ahora disponible desde Herramientas -> Reconciliar producto */}
-                  </div>
-                 </td>
-                 {sucursalesList.map(s => {
-                   const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
-                   return <td key={`${p.idProducto}-${s.idSucursal}`} className="text-center align-middle">{stockRow ? stockRow.stockDisponible : 0}</td>;
-                 })}
-               </tr>
-             ))}
-           </tbody>
-            </table>
+      
+      {/* Filtros para la tabla */}
+      <div className="productos-filtros-container mb-3">
+        <div className="card">
+          <div className="card-body">
+            <h6 className="card-title mb-3">
+              <i className="bi bi-funnel me-2"></i>
+              Filtros de búsqueda
+            </h6>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Buscar por nombre del producto"
+                  placeholder="Ej: Bomba, Panel Solar..."
+                  value={filtroNombre}
+                  onChange={(e) => setFiltroNombre(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><i className="bi bi-search" /></InputAdornment>
+                    ),
+                    endAdornment: filtroNombre ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setFiltroNombre('')}><i className="bi bi-x" /></IconButton>
+                      </InputAdornment>
+                    ) : null
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Filtrar por sucursal"
+                  placeholder="Ej: Centro, Norte, Sur..."
+                  value={filtroSucursal}
+                  onChange={(e) => setFiltroSucursal(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><i className="bi bi-building" /></InputAdornment>
+                    ),
+                    endAdornment: filtroSucursal ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setFiltroSucursal('')}><i className="bi bi-x" /></IconButton>
+                      </InputAdornment>
+                    ) : null
+                  }}
+                />
+              </Grid>
+            </Grid>
+            <div className="mt-2">
+              <small className="text-muted">
+                <i className="bi bi-info-circle me-1"></i>
+                Productos encontrados: <strong>{productosFiltrados.length}</strong> | 
+                Registros de stock: <strong>{stockFiltrado.length}</strong>
+              </small>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stock por sucursal: grid de dos columnas en pantallas grandes */}
-      <div className="stock-grid" style={{display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginTop: 24}}>
-        {stockSucursal && stockSucursal.length === 0 && <div className="text-muted">No hay datos de stock por sucursal</div>}
-        {stockSucursal && stockSucursal.length > 0 && (
-          Object.entries(stockSucursal.reduce((acc, cur) => {
+      <Box sx={{ mt: 3 }}>
+        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 2 }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('nombre')}>Nombre {sortField === 'nombre' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell>Descripción</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell>Acciones</TableCell>
+                {sucursalesList.map(s => (
+                  <TableCell key={s.idSucursal} align="center">{s.nombreSucursal}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {productosFiltradosPaged.map(p => (
+                <TableRow key={p.idProducto} hover>
+                  <TableCell>{p.idProducto}</TableCell>
+                  <TableCell>{p.nombre}</TableCell>
+                  <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</TableCell>
+                  <TableCell>{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
+                  <TableCell>{p.stock}</TableCell>
+                  <TableCell>
+                    <Button size="small" variant="contained" sx={{ mr: 1 }} onClick={() => handleEdit(p)}>Editar</Button>
+                    <Button size="small" color="error" variant="outlined" onClick={() => handleDelete(p)}>Eliminar</Button>
+                  </TableCell>
+                  {sucursalesList.map(s => {
+                    const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
+                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} align="center">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
+                  })}
+                </TableRow>
+              ))}
+
+              {productosFiltrados.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6 + sucursalesList.length} align="center">No se encontraron productos que coincidan con los filtros</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2">Filas por página</Typography>
+            <FormControl size="small">
+              <Select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} sx={{ width: 90 }}>
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={8}>8</MenuItem>
+                <MenuItem value={12}>12</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button size="small" variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>« Primero</Button>
+            <Button size="small" variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>‹</Button>
+            <Typography variant="body2">Página {currentPage} de {totalPages}</Typography>
+            <Button size="small" variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>›</Button>
+            <Button size="small" variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>Último »</Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Stock por sucursal: grid de dos columnas en pantallas grandes con filtros aplicados */}
+      <div className="productos-stock-grid">
+        {stockFiltrado && stockFiltrado.length === 0 && (
+          <div className="text-muted text-center py-4">
+            <i className="bi bi-funnel me-2"></i>
+            No hay datos de stock que coincidan con los filtros aplicados
+          </div>
+        )}
+        {stockFiltrado && stockFiltrado.length > 0 && (
+          Object.entries(stockFiltrado.reduce((acc, cur) => {
             const key = `${cur.idSucursal}::${cur.nombreSucursal}`;
             acc[key] = acc[key] || [];
             acc[key].push(cur);
             return acc;
           }, {})).map(([key, items]) => {
             const [, nombreSucursal] = key.split('::');
-            return (
-              <div key={key} className="mb-4">
-                  <h5 className="text-center" style={{marginBottom:12}}>{nombreSucursal}</h5>
-                  <div className="table-responsive">
-                    <table className="table table-sm table-bordered">
-                      <thead className="table-dark text-center">
-                        <tr>
-                          <th>Producto</th>
-                          <th>Stock Disponible</th>
-                          <th>Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map(it => (
-                          <tr key={`${it.idSucursal}-${it.idProducto}`}>
-                            <td>{it.nombreProducto}</td>
-                            <td className="text-center align-middle">{it.stockDisponible}</td>
-                            <td className="text-center align-middle">
-                              <button className="btn btn-sm btn-primary" onClick={() => setEditSucursal({ idSucursal: it.idSucursal, idProducto: it.idProducto, nombreProducto: it.nombreProducto, stockDisponible: it.stockDisponible })}>
-                                <i className="bi bi-pencil me-1"></i> Editar
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-            );
+              return (
+                <StockTable key={key} items={items} nombreSucursal={nombreSucursal} idSucursal={items[0]?.idSucursal} onEdit={(payload) => setEditSucursal(payload)} />
+              );
           })
         )}
       </div>
-      {addProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitAdd} noValidate style={{height: '100%'}}>
-                <div className="modal-header">
-                  <h5 className="modal-title">Agregar Producto</h5>
-                  <button type="button" className="btn-close" onClick={() => setAddProd(false)}></button>
-                </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
-                  {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${fieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={addForm.nombre} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {fieldErrors.nombre && <span className="invalid-feedback d-block">{fieldErrors.nombre}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Descripción</label>
-                    <input type="text" className={`form-control${fieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={addForm.descripcion} onChange={handleAddChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {fieldErrors.descripcion && <span className="invalid-feedback d-block">{fieldErrors.descripcion}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Precio</label>
-                    <input type="number" className={`form-control${fieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={addForm.precio} onChange={handleAddChange} required min="0" step="0.01" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {fieldErrors.precio && <span className="invalid-feedback d-block">{fieldErrors.precio}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Stock</label>
-                    <input type="number" className={`form-control${fieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={addForm.stockTotal} onChange={handleAddChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {fieldErrors.stockTotal && <span className="invalid-feedback d-block">{fieldErrors.stockTotal}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-3">
-                    <label>Asignar a sucursales</label>
-                    <div className="mt-2 mb-2">
-                      <div className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="sucursal-assignment"
-                          id="suc-all"
-                          value="ALL"
-                          checked={sucursalAssignment === 'ALL'}
-                          onChange={(e) => setSucursalAssignment(e.target.value)}
-                        />
-                        <label className="form-check-label" htmlFor="suc-all">Todas las sucursales</label>
-                      </div>
-                      {sucursales.map(s => (
-                        <div key={s.idSucursal} className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name="sucursal-assignment"
-                            id={`suc-${s.idSucursal}`}
-                            value={s.idSucursal}
-                            checked={String(sucursalAssignment) === String(s.idSucursal)}
-                            onChange={(e) => setSucursalAssignment(e.target.value)}
-                          />
-                          <label className="form-check-label" htmlFor={`suc-${s.idSucursal}`}>{s.nombre}</label>
-                        </div>
-                      ))}
-                      <div className="form-text">Elegí una única opción: todas las sucursales o una en particular.</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Crear producto</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setAddProd(false)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Edición */}
+      {/* Modal Edición - migrado a MUI Dialog */}
       {editProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog modal-lg" role="document" style={{maxWidth: '700px'}}>
-            <div className="modal-content" style={{maxHeight: '90vh', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-              <form onSubmit={submitEdit} noValidate style={{height: '100%'}}>
-                <div className="modal-header">
-                  <h5 className="modal-title">Editar Producto</h5>
-                  <button type="button" className="btn-close" onClick={() => setEditProd(null)}></button>
-                </div>
-                <div className="modal-body" style={{overflowY: 'auto', maxHeight: '65vh'}}>
-                  {error && (
-                    <div className="alert alert-danger mb-3" style={{fontSize: '1em'}}>{error}</div>
-                  )}
-                  <div className="mb-2">
-                    <label>Nombre</label>
-                    <input type="text" className={`form-control${editFieldErrors.nombre ? ' is-invalid' : ''}`} name="nombre" value={form.nombre} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {editFieldErrors.nombre && <span className="invalid-feedback d-block">{editFieldErrors.nombre}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Descripción</label>
-                    <input type="text" className={`form-control${editFieldErrors.descripcion ? ' is-invalid' : ''}`} name="descripcion" value={form.descripcion} onChange={handleChange} required />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {editFieldErrors.descripcion && <span className="invalid-feedback d-block">{editFieldErrors.descripcion}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Precio</label>
-                    <input type="number" className={`form-control${editFieldErrors.precio ? ' is-invalid' : ''}`} name="precio" value={form.precio} onChange={handleChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {editFieldErrors.precio && <span className="invalid-feedback d-block">{editFieldErrors.precio}</span>}
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label>Stock</label>
-                    <input type="number" className={`form-control${editFieldErrors.stockTotal ? ' is-invalid' : ''}`} name="stockTotal" value={form.stockTotal} onChange={handleChange} required min="0" />
-                    <div style={{minHeight: 18, fontSize: '0.85em'}}>
-                      {editFieldErrors.stockTotal && <span className="invalid-feedback d-block">{editFieldErrors.stockTotal}</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="submit" className="btn btn-success">Guardar cambios</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditProd(null)}>Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <Dialog open={!!editProd} onClose={() => setEditProd(null)} fullWidth maxWidth="md" scroll="paper" PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle>Editar Producto</DialogTitle>
+          <Box component="form" onSubmit={submitEdit} noValidate>
+            <DialogContent dividers sx={{ maxHeight: '68vh', overflow: 'auto', pt: 2 }}>
+              {error && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{error}</Box>}
+              <Grid container spacing={2} alignItems="flex-start">
+                <Grid item xs={12} md={3}>
+                  <TextField fullWidth size="small" variant="outlined" name="nombre" label="Nombre del producto *" value={form.nombre} onChange={handleChange} error={!!editFieldErrors.nombre} helperText={editFieldErrors.nombre || ''} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    multiline
+                    minRows={4}
+                    maxRows={8}
+                    name="descripcion"
+                    label="Descripción *"
+                    value={form.descripcion}
+                    onChange={handleChange}
+                    error={!!editFieldErrors.descripcion}
+                    helperText={editFieldErrors.descripcion || ''}
+                    inputProps={{ style: { maxHeight: 220, overflow: 'auto', padding: '8px' } }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth size="small" variant="outlined" type="number" name="precio" label="Precio *" value={form.precio} onChange={handleChange} error={!!editFieldErrors.precio} helperText={editFieldErrors.precio || ''} inputProps={{ step: '0.01', min: 0 }} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth size="small" variant="outlined" type="number" name="stockTotal" label="Stock *" value={form.stockTotal} onChange={handleChange} error={!!editFieldErrors.stockTotal} helperText={editFieldErrors.stockTotal || ''} inputProps={{ min: 0 }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <InputLabel sx={{ mb: 1 }}>Imágenes del producto (máx.5)</InputLabel>
+                      <input type="file" accept="image/*" multiple onChange={handleMultipleImagesChange} />
+                      {imagePreviews.length > 0 && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                          {imagePreviews.map((preview, index) => (
+                            <Box key={index} sx={{ position: 'relative' }}>
+                              <img src={typeof preview === 'string' && preview.startsWith('data:') ? preview : (typeof preview === 'string' ? `http://localhost:3000/uploads/${preview}` : preview)} alt={`Preview ${index+1}`} style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
+                              <IconButton size="small" onClick={() => removeImage(index)} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}>×</IconButton>
+                              <Typography variant="caption" display="block" align="center">Imagen {index+1}</Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button variant="outlined" onClick={() => setEditProd(null)}>Cancelar</Button>
+              <Button type="submit" variant="contained">Guardar</Button>
+            </DialogActions>
+          </Box>
+        </Dialog>
       )}
 
-      {/* Modal Editar stock por sucursal */}
+      {/* Modal Editar stock por sucursal - migrado a MUI Dialog */}
       {editSucursal && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Editar stock - {editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})</h5>
-                <button type="button" className="btn-close" onClick={() => setEditSucursal(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-2">
-                  <label>Stock Disponible</label>
-                  <input type="number" className={`form-control`} name="stockDisponible" value={editSucursal.stockDisponible} onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })} min="0" />
-                </div>
-                <div className="text-muted small">Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.</div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-success" onClick={async () => {
-                  try {
-                    const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                    await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
-                    setSuccess('Stock actualizado correctamente');
-                    setEditSucursal(null);
-                    setError(null);
-                  } catch (err) {
-                    let msg = 'Error al actualizar stock';
-                    if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
-                    setError(msg);
-                  }
-                }}>Guardar</button>
-                <button className="btn btn-secondary" onClick={() => setEditSucursal(null)}>Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Dialog open={!!editSucursal} onClose={() => setEditSucursal(null)} fullWidth maxWidth="sm">
+          <DialogTitle>Editar Stock por Sucursal</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>{editSucursal.nombreProducto} (Sucursal {editSucursal.idSucursal})</Typography>
+            <TextField fullWidth type="number" label="Stock disponible" value={editSucursal.stockDisponible} onChange={(e) => setEditSucursal({ ...editSucursal, stockDisponible: e.target.value })} inputProps={{ min: 0 }} sx={{ mb: 2 }} />
+            <Box sx={{ bgcolor: '#F3F4F6', p: 2, borderRadius: 1, mb: 1, color: '#6b7280' }}>
+              <i className="bi bi-info-circle me-1"></i>
+              Solo se modifica el stock de este producto en la sucursal seleccionada; el stock total del producto se ajustará automáticamente.
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" onClick={() => setEditSucursal(null)}>Cancelar</Button>
+            <Button variant="contained" onClick={async () => {
+              try {
+                const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
+                await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                setSuccess('Stock actualizado correctamente');
+                setEditSucursal(null);
+                setError(null);
+              } catch (err) {
+                let msg = 'Error al actualizar stock';
+                if (err && err.response && err.response.data && err.response.data.error) msg = err.response.data.error;
+                setError(msg);
+              }
+            }}>Guardar</Button>
+          </DialogActions>
+        </Dialog>
       )}
 
-      {/* Modal Borrado */}
+      {/* Modal Eliminación - migrado a MUI Dialog */}
       {deleteProd && (
-        <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-          <div className="modal-dialog" role="document">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">¿Eliminar producto?</h5>
-                <button type="button" className="btn-close" onClick={() => { setDeleteProd(null); setDeleteError(null); }}></button>
-              </div>
-              <div className="modal-body">
-                {deleteError && <div className="alert alert-danger mb-2">{deleteError}</div>}
-                <p>¿Estás seguro que quieres eliminar <b>{deleteProd.nombre}</b>? Esta acción no se puede deshacer.</p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-danger" onClick={confirmDelete}>Eliminar</button>
-                <button className="btn btn-secondary" onClick={() => { setDeleteProd(null); setDeleteError(null); }}>Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Dialog open={!!deleteProd} onClose={() => { setDeleteProd(null); setDeleteError(null); }} fullWidth maxWidth="sm">
+          <DialogTitle>Eliminar producto</DialogTitle>
+          <DialogContent>
+            {deleteError && <Box sx={{ bgcolor: '#fff2f2', color: '#dc2626', p: 2, borderRadius: 1, mb: 2 }}>{deleteError}</Box>}
+            <Typography sx={{ color: '#6b7280', mb: 1 }}>¿Estás seguro que quieres eliminar <strong style={{ color: '#374151' }}>{deleteProd.nombre}</strong>? Esta acción no se puede deshacer.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" onClick={() => { setDeleteProd(null); setDeleteError(null); }}>Cancelar</Button>
+            <Button color="error" variant="contained" onClick={confirmDelete}>Eliminar</Button>
+          </DialogActions>
+        </Dialog>
       )}
-    {/* Confirmación: actualizar filas/columnas faltantes */}
+    {/* Confirmación: actualizar filas/columnas faltantes (Dialog MUI) */}
     {showBackfillModal && (
-      <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-        <div className="modal-dialog" role="document">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Actualizar filas y columnas faltantes</h5>
-              <button className="btn-close" onClick={() => setShowBackfillModal(false)}></button>
-            </div>
-            <div className="modal-body">
-              <p>Esta acción creará o actualizará las filas y columnas faltantes en el inventario por sucursal para todos los productos. Las filas creadas tendrán stock=0 por defecto. ¿Deseas continuar?</p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-danger" onClick={async () => { await runBackfill(); setShowBackfillModal(false); }}>Actualizar</button>
-              <button className="btn btn-secondary" onClick={() => setShowBackfillModal(false)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Dialog open={showBackfillModal} onClose={() => setShowBackfillModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Actualizar filas y columnas faltantes</DialogTitle>
+        <DialogContent>
+          <Typography>Esta acción creará o actualizará las filas y columnas faltantes en el inventario por sucursal para todos los productos. Las filas creadas tendrán stock=0 por defecto. ¿Deseas continuar?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setShowBackfillModal(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={async () => { await runBackfill(); setShowBackfillModal(false); }}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
     )}
 
     {/* Reconcile confirmation modal removed; use Herramientas -> Reconciliar producto */}
     {/* Seleccionar producto para alinear stock por sucursal (desde Herramientas) */}
     {showSelectReconcileModal && (
-      <div className="modal show d-block" tabIndex="-1" role="dialog" style={{background: 'rgba(0,0,0,0.3)'}}>
-        <div className="modal-dialog" role="document">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Alinear stock por sucursal (producto)</h5>
-              <button className="btn-close" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}></button>
-            </div>
-            <div className="modal-body">
-              <p>Selecciona el producto que deseas alinear. Esta acción ajustará los stocks de cada sucursal para que su suma coincida con el stock total del producto.</p>
-              <div className="mb-2">
-                <label>Producto</label>
-                <select className="form-select" value={selectedProductForReconcile ?? ''} onChange={(e) => setSelectedProductForReconcile(Number(e.target.value))}>
-                  <option value="" disabled>-- Selecciona --</option>
-                  {productos.map(p => (
-                    <option key={p.idProducto} value={p.idProducto}>{p.nombre} (ID: {p.idProducto})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-primary" onClick={async () => {
-                if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
-                try {
-                  await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
-                  setSuccess('Alineación ejecutada');
-                } catch {
-                  setError('Error al alinear stock');
-                }
-                setShowSelectReconcileModal(false);
-                setSelectedProductForReconcile(null);
-              }}>Alinear</button>
-              <button className="btn btn-secondary" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Dialog open={showSelectReconcileModal} onClose={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Alinear stock por sucursal (producto)</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 1 }}>Selecciona el producto que deseas alinear. Esta acción ajustará los stocks de cada sucursal para que su suma coincida con el stock total del producto.</Typography>
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel id="reconcile-product-label">Producto</InputLabel>
+            <Select labelId="reconcile-product-label" label="Producto" value={selectedProductForReconcile ?? ''} onChange={(e) => setSelectedProductForReconcile(Number(e.target.value))}>
+              <MenuItem value="" disabled>-- Selecciona --</MenuItem>
+              {productos.map(p => (
+                <MenuItem key={p.idProducto} value={p.idProducto}>{p.nombre} (ID: {p.idProducto})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => { setShowSelectReconcileModal(false); setSelectedProductForReconcile(null); }}>Cancelar</Button>
+          <Button variant="contained" onClick={async () => {
+            if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
+            try {
+              await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
+              setSuccess('Alineación ejecutada');
+            } catch {
+              setError('Error al alinear stock');
+            }
+            setShowSelectReconcileModal(false);
+            setSelectedProductForReconcile(null);
+          }}>Alinear</Button>
+        </DialogActions>
+      </Dialog>
     )}
     </div>
   );

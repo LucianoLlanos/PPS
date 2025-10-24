@@ -1,6 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const adminController = require('../controllers/adminController.js');
+
+// Multer setup para subida de imágenes
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '..', 'uploads'));
+  },
+  filename: function (req, file, cb) {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, unique + ext);
+  }
+});
+const upload = multer({ storage });
 
 // Usuarios
 router.get('/usuarios', adminController.listarUsuarios);
@@ -8,25 +23,31 @@ router.post('/usuarios', adminController.crearUsuario);
 router.put('/usuarios/:id', adminController.actualizarUsuario);
 router.delete('/usuarios/:id', adminController.eliminarUsuario);
 
-// Productos
+// Productos (con soporte de múltiples imágenes)
 router.get('/productos', adminController.listarProductos);
-router.post('/productos', adminController.crearProducto);
-router.put('/productos/:id', adminController.actualizarProducto);
+router.post('/productos', upload.array('imagenes', 5), adminController.crearProducto); // Máximo 5 imágenes
+router.put('/productos/:id', upload.array('imagenes', 5), adminController.actualizarProducto);
 router.delete('/productos/:id', adminController.eliminarProducto);
 
 // Pedidos
 router.get('/pedidos', adminController.listarPedidos);
 router.post('/pedidos', adminController.crearPedido);
-router.get('/pedidos/:id', adminController.verDetallePedido);
-router.delete('/pedidos/:id', adminController.eliminarPedido);
-router.put('/pedidos/:id', adminController.actualizarPedido);
+// Asegurar que los endpoints que toman :id sólo acepten IDs numéricos (evita colisiones con rutas como /pedidos/summary)
+router.get('/pedidos/:id(\\d+)', adminController.verDetallePedido);
+router.delete('/pedidos/:id(\\d+)', adminController.eliminarPedido);
+router.put('/pedidos/:id(\\d+)', adminController.actualizarPedido);
 
 // Ventas (alias de pedidos para compatibilidad frontend)
 router.get('/ventas', adminController.listarPedidos);
 router.post('/ventas', adminController.crearPedido);
-router.get('/ventas/:id', adminController.verDetallePedido);
-router.delete('/ventas/:id', adminController.eliminarPedido);
-router.put('/ventas/:id', adminController.actualizarPedido);
+// Analytics de ventas (solo pedidos con estado 'Entregado')
+router.get('/ventas/summary', adminController.ventasSummary);
+router.get('/ventas/timeseries', adminController.ventasTimeseries);
+router.get('/ventas/top-products', adminController.ventasTopProducts);
+router.get('/ventas/:id(\\d+)', adminController.verDetallePedido);
+router.delete('/ventas/:id(\\d+)', adminController.eliminarPedido);
+router.put('/ventas/:id(\\d+)', adminController.actualizarPedido);
+// (Las rutas de analytics ya están registradas más arriba; evitar duplicados)
 
 // Sucursales, clientes, servicios
 router.get('/sucursales', adminController.listarSucursales);

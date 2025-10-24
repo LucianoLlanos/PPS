@@ -1,68 +1,115 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* Reset básico */
+* {
+  box-sizing: border-box;
+}
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Prevent layout shift when the vertical scrollbar appears: always reserve scrollbar space
+   or let the browser keep the gutter stable. This avoids the centered content jumping left/right
+   when pages become scrollable. If you prefer the scrollbar to be always visible, use
+   `html { overflow-y: scroll; }` — currently we keep the default but request a stable gutter. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  padding: 0;
+  background-color: #f8f9fa;
+  color: #212529;
+  line-height: 1.5;
+  padding-top: 10px; /* Altura del navbar (ajustada a 10px) */
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Variables CSS para modo claro */
+:root {
+  --text-color: #212529;
+  --bg-color: #f8f9fa;
+  --border-color: #dee2e6;
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
 }
 
+/* Enlaces básicos */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Botones básicos */
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  border: none;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
 }
-button:hover {
-  border-color: #646cff;
-}
+
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* Inputs básicos */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Custom aesthetic scrollbars (WebKit browsers) */
+/* thin, translucent track and soft thumb that brightens on hover */
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(15,23,42,0.04);
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.18);
+  border-radius: 10px;
+  border: 2px solid transparent; /* creates padding effect */
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(15,23,42,0.28);
+}
+
+/* Firefox: use scrollbar-color and scrollbar-width */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15,23,42,0.18) rgba(15,23,42,0.04);
+}
+
+/* Helper classes for small scrollable areas */
+.scroll-compact {
+  scrollbar-width: thin; /* Firefox */
+}
+.scroll-compact::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-compact::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.16); }
+

@@ -1,0 +1,130 @@
+.servicios-admin-container {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+.servicios-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.servicios-title {
+  font-weight: 800;
+  margin-bottom: 6px;
+  font-size: 2rem;
+}
+.servicios-subtitle { color: #6b7280; }
+
+.servicios-filters-paper {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.servicios-filter-estado { margin-bottom: 12px; }
+.servicios-filter-fecha .MuiButton-root { margin-right: 8px; margin-bottom: 6px; }
+.servicios-filter-dates .MuiTextField-root { width: 100%; }
+
+.servicios-stats { margin-top: 12px; display:flex; gap:8px; flex-wrap:wrap; }
+
+.services-grid { margin-top: 8px; }
+.services-grid-item { display: flex; }
+.servicio-card {
+  display: flex !important;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 300px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.servicio-card-content { flex-grow: 1; padding-left: 16px; padding-right: 16px; }
+.servicio-card-content .MuiTypography-root { font-size: 0.87rem; }
+
+/* Prevent flex children from forcing the parent to expand horizontally */
+.servicio-card .MuiGrid-root { min-width: 0; }
+.servicio-card .MuiGrid-item { min-width: 0; }
+.servicio-card .MuiGrid-item > * { min-width: 0; }
+
+/* Ensure long words in description wrap instead of overflowing */
+.servicio-card .expandable-content, .servicio-card .expandable-wrap, .servicio-card .MuiTypography-root {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Limit chip width so they don't push layout; allow ellipsis */
+.servicio-card .MuiChip-root, .servicio-card .chip-tipo { max-width: 100%; display: inline-block; vertical-align: middle; }
+.servicio-card .chip-tipo { max-width: 220px; }
+.servicio-card .estado-chip { max-width: 160px; }
+
+/* Make sure any inline element in the right column doesn't force width */
+.servicio-card .right-column { min-width: 0; }
+
+/* Very long unbroken strings (urls, base64) — force break */
+.servicio-card img, .servicio-card svg { max-width: 100%; height: auto; }
+
+.servicios-alerts { margin-bottom: 12px; }
+.servicio-alert { padding: 8px; border-radius: 6px; }
+.servicio-alert-error { background-color: #fdecea; color: #7a1f2d; }
+.servicio-alert-success { background-color: #e9f9ec; color: #0b8457; }
+
+.servicios-subtitle2 { margin-bottom: 8px; }
+.divider-wide { margin: 16px 0; }
+.divider-compact { margin: 8px 0; }
+
+.servicios-stats { margin-top: 12px; display:flex; gap:8px; flex-wrap:wrap; align-items: center; }
+.estado-chip { font-weight: 600; }
+.chip-total { margin-left: 8px; }
+
+/* State specific chips (colors mirrored from component estados array) */
+.chip-pendiente.MuiChip-root, .chip-pendiente { background-color: #fff4e5; color: #8a5800; }
+.chip-confirmado.MuiChip-root, .chip-confirmado { background-color: #e8f7ff; color: #0066cc; }
+.chip-en_proceso.MuiChip-root, .chip-en_proceso { background-color: #fff6e6; color: #b35a00; }
+.chip-completado.MuiChip-root, .chip-completado { background-color: #e9f9ec; color: #0b8457; }
+.chip-cancelado.MuiChip-root, .chip-cancelado { background-color: #fdecea; color: #bb2d3b; }
+
+/* Ensure header chip has rounded pill look and consistent padding */
+.estado-chip-header.MuiChip-root, .estado-chip.MuiChip-root { border-radius: 16px; padding: 6px 10px; }
+
+/* Card sizing and content overflow handling */
+.servicio-card { display: flex !important; flex-direction: column; flex-grow: 1; min-height: 340px; width: 100%; box-sizing: border-box; }
+.servicio-card .MuiCardHeader-root { padding-left: 16px; padding-right: 16px; }
+.servicio-card-content { padding-left: 16px; padding-right: 16px; flex: 1 1 auto; overflow: hidden; }
+.servicio-card-content > .MuiGrid-root { height: 100%; }
+.servicio-card .MuiCardActions-root { margin-top: auto; padding-left: 16px; padding-right: 16px; }
+
+/* Prevent long descriptions from blowing out card height; ExpandableText handles clamp, but ensure overflow hidden */
+.servicios-history-description { display: block; overflow: hidden; }
+
+/* Ensure grid items and cards stretch to same height */
+.services-grid-item { display: flex; align-items: stretch; }
+.services-grid-item > .servicio-card { height: 100%; }
+
+.servicios-no-results { padding: 24px; text-align: center; }
+
+.services-grid { margin-top: 8px; }
+.services-grid-item { display: flex; }
+.servicio-card { display: flex !important; flex-direction: column; flex-grow: 1; min-height: 340px; width: 100%; box-sizing: border-box; }
+.servicio-card .MuiCardHeader-root { padding-left: 16px; padding-right: 16px; }
+.servicio-card-content { padding-left: 16px; padding-right: 16px; }
+.chip-tipo { margin-bottom: 6px; }
+.servicio-updated { margin-left: 8px; }
+
+.estado-chip-header { font-weight: 700; }
+
+.dialog-grid { display: grid; gap: 8px; }
+
+/* Make header title scale on small screens */
+@media (max-width: 768px) {
+  .servicios-title { font-size: 1.5rem; }
+  .servicio-card { min-height: 260px; }
+}
+
+/* Force clamp for admin service descriptions to avoid cards resizing */
+.servicio-card .expandable-wrap.servicios-history-description {
+  max-height: calc(1.15rem * 3) !important;
+  overflow: hidden !important;
+}
+.servicio-card .expandable-wrap.servicios-history-description.expanded {
+  max-height: none !important;
+  overflow: visible !important;
+}

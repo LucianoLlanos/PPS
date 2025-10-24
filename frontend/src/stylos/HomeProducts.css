@@ -1,0 +1,668 @@
+/* Estilos para el componente HomeProducts */
+
+.home-products-container {
+  padding: 1rem 0;
+}
+
+.home-products-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.home-products-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+/* Hero styles for catalog page */
+.catalog-hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.catalog-hero .brand {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #0b2545;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.6rem;
+}
+.catalog-hero .search-box {
+  width: 100%;
+  /* keep the search box visually narrower than the hero but centered; restore previous sensible width */
+  max-width: 720px;
+  box-shadow: 0 8px 28px rgba(13,38,59,0.06);
+  border-radius: 12px;
+  padding: 14px;
+  background: white;
+}
+
+.home-products-subtitle {
+  font-size: 1.25rem;
+  color: #718096;
+  margin: 0;
+}
+
+.home-products-filters {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.home-products-search-section {
+  margin-bottom: 1.5rem;
+}
+
+.home-products-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.home-products-search-input:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.home-products-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.home-products-filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-products-filter-label {
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.home-products-filter-select {
+  padding: 0.5rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.home-products-filter-select:focus {
+  outline: none;
+  border-color: #0d6efd;
+}
+
+.home-products-clear-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+  height: fit-content;
+}
+
+.home-products-clear-btn:hover {
+  background-color: #5a6268;
+}
+
+.home-products-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.home-products-results-count {
+  font-size: 1.125rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.home-products-view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.home-products-view-btn {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6c757d;
+}
+
+.home-products-view-btn.active {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+.home-products-view-btn:hover:not(.active) {
+  background-color: #f8f9fa;
+}
+
+.home-products-grid {
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+  justify-content: center;
+}
+
+.home-products-grid.grid-view {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* Ensure cards don't expand beyond their maxWidth and grid centers items on wide screens */
+.home-products-grid.grid-view .product-card {
+  margin: 0 auto;
+  max-width: 300px;
+  width: 300px;
+  border-radius: 18px;
+  padding: 14px;
+}
+
+/* Ensure card width consistency at breakpoints */
+@media (min-width: 1200px) {
+  .home-products-grid.grid-view { grid-template-columns: repeat(4, 1fr); }
+  .home-products-grid.grid-view .product-card { max-width: 280px; }
+}
+
+/* Make the expandable text overlay so it doesn't push CardActions down */
+.product-card-content { padding-bottom: 72px; }
+.product-card-content .expandable-wrap {
+  transition: max-height 220ms ease;
+}
+.product-card-content .expandable-wrap.expanded {
+  position: relative !important;
+  background: #fff;
+  padding: 6px 0 0 0 !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  max-height: 140px !important; /* a bit more visible space so description shows further down */
+  overflow-y: auto !important;
+}
+.product-card-content .expandable-wrap.clamped { position: relative; }
+
+.home-products-grid.list-view {
+  grid-template-columns: 1fr;
+}
+
+.home-products-card {
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(11, 37, 70, 0.06);
+  border: 1px solid rgba(11,37,70,0.06);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-products-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 26px 60px rgba(11, 37, 70, 0.12);
+}
+
+.home-products-card.list-view {
+  flex-direction: row;
+  align-items: center;
+}
+
+.home-products-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-products-image-container.grid-view {
+  height: 240px; /* match carousel height */
+}
+
+.home-products-image-container.list-view {
+  width: 200px;
+  height: 150px;
+  flex-shrink: 0;
+}
+
+.home-products-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.home-products-card:hover .home-products-image {
+  transform: scale(1.05);
+}
+
+.home-products-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: #dc3545;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.home-products-content {
+    padding: 1rem 1.25rem;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.home-products-content.list-view {
+  padding: 1rem 1.5rem;
+}
+
+.home-products-category {
+  color: #0d6efd;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-transform: capitalize;
+}
+
+.home-products-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.home-products-description {
+  color: #718096;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  flex: 1;
+}
+
+.home-products-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.home-products-price {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #0b2545;
+}
+
+.home-products-add-btn {
+  background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.home-products-add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.home-products-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.home-products-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.home-products-loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e2e8f0;
+  border-radius: 50%;
+  border-top-color: #0d6efd;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 1rem;
+}
+
+.home-products-empty {
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.home-products-empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.home-products-empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.home-products-empty-text {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.home-products-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+/* Animación del spinner */
+@keyframes spin {
+  0% { 
+    transform: rotate(0deg); 
+  }
+  100% { 
+    transform: rotate(360deg); 
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .home-products-title {
+    font-size: 2rem;
+  }
+  
+  .home-products-subtitle {
+    font-size: 1rem;
+  }
+  
+  .home-products-filters {
+    padding: 1rem;
+  }
+  
+  .home-products-filter-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .home-products-results-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .home-products-grid.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+  
+  .home-products-card.list-view {
+    flex-direction: column;
+  }
+  
+  .home-products-image-container.list-view {
+    width: 100%;
+    height: 200px;
+  }
+}
+
+/* Nuevas clases migradas desde estilos inline */
+.products-loading,
+.products-error {
+  padding: 20px;
+}
+
+.products-container {
+  padding: 20px;
+}
+
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.products-title {
+  margin: 0;
+}
+
+.products-search {
+  padding: 6px;
+  min-width: 220px;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.product-card {
+  padding: 0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make sure long descriptions wrap and the card can grow vertically */
+.product-card { min-width: 0; }
+.product-card .expandable-wrap { overflow: hidden; }
+.product-card .expandable-content, .home-products-grid .product-card .expandable-content {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  overflow: hidden !important;
+  /* slightly larger base size to reduce perceived jump on expand */
+  font-size: 0.86rem !important;
+  line-height: 1.28 !important;
+}
+.product-card .expandable-content.expanded, .home-products-grid .product-card .expandable-content.expanded {
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  display: block !important;
+  /* make expanded font-size only slightly larger to avoid huge jumps */
+  font-size: 0.90rem !important;
+  line-height: 1.32 !important;
+}
+.product-expandable + .servicios-leer-mas { margin-top: 6px; display: inline-block; font-size: 0.82rem !important; }
+
+/* Position the toggle button absolutely so it doesn't push CardActions. It will sit just above the actions area. */
+.product-card .servicios-leer-mas {
+  position: absolute !important;
+  bottom: 82px !important; /* sits above the CardActions and slightly higher to account for larger expanded area */
+  left: 12px !important;
+  right: 12px !important;
+  display: block !important;
+  text-align: left !important;
+  background: transparent !important;
+  padding: 4px 0 !important;
+  z-index: 90 !important;
+}
+
+/* When the wrapper is clamped and smaller, keep the inline margin so layout doesn't jump */
+.product-card .expandable-wrap.clamped + .servicios-leer-mas { position: absolute !important; bottom: 70px !important; }
+
+.product-image-container {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 10px;
+  border-radius: 12px;
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-title {
+  margin: 0 0 6px 0;
+}
+
+.product-description {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+  min-height: 40px;
+}
+
+/* Force wrapping and avoid overflow on very long words or sequences */
+.product-card .expandable-content, .product-card .expandable-wrap {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* Prevent description text from widening the card: ensure content stays within card's width */
+.product-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.product-card, .product-card * {
+  box-sizing: border-box;
+}
+
+.product-card .expandable-wrap, .product-card .expandable-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* When expanded, allow the text area to scroll internally but keep the card height fixed */
+.product-card .expandable-wrap.expanded {
+  max-height: 200px !important; /* limit visible expanded area and allow more vertical description */
+  overflow-y: auto !important;
+  padding-bottom: 96px !important; /* reserve more space so expanded text isn't hidden behind CardActions */
+}
+
+.product-card .expandable-wrap.clamped {
+  overflow: hidden !important;
+}
+
+/* Ensure grid items don't force a wider column */
+.home-products-grid .MuiGrid-item, .home-products-grid > div {
+  min-width: 0 !important;
+}
+
+/* Keep overlay texts from forcing width */
+.home-products-content, .home-products-content * {
+  min-width: 0 !important;
+}
+
+/* On wide cards, let the description area be comfortably narrow so text flows down */
+@media (min-width: 1200px) {
+  .product-card .expandable-content { max-width: 80% !important; }
+}
+
+.product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
+
+/* Card actions fixed appearance */
+.product-card-actions {
+    border-top: 1px solid rgba(15,23,42,0.03);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96));
+}
+
+.product-price {
+  font-weight: 700;
+}
+
+.product-view-btn {
+  margin-right: 8px;
+}
+
+.products-empty {
+  grid-column: 1 / -1;
+  color: #666;
+}
+
+.products-toggle-section {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.products-pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pagination-info {
+  padding: 6px 10px;
+}
+
+/* Force the top visual area of product cards to a fixed box so text expansion
+   doesn't resize images. Use high specificity to override inline/layout styles. */
+.product-card > div:first-child {
+  height: 220px !important;
+  min-height: 220px !important;
+  max-height: 220px !important;
+  overflow: hidden !important;
+}
+
+/* Ensure any img inside a product-card fills the fixed box without changing layout */
+.product-card img {
+  display: block !important;
+  width: 100% !important;
+  height: 220px !important;
+  max-height: 220px !important;
+  object-fit: cover !important;
+}
+
+/* Strengthen rules for carousel images specifically when rendered inside product cards */
+.product-card .carousel-image {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 220px !important;
+  object-fit: cover !important;
+  max-height: 220px !important;
+}

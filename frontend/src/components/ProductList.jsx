@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '../utils/format';
 import api from '../api/axios';
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, CircularProgress } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function ProductList({ onEdit }) {
   const [products, setProducts] = useState([]);
@@ -9,9 +13,9 @@ export default function ProductList({ onEdit }) {
     setLoading(true);
     try {
       const res = await api.get('/seller/products');
-      setProducts(res.data);
-    } catch (err) {
-      console.error(err);
+      setProducts(res.data || []);
+    } catch {
+      // Error silencioso
     } finally {
       setLoading(false);
     }
@@ -29,37 +33,45 @@ export default function ProductList({ onEdit }) {
     try {
       await api.delete('/seller/products/' + id);
       fetch();
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert('Error al eliminar');
     }
   };
 
-  if (loading) return <div>Cargando productos...</div>;
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>;
 
   return (
-    <div>
-      <h3>Productos</h3>
-      <table border="1" cellPadding="6">
-        <thead>
-          <tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Imagen</th><th>Acciones</th></tr>
-        </thead>
-        <tbody>
-          {products.map(p => (
-            <tr key={p.id}>
-              <td>{p.id}</td>
-              <td>{p.name}</td>
-              <td>{p.price}</td>
-              <td>{p.stock}</td>
-              <td>{p.image ? <img src={api.defaults.baseURL + '/uploads/' + p.image} alt="img" width={80} /> : '—'}</td>
-              <td>
-                <button onClick={() => onEdit && onEdit(p)}>Editar</button>
-                <button onClick={() => handleDelete(p.id)} style={{ marginLeft: 6 }}>Eliminar</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Box>
+      <Typography variant="h6" sx={{ mb: 2 }}>Productos</Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>Nombre</TableCell>
+              <TableCell>Precio</TableCell>
+              <TableCell>Stock</TableCell>
+              <TableCell>Imagen</TableCell>
+              <TableCell>Acciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {products.map(p => (
+              <TableRow key={p.id}>
+                <TableCell>{p.id}</TableCell>
+                <TableCell>{p.name}</TableCell>
+                <TableCell>{formatCurrency(Number(p.price || p.precio || 0))}</TableCell>
+                <TableCell>{p.stock}</TableCell>
+                <TableCell>{p.image ? <img src={api.defaults.baseURL + '/uploads/' + p.image} alt="img" width={80} /> : '—'}</TableCell>
+                <TableCell>
+                  <IconButton size="small" onClick={() => onEdit && onEdit(p)} aria-label="editar"><EditIcon /></IconButton>
+                  <IconButton size="small" onClick={() => handleDelete(p.id)} aria-label="eliminar"><DeleteIcon /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }

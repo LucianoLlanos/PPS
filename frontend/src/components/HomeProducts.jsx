@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import ProductModal from './ProductModal';
+import ProductImageCarousel from './ProductImageCarousel';
+import ExpandableText from './ExpandableText';
+import CatalogSearch from './CatalogSearch';
+import '../stylos/HomeProducts.css';
+// import ProductCardClean from './ProductCardClean';
 import cart from '../utils/cart';
-import { useLocation } from 'react-router-dom';
+import { formatCurrency } from '../utils/format';
+import { useLocation, useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/useAuthStore';
+import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, IconButton } from '@mui/material';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 export default function HomeProducts() {
   const [productos, setProductos] = useState([]);
@@ -13,21 +24,42 @@ export default function HomeProducts() {
   const [page, setPage] = useState(1);
   const perPage = 12;
   const [selected, setSelected] = useState(null);
-  const [showExamples, setShowExamples] = useState(false);
+  const [expandedMap, setExpandedMap] = useState({});
+  const [canToggleMap, setCanToggleMap] = useState({});
+  
+  // Estados para notificaciones toast
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState('success'); // 'success' o 'warning'
+
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // (insertBreaks removed) ProductCardClean handles long words now
+
+  // Función para mostrar notificación toast
+  const showToastNotification = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    // Ocultar después de 3 segundos
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
 
   const fetch = async () => {
+  // debug counter removed
     setLoading(true);
     try {
       let res;
       try {
         res = await api.get('/productos');
-        console.debug('[HomeProducts] /productos response:', res && res.data);
         setProductos(res.data || []);
-      } catch (err) {
-        console.warn('[HomeProducts] /productos failed, falling back to /seller/products', err && err.response ? err.response.status : err.message);
+      } catch (_err) {
+        console.error(_err);
         // fallback
         res = await api.get('/seller/products');
-        console.debug('[HomeProducts] /seller/products response:', res && res.data);
         const normalized = (res.data || []).map(p => ({
           idProducto: p.id || p.idProducto,
           nombre: p.name || p.nombre,
@@ -38,8 +70,8 @@ export default function HomeProducts() {
         }));
         setProductos(normalized);
       }
-    } catch (err) {
-      console.error('Error fetching productos', err);
+    } catch (_err) {
+      console.error(_err);
       setError('No se pudieron cargar los productos');
     } finally {
       setLoading(false);
@@ -53,8 +85,18 @@ export default function HomeProducts() {
     const q = params.get('q') || '';
     setQuery(q);
     fetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  // Listen for live search events from CatalogSearch to update query without routing
+  useEffect(() => {
+    const onLive = (e) => {
+      const q = e?.detail?.q || '';
+      setQuery(q);
+      // do not re-fetch products here; filtering is client-side
+    };
+    window.addEventListener('catalog:query', onLive);
+    return () => window.removeEventListener('catalog:query', onLive);
+  }, []);
 
   const filtered = productos.filter(p => {
     const text = (p.nombre || p.name || '').toString().toLowerCase() + ' ' + (p.descripcion || p.description || '').toString().toLowerCase();
@@ -64,79 +106,150 @@ export default function HomeProducts() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const visible = filtered.slice((page-1)*perPage, page*perPage);
 
-  const exampleProducts = [
-    { idProducto: 'e1', nombre: 'Ejemplo: Bomba 1HP', descripcion: 'Tarjeta de ejemplo - Bomba', precio: 45000, imagen: null },
-    { idProducto: 'e2', nombre: 'Ejemplo: Panel Solar', descripcion: 'Tarjeta de ejemplo - Panel', precio: 85000, imagen: null },
-    { idProducto: 'e3', nombre: 'Ejemplo: Tanque 1000L', descripcion: 'Tarjeta de ejemplo - Tanque', precio: 60000, imagen: null },
-  ];
+  
 
-  const itemsToRender = showExamples ? exampleProducts : visible;
+  const add = (p) => { 
+    if (!user) {
+      // Si no hay usuario logueado, mostrar mensaje y redirigir a registro
+      showToastNotification(`⚠️ Inicia sesión para agregar productos al carrito`, 'warning');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+      return;
+    }
+    // prevent admin from adding to cart
+    if (Number(user.idRol) === 3) {
+      showToastNotification('⚠️ Los administradores no pueden usar el carrito', 'warning');
+      return;
+    }
+    cart.addToCart(p, 1);
+    // Mostrar notificación de éxito
+    showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
+  };
 
-  const add = (p) => { cart.addToCart(p, 1); };
+  const itemsToRender = visible;
 
-  const sampleProducts = [
-    { idProducto: 's1', nombre: 'Ejemplo A', descripcion: 'Producto de ejemplo A', precio: 1000 },
-    { idProducto: 's2', nombre: 'Ejemplo B', descripcion: 'Producto de ejemplo B', precio: 2000 },
-    { idProducto: 's3', nombre: 'Ejemplo C', descripcion: 'Producto de ejemplo C', precio: 3000 },
-  ];
-
-  const loadExamples = () => { setProductos(sampleProducts); };
-
-  if (loading) return <div style={{padding:20}}>Cargando productos...</div>;
-  if (error) return <div style={{padding:20}} className="alert alert-danger">{error}</div>;
+  if (loading) return <Box sx={{ py: 6, textAlign: 'center' }}>Cargando productos...</Box>;
+  if (error) return <Box sx={{ py: 6, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
 
   return (
-    <div style={{padding:20}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
-        <h2 style={{margin:0}}>Catálogo de productos</h2>
-        <div>
-          <input placeholder="Buscar..." value={query} onChange={(e)=>{setQuery(e.target.value); setPage(1);}} style={{padding:6, minWidth:220}} />
-        </div>
-      </div>
+    <Box sx={{ width: '100%', py: 3 }}>
+      {/* Hero: company name + catalog search centered */}
+      <Box className="catalog-hero" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+        <Typography className="brand" variant="h3" sx={{ fontWeight: 800, mb: 1 }}>AtilioMarola</Typography>
+        <Typography variant="h6" sx={{ color: '#51637a', mb: 1 }}>Herramientas y soluciones para agua y energía — calidad industrial</Typography>
+        <Box className="search-box">
+          <CatalogSearch initialQuery={query} />
+        </Box>
+      </Box>
 
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16}}>
-        {itemsToRender.map(p => (
-          <div key={p.idProducto || p.id} className="card" style={{padding:12, border: '1px solid #e9ecef', borderRadius:8, display:'flex', flexDirection:'column'}}>
-            <div style={{height:160, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginBottom:8}}>
-              {(() => {
-                // Para pruebas: usar la misma imagen para todas las tarjetas
-                const src = '/img/descarga.jpg';
-                return <img src={src} alt={p.nombre || p.name} style={{maxWidth: '100%', maxHeight: '100%', objectFit:'contain'}} />;
-              })()}
-            </div>
-            <h5 style={{margin:0, marginBottom:6}}>{p.nombre}</h5>
-            <div style={{color:'#666', fontSize:14, marginBottom:8, minHeight:40}}>
-              {(p.descripcion || '').length > 120 ? ((p.descripcion || '').slice(0,120) + '...') : (p.descripcion || '')}
-            </div>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'auto'}}>
-              <div style={{fontWeight:700}}>${Number(p.precio || 0).toFixed(2)}</div>
-              <div>
-                <button className="btn btn-sm btn-outline-primary" onClick={() => setSelected(p)} style={{marginRight:8}}>Ver</button>
-                <button className="btn btn-sm btn-primary" onClick={() => add(p)}>Agregar</button>
-              </div>
-            </div>
-          </div>
-        ))}
+      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
+        <Grid container spacing={3} sx={{ mb: 2, justifyContent: 'center', alignItems: 'flex-start' }}>
+            {itemsToRender.map((p, idx) => {
+              const isNew = idx === itemsToRender.length - 1;
+              return (
+                <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} lg={isNew ? 6 : 3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <Card className="product-card"
+                    sx={{
+                      borderRadius: 3,
+                      boxShadow: 3,
+                      height: 480, /* fixed height so all cards match */
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                      '&:hover': { transform: 'translateY(-6px)', boxShadow: 8 },
+                      overflow: 'hidden',
+                      width: 280,
+                      minWidth: 280,
+                      maxWidth: 280,
+                      position: 'relative'
+                    }}
+                  >
+                    <Box sx={{ position: 'relative' }}>
+                      <Box sx={{ width: '100%', height: 220, backgroundColor: '#f6f6f6', display: 'block', overflow: 'hidden', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+                        <ProductImageCarousel imagenes={p.imagenes || (p.imagen ? [p.imagen] : [])} nombre={p.nombre || p.name} stock={p.stock} showNameOnly={true} />
+                      </Box>
+                      {/* Name overlay and stock chip are rendered inside ProductImageCarousel now; keep image area clean */}
+                    </Box>
 
-        {itemsToRender.length === 0 && (
-          <div style={{gridColumn: '1 / -1', color:'#666'}}>No hay productos para mostrar</div>
-        )}
-      </div>
+                    <CardContent className="product-card-content" sx={{ flex: '1 1 auto', pt: 2, pb: 10, display: 'flex', flexDirection: 'column' }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 18 }}>{formatCurrency(Number(p.precio || p.price || 0))}</Typography>
+                      <div>
+                        <ExpandableText
+                          text={p.descripcion || ''}
+                          lines={3}
+                          className="product-expandable"
+                          useModal={false}
+                          hideToggle={true}
+                          expanded={!!expandedMap[p.idProducto || p.id]}
+                          onToggle={(next) => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: next }))}
+                          onCanToggle={(available) => {
+                            const key = (p.idProducto || p.id);
+                            setCanToggleMap(m => {
+                              // if value unchanged, avoid creating a new object to prevent re-renders
+                              if (m && m[key] === available) return m;
+                              const next = { ...m, [key]: available };
+                              // if it's no longer available, also ensure we close expanded state
+                              if (!available) {
+                                setExpandedMap(em => {
+                                  if (!em || !em[key]) return em;
+                                  const copy = { ...em };
+                                  delete copy[key];
+                                  return copy;
+                                });
+                              }
+                              return next;
+                            });
+                          }}
+                        />
+                      </div>
+                    </CardContent>
 
-      <div style={{marginTop:12, display:'flex', justifyContent:'center'}}>
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowExamples(s => !s)}>
-          {showExamples ? 'Mostrar reales' : 'Mostrar ejemplos'}
-        </button>
-      </div>
+                    <CardActions className="product-card-actions" sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 56, position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+                      <Box>
+                        <IconButton size="small" onClick={() => setSelected(p)} aria-label="ver" sx={{ mr: 1 }}>
+                          <VisibilityIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => add(p)} color="primary" aria-label="agregar">
+                          <AddShoppingCartIcon />
+                        </IconButton>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Toggle moved to the actions bar so it doesn't push icons. Show only when needed. */}
+                        {canToggleMap[p.idProducto || p.id] && (
+                          <Button size="small" onClick={() => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: !m[p.idProducto || p.id] }))}>
+                            {expandedMap[p.idProducto || p.id] ? 'Mostrar menos' : 'Leer más'}
+                          </Button>
+                        )}
+                        <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
+                          <FavoriteBorderIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+        </Grid>
+      </Box>
 
-      {/* Paginación simple */}
-      <div style={{marginTop:16, display:'flex', justifyContent:'center', gap:8}}>
-        <button disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</button>
-        <div style={{padding:'6px 10px'}}>Página {page} / {totalPages}</div>
-        <button disabled={page>=totalPages} onClick={()=>setPage(page+1)}>Siguiente</button>
-      </div>
+      {itemsToRender.length === 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography align="center" color="text.secondary">No hay productos para mostrar</Typography>
+        </Box>
+      )}
 
-      {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} onAdded={()=>{}} />}
-    </div>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center', mt: 2 }}>
+        <Button disabled={page<=1} onClick={()=>setPage(page-1)} variant="outlined">Anterior</Button>
+        <Typography> Página {page} / {totalPages} </Typography>
+        <Button disabled={page>=totalPages} onClick={()=>setPage(page+1)} variant="outlined">Siguiente</Button>
+      </Box>
+
+      {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} onAdded={(message, type) => { showToastNotification(message, type); }} />}
+
+      <Snackbar open={showToast} autoHideDuration={3000} onClose={() => setShowToast(false)} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <Alert onClose={() => setShowToast(false)} severity={toastType === 'success' ? 'success' : 'warning'} sx={{ width: '100%' }}>{toastMessage}</Alert>
+      </Snackbar>
+    </Box>
   );
 }

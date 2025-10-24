@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
+import { formatCurrency } from '../utils/format';
 
 export default function OrderList() {
   const [orders, setOrders] = useState([]);
+  const [filterId, setFilterId] = useState('');
+  const [filterCustomer, setFilterCustomer] = useState('');
+  const [filterMinTotal, setFilterMinTotal] = useState('');
+  const [filterMaxTotal, setFilterMaxTotal] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [customer, setCustomer] = useState('');
   const [total, setTotal] = useState('');
   const [itemsText, setItemsText] = useState('');
@@ -11,8 +17,8 @@ export default function OrderList() {
     try {
       const res = await api.get('/seller/orders');
       setOrders(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Error silencioso
     }
   };
 
@@ -27,7 +33,6 @@ export default function OrderList() {
       setCustomer(''); setTotal(''); setItemsText('');
       fetch();
     } catch (err) {
-      console.error('Error creating order', err);
       alert(err?.response?.data?.error || 'Error al crear pedido');
     }
   };
@@ -38,10 +43,25 @@ export default function OrderList() {
     try {
       await api.put('/seller/orders/' + id + '/status', { status });
       setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Error silencioso
     }
   };
+ 
+
+  const clearFilters = () => {
+    setFilterId(''); setFilterCustomer(''); setFilterMinTotal(''); setFilterMaxTotal(''); setFilterStatus('');
+  };
+
+  const displayed = orders.filter(o => {
+    if (filterId && !String(o.id).includes(filterId)) return false;
+    if (filterCustomer && !(o.customer_name || '').toLowerCase().includes(filterCustomer.toLowerCase())) return false;
+    if (filterStatus && o.status !== filterStatus) return false;
+    const totalNum = Number(o.total || 0);
+    if (filterMinTotal && !Number.isNaN(Number(filterMinTotal)) && totalNum < Number(filterMinTotal)) return false;
+    if (filterMaxTotal && !Number.isNaN(Number(filterMaxTotal)) && totalNum > Number(filterMaxTotal)) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -54,14 +74,37 @@ export default function OrderList() {
       </form>
       <table border="1" cellPadding="6">
         <thead>
-          <tr><th>ID</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr>
+          <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Total</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+          <tr>
+            <th><input placeholder="filtrar id" value={filterId} onChange={e=>setFilterId(e.target.value)} style={{width:80}} /></th>
+            <th><input placeholder="filtrar cliente" value={filterCustomer} onChange={e=>setFilterCustomer(e.target.value)} style={{width:180}} /></th>
+            <th>
+              <input placeholder="min" value={filterMinTotal} onChange={e=>setFilterMinTotal(e.target.value)} style={{width:70, marginRight:6}} />
+              <input placeholder="max" value={filterMaxTotal} onChange={e=>setFilterMaxTotal(e.target.value)} style={{width:70}} />
+            </th>
+            <th>
+              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+                <option value="">(todos)</option>
+                <option value="pending">pending</option>
+                <option value="shipped">shipped</option>
+                <option value="delivered">delivered</option>
+              </select>
+            </th>
+            <th><button onClick={clearFilters}>Limpiar</button></th>
+          </tr>
         </thead>
         <tbody>
-          {orders.map(o => (
+          {displayed.map(o => (
             <tr key={o.id}>
               <td>{o.id}</td>
               <td>{o.customer_name}</td>
-              <td>{o.total}</td>
+              <td>{formatCurrency(Number(o.total || 0))}</td>
               <td>{o.status}</td>
               <td>
                 <button onClick={() => changeStatus(o.id, 'pending')}>pendiente</button>

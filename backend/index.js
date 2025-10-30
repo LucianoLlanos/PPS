@@ -4,6 +4,8 @@ const app = express();
 const adminRoutes = require('./routes/adminRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const serviciosRoutes = require('./routes/serviciosRoutes');
+const empresaRoutes = require('./routes/empresaRoutes');
+const carouselRoutes = require('./routes/carouselRoutes');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
@@ -40,6 +42,12 @@ app.use('/auth', authRoutes);
 
 // Rutas de servicios post-venta
 app.use('/servicios', serviciosRoutes);
+
+// Rutas de información de la empresa (públicas y admin)
+app.use('/empresa', empresaRoutes);
+
+// Rutas del carrusel (públicas y admin)
+app.use('/carousel', carouselRoutes);
 
 // Proteger rutas administrativas con autenticación y rol Admin (idRol = 3)
 // Si se desea exponer endpoints públicos (por ejemplo listado de productos), mantener rutas públicas

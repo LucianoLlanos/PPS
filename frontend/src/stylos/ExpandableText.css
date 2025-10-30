@@ -69,3 +69,36 @@
 .product-card .expandable-wrap.clamped .expandable-content { line-height: 1.2rem !important; }
 .product-card .expandable-content { max-width: 100% !important; width: 100% !important; white-space: normal !important; overflow-wrap: anywhere !important; word-break: break-word !important; }
 .product-card .expandable-content.lines-2 { -webkit-line-clamp: 2 !important; line-clamp: 2 !important; }
+
+/* Product card description specific styles - prevent expansion */
+.product-card-desc .expandable-wrap { 
+  max-height: 3.6em !important; 
+  overflow: hidden !important;
+  height: 3.6em !important;
+  position: relative !important;
+}
+.product-card-desc .expandable-content { 
+  -webkit-line-clamp: 3 !important; 
+  line-clamp: 3 !important; 
+  display: -webkit-box !important; 
+  -webkit-box-orient: vertical !important; 
+  overflow: hidden !important;
+  max-height: 3.6em !important;
+}
+.product-card-desc .servicios-leer-mas { 
+  position: absolute !important; 
+  bottom: -2px !important; 
+  right: 0 !important; 
+  background: rgba(255,255,255,0.95) !important; 
+  padding: 2px 8px !important; 
+  border-radius: 12px !important; 
+  font-size: 0.7rem !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+  z-index: 10 !important;
+}
+/* Prevent any expansion in product cards */
+.product-card-desc .expandable-wrap.expanded {
+  max-height: 3.6em !important;
+  height: 3.6em !important;
+  overflow: hidden !important;
+}

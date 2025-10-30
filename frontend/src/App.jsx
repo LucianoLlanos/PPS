@@ -10,9 +10,13 @@ import Cart from './components/Cart';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
 import ServiciosAdmin from './components/ServiciosAdmin';
 import VentasAnalytics from './components/admin/VentasAnalytics';
+import AcercaDe from './components/AcercaDe';
+import EmpresaAdmin from './components/admin/EmpresaAdmin';
+import CarouselAdmin from './components/admin/CarouselAdmin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import PageWrapper from './components/PageWrapper';
 import './App.css';
 
 import useAuthStore from './store/useAuthStore';
@@ -45,25 +49,27 @@ function App() {
         
         {/* Rutas con layout principal */}
         <Route path="/*" element={
-          <div className="app-container">
-            <Routes>
-              {/* Vista principal pública - Catálogo de productos para clientes */}
-              <Route path="/" element={<HomeProducts />} />
-              <Route path="/carrito" element={<Cart />} />
-              
-              {/* Rutas protegidas para usuarios autenticados */}
-              <Route path="/servicios" element={<ProtectedRoute><ServiciosPostVenta /></ProtectedRoute>} />
-              
-              {/* Rutas administrativas - Solo para administradores */}
-              <Route path="/usuarios" element={<ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute>} />
-              <Route path="/productos" element={<ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute>} />
-              <Route path="/pedidos" element={<ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute>} />
-              <Route path="/clientes" element={<ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute>} />
-              <Route path="/servicios-admin" element={<ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute>} />
-              <Route path="/ventas-analytics" element={<ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute>} />
-            </Routes>
-            <Footer />
-          </div>
+          <Routes>
+            {/* Vista principal pública - Sin contenedor para permitir carrusel full-width */}
+            <Route path="/" element={<HomeProducts />} />
+            
+            {/* Otras rutas con contenedor normal */}
+            <Route path="/carrito" element={<PageWrapper><Cart /></PageWrapper>} />
+            <Route path="/acerca-de" element={<PageWrapper><AcercaDe /></PageWrapper>} />
+            
+            {/* Rutas protegidas para usuarios autenticados */}
+            <Route path="/servicios" element={<PageWrapper><ProtectedRoute><ServiciosPostVenta /></ProtectedRoute></PageWrapper>} />
+            
+            {/* Rutas administrativas - Solo para administradores */}
+            <Route path="/usuarios" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute></PageWrapper>} />
+            <Route path="/productos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute></PageWrapper>} />
+            <Route path="/pedidos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute></PageWrapper>} />
+            <Route path="/clientes" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute></PageWrapper>} />
+            <Route path="/servicios-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute></PageWrapper>} />
+            <Route path="/ventas-analytics" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute></PageWrapper>} />
+            <Route path="/empresa-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><EmpresaAdmin /></ProtectedRoute></PageWrapper>} />
+            <Route path="/carousel-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><CarouselAdmin /></ProtectedRoute></PageWrapper>} />
+          </Routes>
         } />
       </Routes>
     </Router>

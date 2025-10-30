@@ -3,7 +3,9 @@ import api from '../api/axios';
 import ProductModal from './ProductModal';
 import ProductImageCarousel from './ProductImageCarousel';
 import ExpandableText from './ExpandableText';
-import CatalogSearch from './CatalogSearch';
+import CarouselBanner from './CarouselBanner';
+import CompanyTitle from './CompanyTitle';
+import Footer from './Footer';
 import '../stylos/HomeProducts.css';
 // import ProductCardClean from './ProductCardClean';
 import cart from '../utils/cart';
@@ -87,7 +89,7 @@ export default function HomeProducts() {
     fetch();
   }, [location.search]);
 
-  // Listen for live search events from CatalogSearch to update query without routing
+  // Listen for live search events from SearchSection to update query without routing
   useEffect(() => {
     const onLive = (e) => {
       const q = e?.detail?.q || '';
@@ -133,17 +135,22 @@ export default function HomeProducts() {
   if (error) return <Box sx={{ py: 6, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
 
   return (
-    <Box sx={{ width: '100%', py: 3 }}>
-      {/* Hero: company name + catalog search centered */}
-      <Box className="catalog-hero" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-        <Typography className="brand" variant="h3" sx={{ fontWeight: 800, mb: 1 }}>AtilioMarola</Typography>
-        <Typography variant="h6" sx={{ color: '#51637a', mb: 1 }}>Herramientas y soluciones para agua y energía — calidad industrial</Typography>
-        <Box className="search-box">
-          <CatalogSearch initialQuery={query} />
-        </Box>
-      </Box>
+    <Box sx={{ 
+      width: '100%', 
+      overflow: 'hidden', // Previene scroll horizontal
+      maxWidth: '100vw',
+      boxSizing: 'border-box',
+      mt: 0, // Sin margen superior
+      pt: 0  // Sin padding superior
+    }}>
+      {/* Carrusel de banners publicitarios - ocupa todo el ancho */}
+      <CarouselBanner />
 
-      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
+      {/* Título de la empresa */}
+      <CompanyTitle />
+
+      {/* Contenedor para el catálogo de productos */}
+      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2, pt: 3, pb: 0 }}>
         <Grid container spacing={3} sx={{ mb: 2, justifyContent: 'center', alignItems: 'flex-start' }}>
             {itemsToRender.map((p, idx) => {
               const isNew = idx === itemsToRender.length - 1;
@@ -250,6 +257,9 @@ export default function HomeProducts() {
       <Snackbar open={showToast} autoHideDuration={3000} onClose={() => setShowToast(false)} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <Alert onClose={() => setShowToast(false)} severity={toastType === 'success' ? 'success' : 'warning'} sx={{ width: '100%' }}>{toastMessage}</Alert>
       </Snackbar>
+
+      {/* Footer */}
+      <Footer />
     </Box>
   );
 }

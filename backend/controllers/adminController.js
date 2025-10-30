@@ -622,10 +622,87 @@ const actualizarProducto = (req, res) => {
 
 const eliminarProducto = (req, res) => {
   const { id } = req.params;
-  const query = 'DELETE FROM productos WHERE idProducto=?';
-  connection.query(query, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error al eliminar producto' });
-    res.json({ mensaje: 'Producto eliminado' });
+  
+  // Primero verificar si el producto existe
+  connection.query('SELECT nombre FROM productos WHERE idProducto = ?', [id], (err, prodRows) => {
+    if (err) return res.status(500).json({ error: 'Error al buscar producto' });
+    if (!prodRows || prodRows.length === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    const nombreProducto = prodRows[0].nombre;
+    
+    // Verificar si el producto tiene pedidos asociados (histórico de ventas)
+    connection.query(
+      'SELECT COUNT(*) as count FROM detalle_pedido WHERE idProducto = ?', 
+      [id], 
+      (err, pedidoRows) => {
+        if (err) return res.status(500).json({ error: 'Error al verificar pedidos del producto' });
+        
+        const tienePedidos = pedidoRows[0].count > 0;
+        
+        if (tienePedidos) {
+          return res.status(400).json({ 
+            error: 'No se puede eliminar el producto porque tiene pedidos asociados (histórico de ventas). Para mantener la integridad de los datos, considere marcarlo como inactivo o descontinuado en lugar de eliminarlo.' 
+          });
+        }
+        
+        // Si no tiene pedidos, proceder con la eliminación
+        connection.beginTransaction((trxErr) => {
+          if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
+          
+          // 1. Eliminar registros de stock_sucursal
+          connection.query('DELETE FROM stock_sucursal WHERE idProducto = ?', [id], (err1) => {
+            if (err1) {
+              return connection.rollback(() => 
+                res.status(500).json({ error: 'Error al eliminar stock por sucursal' })
+              );
+            }
+            
+            // 2. Eliminar imágenes del producto (producto_imagenes ya tiene CASCADE, pero por si acaso)
+            connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id], (err2) => {
+              if (err2) {
+                return connection.rollback(() => 
+                  res.status(500).json({ error: 'Error al eliminar imágenes del producto' })
+                );
+              }
+              
+              // 3. Finalmente eliminar el producto
+              connection.query('DELETE FROM productos WHERE idProducto = ?', [id], (err3) => {
+                if (err3) {
+                  return connection.rollback(() => 
+                    res.status(500).json({ error: 'Error al eliminar producto' })
+                  );
+                }
+                
+                // Confirmar transacción
+                connection.commit((commitErr) => {
+                  if (commitErr) {
+                    return connection.rollback(() => 
+                      res.status(500).json({ error: 'Error al confirmar transacción' })
+                    );
+                  }
+                  
+                  // Registrar en historial
+                  registrarHistorial(
+                    'productos', 
+                    id, 
+                    'eliminar', 
+                    null, 
+                    `Producto eliminado: ${nombreProducto}`
+                  );
+                  
+                  res.json({ 
+                    mensaje: 'Producto eliminado exitosamente',
+                    productoEliminado: nombreProducto
+                  });
+                });
+              });
+            });
+          });
+        });
+      }
+    );
   });
 };
 

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Usuarios from './components/Usuarios';
 import Productos from './components/Productos';
 import Pedidos from './components/Pedidos';
+import PedidosDebug from './components/PedidosDebug';
 import Clientes from './components/Clientes';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -64,6 +65,7 @@ function App() {
             <Route path="/usuarios" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute></PageWrapper>} />
             <Route path="/productos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute></PageWrapper>} />
             <Route path="/pedidos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute></PageWrapper>} />
+            <Route path="/pedidos-debug" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><PedidosDebug /></ProtectedRoute></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute></PageWrapper>} />
             <Route path="/servicios-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute></PageWrapper>} />
             <Route path="/ventas-analytics" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute></PageWrapper>} />

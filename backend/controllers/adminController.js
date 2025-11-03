@@ -727,7 +727,16 @@ const listarPedidos = (req, res) => {
   } = req.query;
 
   let sql = `
-        SELECT pe.idPedido, u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario, pe.fecha, pe.estado
+        SELECT 
+          pe.idPedido, 
+          u.nombre AS nombreUsuario, 
+          u.apellido AS apellidoUsuario, 
+          COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+          pe.estado,
+          COALESCE(pe.total, 0) as total,
+          (SELECT COALESCE(SUM(dp.cantidad), 0) 
+           FROM detalle_pedidos dp 
+           WHERE dp.idPedido = pe.idPedido) as cantidadTotal
         FROM pedidos pe
         JOIN clientes c ON pe.idCliente = c.idCliente
         JOIN usuarios u ON c.idUsuario = u.idUsuario
@@ -745,30 +754,30 @@ const listarPedidos = (req, res) => {
     params.push(estado);
   }
   // Manejo robusto de fechas:
-  // - Si se pasa 'fecha' exacta, usar DATE(pe.fecha) = fecha
-  // - Si se pasan both fechaDesde y fechaHasta usar DATE(pe.fecha) BETWEEN fechaDesde AND fechaHasta (inclusive)
-  // - Si solo fechaDesde usar DATE(pe.fecha) >= fechaDesde
-  // - Si solo fechaHasta usar DATE(pe.fecha) <= fechaHasta
+  // - Si se pasa 'fecha' exacta, usar DATE(fechaPedido) = fecha
+  // - Si se pasan both fechaDesde y fechaHasta usar DATE(fechaPedido) BETWEEN fechaDesde AND fechaHasta (inclusive)
+  // - Si solo fechaDesde usar DATE(fechaPedido) >= fechaDesde
+  // - Si solo fechaHasta usar DATE(fechaPedido) <= fechaHasta
   if (fecha) {
-    where.push('DATE(pe.fecha) = ?');
+    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) = ?');
     params.push(fecha);
   } else if (fechaDesde && fechaHasta) {
-    where.push('DATE(pe.fecha) BETWEEN ? AND ?');
+    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) BETWEEN ? AND ?');
     params.push(fechaDesde, fechaHasta);
   } else {
     if (fechaDesde) {
-      where.push('DATE(pe.fecha) >= ?');
+      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) >= ?');
       params.push(fechaDesde);
     }
     if (fechaHasta) {
-      where.push('DATE(pe.fecha) <= ?');
+      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) <= ?');
       params.push(fechaHasta);
     }
   }
 
-  // Filtrar por producto usando EXISTS en detalle_pedido + productos
+  // Filtrar por producto usando EXISTS en detalle_pedidos + productos
   if (producto) {
-    where.push(`EXISTS (SELECT 1 FROM detalle_pedido dp JOIN productos pr ON dp.idProducto = pr.idProducto WHERE dp.idPedido = pe.idPedido AND pr.nombre LIKE ?)`);
+    where.push(`EXISTS (SELECT 1 FROM detalle_pedidos dp JOIN productos pr ON dp.idProducto = pr.idProducto WHERE dp.idPedido = pe.idPedido AND pr.nombre LIKE ?)`);
     params.push('%' + producto + '%');
   }
 
@@ -778,16 +787,16 @@ const listarPedidos = (req, res) => {
     params.push('%' + usuario + '%', '%' + usuario + '%', '%' + usuario + '%');
   }
 
-  // Filtrar por total del pedido (subconsulta que suma cantidad * precioUnitario)
+  // Filtrar por total del pedido (usar campo total o calcular)
   // Aceptar 0 y valores numéricos enviados como strings. Ignorar valores vacíos o no numéricos.
   const parsedTotalMin = typeof totalMin !== 'undefined' && totalMin !== '' ? Number(totalMin) : undefined;
   const parsedTotalMax = typeof totalMax !== 'undefined' && totalMax !== '' ? Number(totalMax) : undefined;
   if (typeof parsedTotalMin !== 'undefined' && !isNaN(parsedTotalMin)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
+    where.push(`COALESCE(pe.total, (SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) >= ?`);
     params.push(parsedTotalMin);
   }
   if (typeof parsedTotalMax !== 'undefined' && !isNaN(parsedTotalMax)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
+    where.push(`COALESCE(pe.total, (SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) <= ?`);
     params.push(parsedTotalMax);
   }
 
@@ -795,11 +804,11 @@ const listarPedidos = (req, res) => {
   const parsedCantidadMin = typeof cantidadMin !== 'undefined' && cantidadMin !== '' ? Number(cantidadMin) : undefined;
   const parsedCantidadMax = typeof cantidadMax !== 'undefined' && cantidadMax !== '' ? Number(cantidadMax) : undefined;
   if (typeof parsedCantidadMin !== 'undefined' && !isNaN(parsedCantidadMin)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
+    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) >= ?`);
     params.push(parsedCantidadMin);
   }
   if (typeof parsedCantidadMax !== 'undefined' && !isNaN(parsedCantidadMax)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
+    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) <= ?`);
     params.push(parsedCantidadMax);
   }
 
@@ -814,17 +823,17 @@ const listarPedidos = (req, res) => {
   if (sort) {
     const parts = String(sort).split(',').map(s => s.trim()).filter(Boolean);
     parts.forEach(s => {
-      if (s === 'fecha_asc') orderClauses.push('pe.fecha ASC');
-      else if (s === 'fecha_desc') orderClauses.push('pe.fecha DESC');
-      else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) ASC");
-      else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) DESC");
+      if (s === 'fecha_asc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) ASC');
+      else if (s === 'fecha_desc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) DESC');
+      else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) ASC");
+      else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) DESC");
     });
   }
 
   if (orderClauses.length) {
     sql += ' ORDER BY ' + orderClauses.join(', ');
   } else {
-    sql += ' ORDER BY pe.fecha DESC';
+    sql += ' ORDER BY COALESCE(pe.fechaPedido, pe.fecha) DESC';
   }
 
   connection.query(sql, params, (err, pedidos) => {
@@ -836,7 +845,7 @@ const listarPedidos = (req, res) => {
     const placeholders = ids.map(() => '?').join(',');
     const queryDetalles = `
             SELECT dp.idPedido, pr.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario
-            FROM detalle_pedido dp
+            FROM detalle_pedidos dp
             JOIN productos pr ON dp.idProducto = pr.idProducto
             WHERE dp.idPedido IN (${placeholders})
         `;
@@ -851,8 +860,8 @@ const listarPedidos = (req, res) => {
             cantidad: d.cantidad,
             total: d.cantidad * d.precioUnitario,
           }));
-        const total = productos.reduce((acc, prod) => acc + prod.total, 0);
-        return { ...p, productos, total };
+        // Mantener el total original de la base de datos en lugar de recalcular
+        return { ...p, productos };
       });
       res.json(pedidosFinal);
     });

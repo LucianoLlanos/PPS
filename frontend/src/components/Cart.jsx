@@ -10,7 +10,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 
 export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -48,10 +48,60 @@ export default function Cart() {
     }
   };
 
-  const handleCheckout = () => {
-    if (!user) { navigate('/login'); return; }
-    if (cartItems.length === 0) { alert('El carrito está vacío'); return; }
-    alert('Funcionalidad de checkout pendiente de implementar');
+  const handleCheckout = async () => {
+    if (!user) { 
+      navigate('/login'); 
+      return; 
+    }
+    
+    if (cartItems.length === 0) { 
+      alert('El carrito está vacío'); 
+      return; 
+    }
+
+    // Preparar datos del pedido
+    const productos = cartItems.map(item => ({
+      idProducto: item.product.idProducto || item.product.id,
+      cantidad: item.quantity
+    }));
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3000/orders/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token || localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          productos: productos,
+          observaciones: '' // Puedes agregar un campo para observaciones si quieres
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear el pedido');
+      }
+
+      const result = await response.json();
+      
+      // Limpiar el carrito después del pedido exitoso
+      clearCart();
+      loadCart();
+      
+      // Mostrar mensaje de éxito
+      alert(`¡Pedido creado exitosamente! Número de pedido: ${result.idPedido}`);
+      
+      // Opcional: navegar a una página de confirmación
+      navigate('/');
+      
+    } catch (error) {
+      console.error('Error creando pedido:', error);
+      alert(`Error al crear el pedido: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const total = getTotal();

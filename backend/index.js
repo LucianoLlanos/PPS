@@ -8,6 +8,8 @@ const empresaRoutes = require('./routes/empresaRoutes');
 const carouselRoutes = require('./routes/carouselRoutes');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
+const favoritesRoutes = require('./routes/favoritesRoutes');
+const ordersRoutes = require('./routes/ordersRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
 const { requireRoleId } = require('./middleware/roleMiddleware');
 
@@ -39,6 +41,12 @@ app.get('/productos', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+
+// Rutas de favoritos (requieren autenticación)
+app.use('/favorites', favoritesRoutes);
+
+// Rutas de pedidos (requieren autenticación)
+app.use('/orders', ordersRoutes);
 
 // Rutas de servicios post-venta
 app.use('/servicios', serviciosRoutes);

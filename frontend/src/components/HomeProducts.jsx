@@ -12,9 +12,11 @@ import cart from '../utils/cart';
 import { formatCurrency } from '../utils/format';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
+import useFavoritesStore from '../store/useFavoritesStore';
 import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, IconButton } from '@mui/material';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 export default function HomeProducts() {
@@ -36,6 +38,9 @@ export default function HomeProducts() {
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  
+  // Favoritos
+  const { toggleFavorite, isFavorite, loading: favoritesLoading } = useFavoritesStore();
 
   // (insertBreaks removed) ProductCardClean handles long words now
 
@@ -228,8 +233,29 @@ export default function HomeProducts() {
                             {expandedMap[p.idProducto || p.id] ? 'Mostrar menos' : 'Leer más'}
                           </Button>
                         )}
-                        <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
-                          <FavoriteBorderIcon fontSize="small" />
+                        <IconButton 
+                          size="small" 
+                          aria-label="fav" 
+                          onClick={() => {
+                            if (!user) {
+                              showToastNotification('Debes iniciar sesión para agregar favoritos', 'warning');
+                              return;
+                            }
+                            toggleFavorite(p);
+                          }}
+                          disabled={favoritesLoading}
+                          sx={{ 
+                            bgcolor: 'rgba(0,0,0,0.04)',
+                            color: isFavorite(p.idProducto || p.id) ? '#ff1744' : '#666',
+                            '&:hover': {
+                              color: isFavorite(p.idProducto || p.id) ? '#d50000' : '#ff1744'
+                            }
+                          }}
+                        >
+                          {isFavorite(p.idProducto || p.id) ? 
+                            <FavoriteIcon fontSize="small" /> : 
+                            <FavoriteBorderIcon fontSize="small" />
+                          }
                         </IconButton>
                       </Box>
                     </CardActions>

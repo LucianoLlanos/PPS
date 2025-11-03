@@ -8,6 +8,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import HomeProducts from './components/HomeProducts';
 import Cart from './components/Cart';
+import Favoritos from './components/Favoritos';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
 import ServiciosAdmin from './components/ServiciosAdmin';
 import VentasAnalytics from './components/admin/VentasAnalytics';
@@ -22,19 +23,32 @@ import './App.css';
 
 import useAuthStore from './store/useAuthStore';
 import cart from './utils/cart';
+import useFavoritesStore from './store/useFavoritesStore';
 import { useEffect, useState } from 'react';
 
 function App() {
   // user and clearAuth are currently unused in this component; keep hooks if needed later
-  useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   useAuthStore((s) => s.clearAuth);
   const [_, setCartCount] = useState(cart.getCount());
+  
+  // Favoritos
+  const { loadFavorites, clearFavorites } = useFavoritesStore();
 
   useEffect(() => {
     const h = () => setCartCount(cart.getCount());
     window.addEventListener('cart:updated', h);
     return () => window.removeEventListener('cart:updated', h);
   }, []);
+
+  // Cargar favoritos cuando el usuario se autentique
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+    } else {
+      clearFavorites();
+    }
+  }, [user, loadFavorites, clearFavorites]);
 
   const handleLogin = () => {
     // Store already updated by Login component
@@ -56,6 +70,7 @@ function App() {
             
             {/* Otras rutas con contenedor normal */}
             <Route path="/carrito" element={<PageWrapper><Cart /></PageWrapper>} />
+            <Route path="/favoritos" element={<PageWrapper><ProtectedRoute><Favoritos /></ProtectedRoute></PageWrapper>} />
             <Route path="/acerca-de" element={<PageWrapper><AcercaDe /></PageWrapper>} />
             
             {/* Rutas protegidas para usuarios autenticados */}

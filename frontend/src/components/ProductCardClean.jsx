@@ -2,8 +2,11 @@ import React from 'react';
 import { Card, CardContent, CardActions, Box, Typography, IconButton, Button, Chip } from '@mui/material';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ProductImageCarousel from './ProductImageCarousel';
 import ExpandableText from './ExpandableText';
+import useFavoritesStore from '../store/useFavoritesStore';
 
 // Small, robust card used to replace the messy original
 export default function ProductCardClean({ product, onView, onAdd }) {
@@ -11,6 +14,17 @@ export default function ProductCardClean({ product, onView, onAdd }) {
   const desc = product.descripcion || product.description || '';
   const price = Number(product.precio || product.price || 0);
   // `product.imagenes` ya se pasa directamente al carousel; no necesitamos `img` aquí
+
+  // Funcionalidad de favoritos
+  const { toggleFavorite, isFavorite, loading } = useFavoritesStore();
+  const productId = product.idProducto || product.id;
+  const isProductFavorite = isFavorite(productId);
+
+  const handleFavoriteClick = () => {
+    if (!loading) {
+      toggleFavorite(product);
+    }
+  };
 
   
 
@@ -39,6 +53,20 @@ export default function ProductCardClean({ product, onView, onAdd }) {
         <Box>
           <IconButton size="small" onClick={() => onView && onView(product)} aria-label="ver"><VisibilityIcon /></IconButton>
           <IconButton size="small" onClick={() => onAdd && onAdd(product)} color="primary" aria-label="agregar"><AddShoppingCartIcon /></IconButton>
+          <IconButton 
+            size="small" 
+            onClick={handleFavoriteClick}
+            disabled={loading}
+            aria-label="favorito"
+            sx={{
+              color: isProductFavorite ? '#ff1744' : '#666',
+              '&:hover': {
+                color: isProductFavorite ? '#d50000' : '#ff1744'
+              }
+            }}
+          >
+            {isProductFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+          </IconButton>
         </Box>
         <Box>
           {product.stock !== undefined && <Chip label={product.stock > 0 ? `Stock: ${product.stock}` : 'Sin stock'} size="small" />}

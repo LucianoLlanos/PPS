@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import useAuthStore from '../store/useAuthStore';
+import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
 import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import MenuIcon from '@mui/icons-material/Menu';
 
 export default function Header() {
@@ -359,20 +361,38 @@ export default function Header() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Hide cart for admin users (role id 3) */}
             {!(token && userRole && Number(userRole) === 3) && (
-              <IconButton 
-                onClick={() => navigate('/carrito')} 
-                aria-label="carrito"
-                sx={{ 
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
-                  }
-                }}
-              >
-                <Badge badgeContent={cartCount} color="error">
-                  <ShoppingCartIcon />
-                </Badge>
-              </IconButton>
+              <>
+                <IconButton 
+                  onClick={() => navigate('/carrito')} 
+                  aria-label="carrito"
+                  sx={{ 
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  <Badge badgeContent={cartCount} color="error">
+                    <ShoppingCartIcon />
+                  </Badge>
+                </IconButton>
+                
+                {/* Botón de favoritos - solo para usuarios logueados */}
+                {token && (
+                  <IconButton 
+                    onClick={() => navigate('/favoritos')} 
+                    aria-label="favoritos"
+                    sx={{ 
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.1)'
+                      }
+                    }}
+                  >
+                    <FavoriteIcon sx={{ color: '#ff69b4' }} />
+                  </IconButton>
+                )}
+              </>
             )}
 
             {token && (

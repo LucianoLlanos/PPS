@@ -15,7 +15,7 @@ function PedidosDebug() {
       setLoading(true);
       console.log('Cargando pedidos desde API...');
       
-      const response = await api.get('/pedidos');
+      const response = await api.get('/admin/pedidos');
       console.log('Response status:', response.status);
       console.log('Response data (raw):', response.data);
       

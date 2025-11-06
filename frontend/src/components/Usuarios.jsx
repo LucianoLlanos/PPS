@@ -15,7 +15,7 @@ function Usuarios() {
   const [addForm, setAddForm] = useState({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
 
   const loadUsuarios = () => {
-    api.get('/usuarios')
+    api.get('/admin/usuarios')
       .then(res => setUsuarios(res.data))
       .catch(() => setError('Error al obtener usuarios'));
   };
@@ -37,7 +37,7 @@ function Usuarios() {
   const submitEdit = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/usuarios/${editUser.idUsuario}`, { ...form });
+      await api.put(`/admin/usuarios/${editUser.idUsuario}`, { ...form });
       setSuccess('Usuario actualizado correctamente');
       setOpenSnackbar(true);
       setEditUser(null);
@@ -50,7 +50,7 @@ function Usuarios() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/usuarios/${deleteUser.idUsuario}`);
+      await api.delete(`/admin/usuarios/${deleteUser.idUsuario}`);
       setSuccess('Usuario eliminado correctamente');
       setOpenSnackbar(true);
       setDeleteUser(null);
@@ -64,7 +64,7 @@ function Usuarios() {
   const submitAdd = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/usuarios', { ...addForm });
+      await api.post('/admin/usuarios', { ...addForm });
       setSuccess('Usuario creado correctamente');
       setOpenSnackbar(true);
       setAddUser(false);

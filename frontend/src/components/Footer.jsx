@@ -117,7 +117,7 @@ export default function Footer(){
               </Link>
               <Link 
                 component={RouterLink} 
-                to="/politicas" 
+                to="/politicas-terminos" 
                 sx={{ 
                   color: 'rgba(255,255,255,0.9)',
                   textDecoration: 'none', 

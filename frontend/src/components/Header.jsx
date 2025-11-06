@@ -216,7 +216,10 @@ export default function Header() {
                   <Button component={RouterLink} to="/carousel-admin" variant="text" size="small" sx={activeStyle('/carousel-admin')}>Carrusel</Button>
                 </>
               )}
-              {token && userRole && Number(userRole) !== 3 && (
+
+              {/* Ya no usamos panel aparte de vendedor; el flujo será desde el carrito */}
+
+              {token && userRole && Number(userRole) !== 3 && Number(userRole) !== 2 && (
                 <Button 
                   component={RouterLink} 
                   to="/servicios" 
@@ -359,7 +362,7 @@ export default function Header() {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Hide cart for admin users (role id 3) */}
+            {/* Ocultar carrito para administradores; permitir a vendedores usar carrito */}
             {!(token && userRole && Number(userRole) === 3) && (
               <>
                 <IconButton 
@@ -376,6 +379,21 @@ export default function Header() {
                     <ShoppingCartIcon />
                   </Badge>
                 </IconButton>
+                {/* Acceso directo a vender: para Rol Vendedor, apunta al carrito */}
+                {token && userRole && Number(userRole) === 2 && (
+                  <Button
+                    onClick={() => navigate('/carrito')}
+                    size="small"
+                    variant="text"
+                    sx={{
+                      color: 'rgba(255,255,255,0.9)',
+                      textTransform: 'none',
+                      '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)', color: 'white' }
+                    }}
+                  >
+                    Vender
+                  </Button>
+                )}
                 
                 {/* Botón de favoritos - solo para usuarios logueados */}
                 {token && (

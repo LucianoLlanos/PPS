@@ -1,0 +1,74 @@
+/* Estilos dedicados al Punto de Venta */
+.vendedor-pos .pos-card {
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+/* Panel de registro que se mantiene visible al hacer scroll */
+.vendedor-pos .sticky {
+  position: sticky;
+  top: 16px;
+}
+
+/* Entradas más cómodas */
+.vendedor-pos .MuiInputBase-root {
+  border-radius: 12px;
+}
+
+.vendedor-pos .MuiFormControl-root,
+.vendedor-pos .MuiAutocomplete-root,
+.vendedor-pos .MuiTextField-root {
+  width: 100%;
+}
+
+/* Botones y controles con más presencia */
+.vendedor-pos .MuiButton-root {
+  border-radius: 12px;
+}
+
+/* Tarjetas de producto: hover sutil */
+.vendedor-pos .pos-card:hover {
+  transform: translateY(-1px);
+  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Grid de productos: asegurar 2 columnas y tarjetas parejas */
+.vendedor-pos .products-grid {
+  align-items: stretch;
+}
+
+.vendedor-pos .product-item {
+  display: flex;
+}
+
+.vendedor-pos .product-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.vendedor-pos .product-card .MuiCardContent-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.vendedor-pos .product-title {
+  font-weight: 700;
+}
+
+/* Recortar descripciones largas a 2 líneas para que todas las tarjetas tengan altura similar */
+.vendedor-pos .product-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em; /* aproximadamente 2 líneas */
+}
+
+.vendedor-pos .add-btn {
+  margin-top: 8px;
+}

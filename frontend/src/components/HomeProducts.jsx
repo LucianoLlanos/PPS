@@ -59,24 +59,8 @@ export default function HomeProducts() {
   // debug counter removed
     setLoading(true);
     try {
-      let res;
-      try {
-        res = await api.get('/productos');
-        setProductos(res.data || []);
-      } catch (_err) {
-        console.error(_err);
-        // fallback
-        res = await api.get('/seller/products');
-        const normalized = (res.data || []).map(p => ({
-          idProducto: p.id || p.idProducto,
-          nombre: p.name || p.nombre,
-          descripcion: p.description || p.descripcion,
-          precio: p.price || p.precio,
-          stock: p.stock || p.stockTotal,
-          imagen: p.image || p.imagen,
-        }));
-        setProductos(normalized);
-      }
+      const res = await api.get('/productos');
+      setProductos(res.data || []);
     } catch (_err) {
       console.error(_err);
       setError('No se pudieron cargar los productos');

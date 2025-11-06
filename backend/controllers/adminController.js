@@ -634,7 +634,7 @@ const eliminarProducto = (req, res) => {
     
     // Verificar si el producto tiene pedidos asociados (histórico de ventas)
     connection.query(
-      'SELECT COUNT(*) as count FROM detalle_pedido WHERE idProducto = ?', 
+      'SELECT COUNT(*) as count FROM detalle_pedidos WHERE idProducto = ?', 
       [id], 
       (err, pedidoRows) => {
         if (err) return res.status(500).json({ error: 'Error al verificar pedidos del producto' });
@@ -869,7 +869,7 @@ const listarPedidos = (req, res) => {
 };
 
 const crearPedido = (req, res) => {
-  const { idCliente, estado, idSucursalOrigen, productos } = req.body;
+  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago } = req.body;
   if (
     !idCliente ||
     !estado ||
@@ -905,9 +905,23 @@ const crearPedido = (req, res) => {
           connection.beginTransaction((trxErr) => {
             if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
 
-            const queryPedido =
-              'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen) VALUES (?, ?, ?)';
-            connection.query(queryPedido, [clienteId, estado, idSucursalOrigen], (err2, result) => {
+            // Detectar si existe la columna metodoPago para guardarla explícitamente
+            const colCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1`;
+            connection.query(colCheck, (colErr, rowsCol) => {
+              if (colErr) {
+                console.warn('[crearPedido] No se pudo verificar columna metodoPago:', colErr.message || colErr);
+              }
+
+              let queryPedido, paramsPedido;
+              if (!colErr && rowsCol && rowsCol.length > 0) {
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null];
+              } else {
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null];
+              }
+
+              connection.query(queryPedido, paramsPedido, (err2, result) => {
               if (err2)
                 return connection.rollback(() =>
                   res.status(500).json({ error: 'Error al crear pedido' })
@@ -915,30 +929,57 @@ const crearPedido = (req, res) => {
               const idPedido = result.insertId;
 
               // Procesar productos en serie para insertar detalle y decrementar stocks
+              let totalPedido = 0;
+              let cantidadTotal = 0;
               const procesarProducto = (i) => {
                 if (i >= productos.length) {
-                  // Todo ok, confirmar transacción
-                  connection.commit((commitErr) => {
-                    if (commitErr)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al confirmar transacción' })
-                      );
-                    res.json({ mensaje: 'Pedido creado', idPedido });
+                  // Actualizar totales del pedido (compatibilidad si no existe columna cantidadTotal)
+                  const colCantCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1`;
+                  connection.query(colCantCheck, (chkErr, chkRows) => {
+                    if (chkErr) {
+                      console.warn('[crearPedido] No se pudo verificar columna cantidadTotal:', chkErr.message || chkErr);
+                    }
+
+                    const hasCantidadTotal = !chkErr && chkRows && chkRows.length > 0;
+                    const updSql = hasCantidadTotal
+                      ? 'UPDATE pedidos SET total = ?, cantidadTotal = ? WHERE idPedido = ?'
+                      : 'UPDATE pedidos SET total = ? WHERE idPedido = ?';
+                    const updParams = hasCantidadTotal
+                      ? [totalPedido, cantidadTotal, idPedido]
+                      : [totalPedido, idPedido];
+
+                    connection.query(updSql, updParams, (updErr) => {
+                      if (updErr)
+                        return connection.rollback(() =>
+                          res.status(500).json({ error: 'Error al actualizar totales del pedido' })
+                        );
+                      connection.commit((commitErr) => {
+                        if (commitErr)
+                          return connection.rollback(() =>
+                            res.status(500).json({ error: 'Error al confirmar transacción' })
+                          );
+                        res.json({ mensaje: 'Pedido creado', idPedido, total: totalPedido, cantidadTotal });
+                      });
+                    });
                   });
                   return;
                 }
                 const p = productos[i];
                 // Insertar detalle
                 const insertDetalle =
-                  'INSERT INTO detalle_pedido (idPedido, idProducto, cantidad, precioUnitario) VALUES (?, ?, ?, ?)';
+                  'INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES (?, ?, ?, ?, ?)';
+                const precioUnit = Number(p.precioUnitario || p.precio || 0);
+                const subtotal = precioUnit * Number(p.cantidad || 0);
                 connection.query(
                   insertDetalle,
-                  [idPedido, p.idProducto, p.cantidad, p.precioUnitario || 0],
+                  [idPedido, p.idProducto, p.cantidad, precioUnit, subtotal],
                   (err3) => {
                     if (err3)
                       return connection.rollback(() =>
                         res.status(500).json({ error: 'Error al insertar detalle de pedido' })
                       );
+                    totalPedido += subtotal;
+                    cantidadTotal += Number(p.cantidad || 0);
                     // Decrementar stock en sucursal (asegurando no quedar negativo)
                     const updSucursal =
                       'UPDATE stock_sucursal SET stockDisponible = stockDisponible - ? WHERE idProducto=? AND idSucursal=? AND stockDisponible >= ?';
@@ -978,6 +1019,7 @@ const crearPedido = (req, res) => {
 
               procesarProducto(0);
             });
+            });
           });
         };
 
@@ -1004,7 +1046,7 @@ const crearPedido = (req, res) => {
 // Ver detalle de un pedido
 const verDetallePedido = (req, res) => {
   const { id } = req.params;
-  const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedido dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
+  const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedidos dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
   connection.query(query, [id], (err, detalles) => {
     if (err) return res.status(500).json({ error: 'Error al obtener detalle del pedido' });
     res.json(detalles);
@@ -1027,7 +1069,7 @@ const eliminarPedido = (req, res) => {
       const idSucursalOrigen = pedido.idSucursalOrigen;
 
       connection.query(
-        'SELECT idProducto, cantidad FROM detalle_pedido WHERE idPedido=?',
+        'SELECT idProducto, cantidad FROM detalle_pedidos WHERE idPedido=?',
         [id],
         (err2, detalles) => {
           if (err2)
@@ -1038,7 +1080,7 @@ const eliminarPedido = (req, res) => {
           const procesarDetalle = (i) => {
             if (i >= detalles.length) {
               // eliminar detalles y pedido
-              connection.query('DELETE FROM detalle_pedido WHERE idPedido=?', [id], (err5) => {
+              connection.query('DELETE FROM detalle_pedidos WHERE idPedido=?', [id], (err5) => {
                 if (err5)
                   return connection.rollback(() =>
                     res.status(500).json({ error: 'Error al eliminar detalle de pedido' })
@@ -1267,7 +1309,7 @@ const ventasSummary = (req, res) => {
       COALESCE(SUM(dp.cantidad * dp.precioUnitario), 0) AS ingresos_totales,
       COALESCE(SUM(dp.cantidad), 0) AS unidades_vendidas
     FROM pedidos pe
-    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
   `;
   const params = [start, end];
@@ -1295,7 +1337,7 @@ const ventasTimeseries = (req, res) => {
       COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) AS ingresos,
       COALESCE(SUM(dp.cantidad),0) AS unidades
     FROM pedidos pe
-    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
     GROUP BY DATE(pe.fecha)
     ORDER BY DATE(pe.fecha) ASC
@@ -1321,7 +1363,7 @@ const ventasTopProducts = (req, res) => {
 
   let sql = `
     SELECT dp.idProducto, pr.nombre AS nombre, SUM(dp.cantidad) AS cantidad_vendida, SUM(dp.cantidad * dp.precioUnitario) AS ingresos
-    FROM detalle_pedido dp
+    FROM detalle_pedidos dp
     JOIN pedidos pe ON dp.idPedido = pe.idPedido
     JOIN productos pr ON dp.idProducto = pr.idProducto
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?

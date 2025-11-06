@@ -15,6 +15,7 @@ import VentasAnalytics from './components/admin/VentasAnalytics';
 import AcercaDe from './components/AcercaDe';
 import EmpresaAdmin from './components/admin/EmpresaAdmin';
 import CarouselAdmin from './components/admin/CarouselAdmin';
+import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -76,16 +77,25 @@ function App() {
             {/* Rutas protegidas para usuarios autenticados */}
             <Route path="/servicios" element={<PageWrapper><ProtectedRoute><ServiciosPostVenta /></ProtectedRoute></PageWrapper>} />
             
+            {/* Vendedor: usar carrito como punto de venta (sin panel aparte) */}
+            
             {/* Rutas administrativas - Solo para administradores */}
             <Route path="/usuarios" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute></PageWrapper>} />
             <Route path="/productos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute></PageWrapper>} />
             <Route path="/pedidos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute></PageWrapper>} />
-            <Route path="/pedidos-debug" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><PedidosDebug /></ProtectedRoute></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute></PageWrapper>} />
             <Route path="/servicios-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute></PageWrapper>} />
-            <Route path="/ventas-analytics" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute></PageWrapper>} />
             <Route path="/empresa-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><EmpresaAdmin /></ProtectedRoute></PageWrapper>} />
+            <Route path="/pedidos-debug" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><PedidosDebug /></ProtectedRoute></PageWrapper>} />
+            <Route path="/ventas-analytics" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute></PageWrapper>} />
             <Route path="/carousel-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><CarouselAdmin /></ProtectedRoute></PageWrapper>} />
+            
+            {/* Rutas especiales */}
+            <Route path="/politicas-terminos" element={<PageWrapper><NotFound /></PageWrapper>} />
+            <Route path="/404" element={<PageWrapper><NotFound /></PageWrapper>} />
+            
+            {/* Catch-all para páginas no encontradas */}
+            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
           </Routes>
         } />
       </Routes>

@@ -32,9 +32,9 @@ export default function VentasAnalytics() {
       };
 
       const [sRes, tRes, pRes] = await Promise.all([
-        api.get('/ventas/summary' + qs(params)),
-        api.get('/ventas/timeseries' + qs(params)),
-        api.get('/ventas/top-products' + qs({...params, limit: 10}))
+        api.get('/admin/ventas/summary' + qs(params)),
+        api.get('/admin/ventas/timeseries' + qs(params)),
+        api.get('/admin/ventas/top-products' + qs({...params, limit: 10}))
       ]);
       setSummary(sRes.data);
       setTimeseries(tRes.data || []);
@@ -50,7 +50,7 @@ export default function VentasAnalytics() {
   // Cargar lista de sucursales para el selector
   useEffect(() => {
     let mounted = true;
-    api.get('/sucursales').then(res => { if (mounted) setSucursales(res.data || []); }).catch(() => {});
+    api.get('/admin/sucursales').then(res => { if (mounted) setSucursales(res.data || []); }).catch(() => {});
     return () => { mounted = false; };
   }, []);
 

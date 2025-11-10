@@ -127,8 +127,10 @@ export default function Cart() {
       clearCart();
       loadCart();
       
-      // Mostrar mensaje de éxito
-      alert(`¡Pedido creado exitosamente! Número de pedido: ${result.idPedido}`);
+  // Mensaje de éxito enriquecido para el cliente
+  const pedidoId = result.idPedido;
+  const mensajeExito = `Su pedido fue realizado con éxito.\n\nNúmero de pedido: ${pedidoId}\n\nDebe pasar por la sucursal seleccionada para abonar y retirar su pedido, presentando este número o su nombre. El pedido ya está cargado en caja.`;
+  alert(mensajeExito);
       
       // Opcional: navegar a una página de confirmación
       navigate('/');
@@ -165,9 +167,12 @@ export default function Cart() {
         observaciones: obs,
         metodoPago
       });
-      clearCart();
-      loadCart();
-      alert(`Pedido creado (ID ${res.data?.idPedido || ''})`);
+  clearCart();
+  loadCart();
+  const pedidoId = res.data?.idPedido || '';
+  const suc = sucursales.find((s) => String(s.idSucursal) === String(sucursalId));
+  const nombreSucursal = suc?.nombre ? ` ${suc.nombre}` : ' seleccionada';
+  alert(`Pedido creado con éxito.\n\nNúmero de pedido: ${pedidoId}\n\nEl cliente puede pasar por la sucursal${nombreSucursal} a abonar y retirar el pedido presentando este número o su nombre. Ya está cargado en caja.`);
       navigate('/');
     } catch (e) {
       console.error(e);

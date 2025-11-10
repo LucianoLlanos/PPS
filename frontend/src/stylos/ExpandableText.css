@@ -34,12 +34,12 @@
 /* lines-N helpers provide a fallback max-height based on ems for browsers without -webkit-line-clamp support */
 .lines-1.expandable-content, .lines-1.expandable-wrap { -webkit-line-clamp: 1; line-clamp: 1; }
 .lines-2.expandable-content, .lines-2.expandable-wrap { -webkit-line-clamp: 2; line-clamp: 2; }
-.lines-3.expandable-content, .lines-3.expandable-wrap { -webkit-line-clamp: 3; }
-.lines-4.expandable-content, .lines-4.expandable-wrap { -webkit-line-clamp: 4; }
-.lines-5.expandable-content, .lines-5.expandable-wrap { -webkit-line-clamp: 5; }
-.lines-6.expandable-content, .lines-6.expandable-wrap { -webkit-line-clamp: 6; }
-.lines-7.expandable-content, .lines-7.expandable-wrap { -webkit-line-clamp: 7; }
-.lines-8.expandable-content, .lines-8.expandable-wrap { -webkit-line-clamp: 8; }
+.lines-3.expandable-content, .lines-3.expandable-wrap { -webkit-line-clamp: 3; line-clamp: 3; }
+.lines-4.expandable-content, .lines-4.expandable-wrap { -webkit-line-clamp: 4; line-clamp: 4; }
+.lines-5.expandable-content, .lines-5.expandable-wrap { -webkit-line-clamp: 5; line-clamp: 5; }
+.lines-6.expandable-content, .lines-6.expandable-wrap { -webkit-line-clamp: 6; line-clamp: 6; }
+.lines-7.expandable-content, .lines-7.expandable-wrap { -webkit-line-clamp: 7; line-clamp: 7; }
+.lines-8.expandable-content, .lines-8.expandable-wrap { -webkit-line-clamp: 8; line-clamp: 8; }
 
 /* Fallback: set approximate max-height using em (1.2em per line) on the wrapper when clamped */
 .expandable-wrap.clamped.lines-1 { max-height: 1.2em; }
@@ -52,7 +52,7 @@
 .expandable-wrap.clamped.lines-8 { max-height: 9.6em; }
 
 .expandable-wrap.expanded { max-height: none; }
-.expandable-content.expanded { -webkit-line-clamp: unset; display: block; font-size: 0.8rem !important; line-height: 1.25rem !important; }
+.expandable-content.expanded { -webkit-line-clamp: unset; line-clamp: unset; display: block; font-size: 0.8rem !important; line-height: 1.25rem !important; }
 
 /* Admin specific: force clamp with higher specificity to avoid any accidental inline overrides */
 

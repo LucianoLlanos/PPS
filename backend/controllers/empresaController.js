@@ -23,7 +23,10 @@ const obtenerInfoEmpresa = (req, res) => {
 // Actualizar información de la empresa (solo admin)
 const actualizarInfoEmpresa = (req, res) => {
   const { vision, mision, composicion } = req.body;
-  const usuario = req.user ? `${req.user.nombre} ${req.user.apellido}` : 'Admin';
+  // Usar email si no vienen nombre/apellido en el token para evitar "undefined undefined"
+  const usuario = (req.user && ((req.user.nombre || req.user.apellido)
+    ? `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim()
+    : (req.user.email || 'Admin'))) || 'Admin';
   
   // Manejar archivo PDF si se subió uno
   let archivoPdf = null;
@@ -114,7 +117,10 @@ const obtenerArchivoPdf = (req, res) => {
 
 // Eliminar archivo PDF
 const eliminarArchivoPdf = (req, res) => {
-  const usuario = req.user ? `${req.user.nombre} ${req.user.apellido}` : 'Admin';
+  // Usar email si no vienen nombre/apellido en el token
+  const usuario = (req.user && ((req.user.nombre || req.user.apellido)
+    ? `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim()
+    : (req.user.email || 'Admin'))) || 'Admin';
   
   connection.query('SELECT * FROM empresa_info ORDER BY fecha_actualizacion DESC LIMIT 1', (err, results) => {
     if (err) {

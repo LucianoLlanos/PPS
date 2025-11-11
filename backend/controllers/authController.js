@@ -50,7 +50,7 @@ const authController = {
   },
 
   register: (req, res) => {
-    const { nombre, apellido, email, password, telefono, idRol = 1 } = req.body;
+    const { nombre, apellido, email, password, telefono } = req.body;
     if (!nombre || !apellido || !email || !password)
       return res.status(400).json({ error: 'Faltan datos obligatorios' });
     
@@ -68,9 +68,10 @@ const authController = {
       }
       
       const hashed = bcrypt.hashSync(password, 10);
+      const roleId = 1; // Registro público: siempre crear como Cliente
       connection.query(
-        'INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)',
-        [nombre, apellido, email, hashed, idRol],
+        'INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?) ',
+        [nombre, apellido, email, hashed, roleId],
         (err2, result) => {
           if (err2) {
             console.error('[auth] Error creating user:', err2);
@@ -81,7 +82,7 @@ const authController = {
           console.log('[auth] user created with id:', newUserId);
           
           // Si es cliente (idRol === 1), crear registro en tabla clientes
-          if (Number(idRol) === 1) {
+          if (Number(roleId) === 1) {
             connection.query(
               'INSERT INTO clientes (idUsuario, telefono) VALUES (?, ?)',
               [newUserId, telefono || null],

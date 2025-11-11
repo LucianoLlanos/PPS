@@ -7,10 +7,10 @@ const mysql = require('mysql2');
 // VERIFICAR QUE LA DATABASE SE LLAME IGUAL
 
 const connection = mysql.createConnection({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '12345678',
-  database: 'atilio_marola',
+  host: process.env.MYSQL_HOST || '127.0.0.1',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || 'root',
+  database: process.env.MYSQL_DB || 'atilio_marola',
 });
 
 //mensaje de error por si falla la conexión

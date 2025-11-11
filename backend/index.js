@@ -5,6 +5,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const serviciosRoutes = require('./routes/serviciosRoutes');
 const empresaRoutes = require('./routes/empresaRoutes');
 const carouselRoutes = require('./routes/carouselRoutes');
+const sellerRoutes = require('./routes/sellerRoutes');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const favoritesRoutes = require('./routes/favoritesRoutes');
@@ -51,6 +52,9 @@ app.use('/orders', ordersRoutes);
 app.use('/servicios', serviciosRoutes);
 app.use('/empresa', empresaRoutes);
 app.use('/carousel', carouselRoutes);
+
+// Rutas para vendedores/admin (seller namespace)
+app.use('/seller', authMiddleware, requireRoleId(2, 3), sellerRoutes);
 
 // Proteger rutas administrativas con autenticación - permitir Admin (idRol = 3) y Vendedor (idRol = 2)
 // Usar prefijo /admin para evitar conflictos con endpoints públicos

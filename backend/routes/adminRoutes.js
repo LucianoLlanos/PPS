@@ -25,6 +25,7 @@ router.delete('/usuarios/:id', adminController.eliminarUsuario);
 
 // Productos (con soporte de múltiples imágenes)
 router.get('/productos', adminController.listarProductos);
+router.get('/productos/:id(\\d+)', adminController.verProductoAdmin);
 router.post('/productos', upload.array('imagenes', 5), adminController.crearProducto); // Máximo 5 imágenes
 router.put('/productos/:id', upload.array('imagenes', 5), adminController.actualizarProducto);
 router.delete('/productos/:id', adminController.eliminarProducto);

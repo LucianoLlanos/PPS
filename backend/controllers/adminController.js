@@ -221,10 +221,43 @@ const registrarHistorial = (tabla, idRegistro, accion, usuario, descripcion) => 
 
 // PRODUCTOS
 const listarProductos = (req, res) => {
-  const query = `SELECT idProducto, nombre, descripcion, precio, stockTotal AS stock, imagen FROM productos`;
+  // Incluir imágenes adicionales desde producto_imagenes (similar al endpoint público /productos)
+  const query = `
+    SELECT 
+      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
+    FROM productos p
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
+    GROUP BY p.idProducto
+  `;
   connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al obtener productos' });
-    res.json(results);
+    const processed = (results || []).map((p) => ({
+      ...p,
+      imagenes: p.imagenes ? p.imagenes.split(',') : []
+    }));
+    res.json(processed);
+  });
+};
+
+// Obtener un producto (admin) con sus imágenes
+const verProductoAdmin = (req, res) => {
+  const { id } = req.params;
+  const query = `
+    SELECT 
+      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
+    FROM productos p
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
+    WHERE p.idProducto = ?
+    GROUP BY p.idProducto
+  `;
+  connection.query(query, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener el producto' });
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const p = rows[0];
+    const data = { ...p, imagenes: p.imagenes ? p.imagenes.split(',') : [] };
+    res.json(data);
   });
 };
 
@@ -1392,6 +1425,7 @@ module.exports = {
   actualizarUsuario,
   eliminarUsuario,
   listarProductos,
+  verProductoAdmin,
   crearProducto,
   actualizarProducto,
   eliminarProducto,

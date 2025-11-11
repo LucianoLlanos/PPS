@@ -3,16 +3,20 @@ import api from '../api/axios';
 import ProductModal from './ProductModal';
 import ProductImageCarousel from './ProductImageCarousel';
 import ExpandableText from './ExpandableText';
-import CatalogSearch from './CatalogSearch';
+import CarouselBanner from './CarouselBanner';
+import CompanyTitle from './CompanyTitle';
+import Footer from './Footer';
 import '../stylos/HomeProducts.css';
 // import ProductCardClean from './ProductCardClean';
 import cart from '../utils/cart';
 import { formatCurrency } from '../utils/format';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
+import useFavoritesStore from '../store/useFavoritesStore';
 import { Box, Grid, Card, CardContent, CardActions, Typography, Button, Snackbar, Alert, CardMedia, IconButton } from '@mui/material';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 export default function HomeProducts() {
@@ -34,6 +38,9 @@ export default function HomeProducts() {
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  
+  // Favoritos
+  const { toggleFavorite, isFavorite, loading: favoritesLoading } = useFavoritesStore();
 
   // (insertBreaks removed) ProductCardClean handles long words now
 
@@ -52,24 +59,8 @@ export default function HomeProducts() {
   // debug counter removed
     setLoading(true);
     try {
-      let res;
-      try {
-        res = await api.get('/productos');
-        setProductos(res.data || []);
-      } catch (_err) {
-        console.error(_err);
-        // fallback
-        res = await api.get('/seller/products');
-        const normalized = (res.data || []).map(p => ({
-          idProducto: p.id || p.idProducto,
-          nombre: p.name || p.nombre,
-          descripcion: p.description || p.descripcion,
-          precio: p.price || p.precio,
-          stock: p.stock || p.stockTotal,
-          imagen: p.image || p.imagen,
-        }));
-        setProductos(normalized);
-      }
+      const res = await api.get('/productos');
+      setProductos(res.data || []);
     } catch (_err) {
       console.error(_err);
       setError('No se pudieron cargar los productos');
@@ -87,7 +78,7 @@ export default function HomeProducts() {
     fetch();
   }, [location.search]);
 
-  // Listen for live search events from CatalogSearch to update query without routing
+  // Listen for live search events from SearchSection to update query without routing
   useEffect(() => {
     const onLive = (e) => {
       const q = e?.detail?.q || '';
@@ -133,17 +124,22 @@ export default function HomeProducts() {
   if (error) return <Box sx={{ py: 6, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
 
   return (
-    <Box sx={{ width: '100%', py: 3 }}>
-      {/* Hero: company name + catalog search centered */}
-      <Box className="catalog-hero" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-        <Typography className="brand" variant="h3" sx={{ fontWeight: 800, mb: 1 }}>AtilioMarola</Typography>
-        <Typography variant="h6" sx={{ color: '#51637a', mb: 1 }}>Herramientas y soluciones para agua y energía — calidad industrial</Typography>
-        <Box className="search-box">
-          <CatalogSearch initialQuery={query} />
-        </Box>
-      </Box>
+    <Box sx={{ 
+      width: '100%', 
+      overflow: 'hidden', // Previene scroll horizontal
+      maxWidth: '100vw',
+      boxSizing: 'border-box',
+      mt: 0, // Sin margen superior
+      pt: 0  // Sin padding superior
+    }}>
+      {/* Carrusel de banners publicitarios - ocupa todo el ancho */}
+      <CarouselBanner />
 
-      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
+      {/* Título de la empresa */}
+      <CompanyTitle />
+
+      {/* Contenedor para el catálogo de productos */}
+      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2, pt: 3, pb: 0 }}>
         <Grid container spacing={3} sx={{ mb: 2, justifyContent: 'center', alignItems: 'flex-start' }}>
             {itemsToRender.map((p, idx) => {
               const isNew = idx === itemsToRender.length - 1;
@@ -221,8 +217,29 @@ export default function HomeProducts() {
                             {expandedMap[p.idProducto || p.id] ? 'Mostrar menos' : 'Leer más'}
                           </Button>
                         )}
-                        <IconButton size="small" aria-label="fav" sx={{ bgcolor: 'rgba(0,0,0,0.04)' }}>
-                          <FavoriteBorderIcon fontSize="small" />
+                        <IconButton 
+                          size="small" 
+                          aria-label="fav" 
+                          onClick={() => {
+                            if (!user) {
+                              showToastNotification('Debes iniciar sesión para agregar favoritos', 'warning');
+                              return;
+                            }
+                            toggleFavorite(p);
+                          }}
+                          disabled={favoritesLoading}
+                          sx={{ 
+                            bgcolor: 'rgba(0,0,0,0.04)',
+                            color: isFavorite(p.idProducto || p.id) ? '#ff1744' : '#666',
+                            '&:hover': {
+                              color: isFavorite(p.idProducto || p.id) ? '#d50000' : '#ff1744'
+                            }
+                          }}
+                        >
+                          {isFavorite(p.idProducto || p.id) ? 
+                            <FavoriteIcon fontSize="small" /> : 
+                            <FavoriteBorderIcon fontSize="small" />
+                          }
                         </IconButton>
                       </Box>
                     </CardActions>
@@ -250,6 +267,9 @@ export default function HomeProducts() {
       <Snackbar open={showToast} autoHideDuration={3000} onClose={() => setShowToast(false)} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <Alert onClose={() => setShowToast(false)} severity={toastType === 'success' ? 'success' : 'warning'} sx={{ width: '100%' }}>{toastMessage}</Alert>
       </Snackbar>
+
+      {/* Footer */}
+      <Footer />
     </Box>
   );
 }

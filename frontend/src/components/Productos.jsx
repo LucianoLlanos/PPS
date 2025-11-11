@@ -94,15 +94,15 @@ function Productos() {
   }, []);
 
   useEffect(() => {
-    api.get('/productos')
+    api.get('/admin/productos')
       .then(res => setProductos(res.data))
       .catch(() => setError('Error al obtener productos'));
     // Obtener stock por sucursal
-    api.get('/stock_sucursal')
+    api.get('/admin/stock_sucursal')
       .then(res => setStockSucursal(res.data))
       .catch(() => {});
     // Obtener lista de sucursales
-    api.get('/sucursales')
+    api.get('/admin/sucursales')
       .then(res => setSucursales(res.data))
       .catch(() => {});
   }, [success]);
@@ -224,7 +224,7 @@ function Productos() {
       if (imagesToRemove && imagesToRemove.length > 0) {
         formData.append('removeImages', JSON.stringify(imagesToRemove));
       }
-      api.put(`/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      api.put(`/admin/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -242,7 +242,7 @@ function Productos() {
           setError(msg);
         });
     } else {
-      api.put(`/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
+      api.put(`/admin/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -261,7 +261,7 @@ function Productos() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/productos/${deleteProd.idProducto}`);
+      await api.delete(`/admin/productos/${deleteProd.idProducto}`);
       setSuccess('Producto eliminado correctamente');
       setDeleteProd(null);
       setDeleteError(null);
@@ -324,7 +324,7 @@ function Productos() {
     }
     
     try {
-      await api.post('/productos', formData, {
+      await api.post('/admin/productos', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -890,7 +890,7 @@ function Productos() {
             <Button variant="contained" onClick={async () => {
               try {
                 const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                await api.put(`/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                await api.put(`/admin/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
                 setSuccess('Stock actualizado correctamente');
                 setEditSucursal(null);
                 setError(null);

@@ -39,10 +39,10 @@ function Pedidos() {
     const load = async () => {
       try {
         const [resPedidos, resSucursales, resUsuarios, resProductos] = await Promise.all([
-          api.get('/pedidos').catch(() => ({ data: [] })),
-          api.get('/sucursales').catch(() => ({ data: [] })),
-          api.get('/usuarios').catch(() => ({ data: [] })),
-          api.get('/productos').catch(() => ({ data: [] })),
+          api.get('/admin/pedidos').catch(() => ({ data: [] })),
+          api.get('/admin/sucursales').catch(() => ({ data: [] })),
+          api.get('/admin/usuarios').catch(() => ({ data: [] })),
+          api.get('/admin/productos').catch(() => ({ data: [] })),
         ]);
         if (!mounted) return;
         setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
@@ -134,7 +134,7 @@ function Pedidos() {
     try {
       // Optimistic update
       setPedidos(prev => prev.map(p => p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p));
-      await api.put(`/pedidos/${pedido.idPedido}`, { ...pedido, estado: nuevoEstado }).catch(() => null);
+      await api.put(`/admin/pedidos/${pedido.idPedido}`, { ...pedido, estado: nuevoEstado }).catch(() => null);
       setSuccess('Estado actualizado');
       setOpenSnackbar(true);
     } catch (e) {
@@ -150,7 +150,7 @@ function Pedidos() {
   const confirmDelete = async () => {
     if (!deletePedido) return;
     try {
-      await api.delete(`/pedidos/${deletePedido.idPedido}`).catch(() => null);
+      await api.delete(`/admin/pedidos/${deletePedido.idPedido}`).catch(() => null);
       setPedidos(prev => prev.filter(p => p.idPedido !== deletePedido.idPedido));
       setDeletePedido(null);
       setSuccess('Pedido eliminado');
@@ -192,10 +192,10 @@ function Pedidos() {
       };
 
       // Enviar al backend y refrescar la lista real desde el servidor
-      const postRes = await api.post('/pedidos', payload);
+      const postRes = await api.post('/admin/pedidos', payload);
       if (postRes && (postRes.status === 200 || postRes.status === 201)) {
         try {
-          const resPedidos = await api.get('/pedidos');
+          const resPedidos = await api.get('/admin/pedidos');
           setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
         } catch (e) {
           // no bloquear si falla el refresh

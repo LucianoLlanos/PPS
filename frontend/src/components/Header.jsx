@@ -2,17 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import useAuthStore from '../store/useAuthStore';
+import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
 import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import MenuIcon from '@mui/icons-material/Menu';
 
-export default function Header({ initialQuery, showSearch = false }) {
-  const [q, setQ] = useState(initialQuery || '');
+export default function Header() {
+  const [cartCount, setCartCount] = useState(0);
+  const [q, setQ] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
   const timer = useRef(null);
   const navigate = useNavigate();
   // seleccionar solo primitivos para evitar re-renders por referencia de objeto
@@ -27,14 +29,24 @@ export default function Header({ initialQuery, showSearch = false }) {
   // Devuelve un objeto sx para resaltar ligeramente la sección activa del header
   const activeStyle = (path) => {
     const active = location.pathname === path || location.pathname.startsWith(path + '/');
-    if (!active) return { textTransform: 'none' };
+    if (!active) return { 
+      textTransform: 'none',
+      color: 'rgba(255,255,255,0.9)',
+      '&:hover': { 
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        color: 'white'
+      }
+    };
     return {
       textTransform: 'none',
       borderRadius: 1.5,
-      backgroundColor: 'rgba(13,110,253,0.06)', // pastel azul suave
-      color: 'primary.main',
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      color: 'white',
       fontWeight: 600,
-      '&:hover': { backgroundColor: 'rgba(13,110,253,0.08)' }
+      '&:hover': { 
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        color: 'white'
+      }
     };
   };
 
@@ -76,7 +88,15 @@ export default function Header({ initialQuery, showSearch = false }) {
       window.removeEventListener('servicios:updated', onServiciosUpdated);
     };
   }, [userRole]);
-  // fetch suggestions for the search input
+
+  // Sync search query with URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlQuery = params.get('q') || '';
+    setQ(urlQuery);
+  }, [location.search]);
+
+  // Fetch suggestions for the search input
   const fetchSuggestions = async (text) => {
     if (!text || text.trim().length === 0) {
       setSuggestions([]);
@@ -86,7 +106,7 @@ export default function Header({ initialQuery, showSearch = false }) {
     try {
       const res = await api.get('/productos');
       const items = (res.data || []).map(p => p.nombre || p.name || '');
-      const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 8);
+      const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 6);
       setSuggestions(filtered);
       setShowSug(true);
     } catch {
@@ -95,12 +115,13 @@ export default function Header({ initialQuery, showSearch = false }) {
     }
   };
 
-  // submit handler for the search form
+  // Submit handler for the search form
   const submit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
     setShowSug(false);
     navigate(`/?q=${encodeURIComponent(q || '')}`);
   };
+
   const handleChange = (val) => {
     setQ(val);
     if (timer.current) clearTimeout(timer.current);
@@ -114,23 +135,58 @@ export default function Header({ initialQuery, showSearch = false }) {
   };
 
   return (
-    <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 3 }}>
-      <Toolbar sx={{ display: 'flex', gap: 2 }}>
+    <AppBar 
+      position="static" 
+      elevation={2} 
+      sx={{ 
+        background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 4px 20px rgba(25,118,210,0.15)'
+      }}
+    >
+      <Toolbar sx={{ display: 'flex', gap: 2, py: 1.5, minHeight: 'auto' }}>
   <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography
+            <Box
               component={RouterLink}
               to="/"
-              variant="h6"
               sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
                 textDecoration: 'none',
-                color: 'text.primary',
-                fontWeight: 700,
-                '&, &:hover, &:focus, &:active': { textDecoration: 'none' }
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  transition: 'transform 0.2s ease'
+                }
               }}
             >
-              AtilioMarola
-            </Typography>
+              <Box
+                component="img"
+                src="/logo.jpeg"
+                alt="Atilio Marola Logo"
+                sx={{
+                  height: { xs: 56, md: 64 },
+                  width: { xs: 56, md: 64 },
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '3px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              />
+              <Typography
+                variant="h6"
+                sx={{
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: { xs: '1.1rem', md: '1.3rem' },
+                  display: { xs: 'none', sm: 'block' },
+                  textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                }}
+              >
+                AtilioMarola
+              </Typography>
+            </Box>
           </Box>
 
           {/* Center area: render nav links, optional search and auth actions centered. Positioned absolute so it's centered relative to the page regardless of left/right content widths */}
@@ -156,40 +212,102 @@ export default function Header({ initialQuery, showSearch = false }) {
                   <Button component={RouterLink} to="/usuarios" variant="text" size="small" sx={activeStyle('/usuarios')}>Usuarios</Button>
                   <Button component={RouterLink} to="/pedidos" variant="text" size="small" sx={activeStyle('/pedidos')}>Pedidos</Button>
                   <Button component={RouterLink} to="/clientes" variant="text" size="small" sx={activeStyle('/clientes')}>Clientes</Button>
+                  <Button component={RouterLink} to="/empresa-admin" variant="text" size="small" sx={activeStyle('/empresa-admin')}>Empresa</Button>
+                  <Button component={RouterLink} to="/carousel-admin" variant="text" size="small" sx={activeStyle('/carousel-admin')}>Carrusel</Button>
                 </>
               )}
-              {token && userRole && Number(userRole) !== 3 && (
-                <Button component={RouterLink} to="/servicios" variant="outlined" size="small">Servicios</Button>
+
+              {/* Ya no usamos panel aparte de vendedor; el flujo será desde el carrito */}
+
+              {token && userRole && Number(userRole) !== 3 && Number(userRole) !== 2 && (
+                <Button 
+                  component={RouterLink} 
+                  to="/servicios" 
+                  variant="outlined" 
+                  size="small"
+                  sx={{
+                    color: 'white',
+                    borderColor: 'rgba(255,255,255,0.7)',
+                    '&:hover': {
+                      borderColor: 'white',
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  Servicios
+                </Button>
               )}
             </Box>
 
-            {showSearch && (
-              <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 640, mx: 2, position: 'relative' }}>
+            {/* Buscador para usuarios no-admin */}
+            {(!token || (userRole && Number(userRole) !== 3)) && (
+              <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 500, mx: 2, position: 'relative' }}>
                 <ClickAwayListener onClickAway={() => setShowSug(false)}>
                   <Box>
                     <TextField
                       fullWidth
                       size="small"
-                      placeholder="Buscar..."
+                      placeholder="Buscar productos..."
                       value={q}
                       onChange={(e) => handleChange(e.target.value)}
                       onFocus={() => { if (suggestions.length > 0) setShowSug(true); }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'rgba(255,255,255,0.9)',
+                          borderRadius: 3,
+                          '&.Mui-focused': {
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'primary.main',
+                              borderWidth: '2px'
+                            }
+                          },
+                          '&:hover': {
+                            bgcolor: 'white',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'primary.light'
+                            }
+                          }
+                        },
+                        '& input': {
+                          '&:focus': {
+                            outline: 'none !important',
+                            boxShadow: 'none !important'
+                          }
+                        }
+                      }}
                       InputProps={{
-                        startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>),
+                        startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary' }} /></InputAdornment>),
                         endAdornment: (
                           <InputAdornment position="end">
-                            <Button type="submit" variant="contained" size="small" sx={{ borderRadius: 8 }}>Ir</Button>
+                            <Button type="submit" variant="contained" size="small" sx={{ borderRadius: 2, textTransform: 'none' }}>Buscar</Button>
                           </InputAdornment>
                         )
                       }}
                     />
 
                     {showSug && suggestions && suggestions.length > 0 && (
-                      <Paper sx={{ position: 'absolute', zIndex: 20, left: 0, right: 0, mt: 0.5 }}>
+                      <Paper sx={{ 
+                        position: 'absolute', 
+                        zIndex: 20, 
+                        left: 0, 
+                        right: 0, 
+                        mt: 0.5,
+                        borderRadius: 2,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      }}>
                         <List dense>
                           {suggestions.map((s, idx) => (
                             <ListItem key={idx} disablePadding>
-                              <ListItemButton onMouseDown={() => pickSuggestion(s)}>
+                              <ListItemButton 
+                                onMouseDown={() => pickSuggestion(s)}
+                                sx={{
+                                  '&:hover': {
+                                    bgcolor: 'primary.light',
+                                    color: 'white'
+                                  }
+                                }}
+                              >
+                                <SearchIcon sx={{ mr: 2, color: 'text.secondary', fontSize: '1rem' }} />
                                 <ListItemText primary={s} />
                               </ListItemButton>
                             </ListItem>
@@ -202,15 +320,41 @@ export default function Header({ initialQuery, showSearch = false }) {
               </Box>
             )}
 
+
+
             {/* Centered auth buttons for guests (login/register) */}
             {!token && (
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
                 <Button component={RouterLink} to="/login" variant="outlined" size="small"
-                  sx={{ textTransform: 'none', px: 2, py: 0.6, borderRadius: 20, fontWeight: 600, color: '#0b2545', borderColor: 'rgba(11,37,70,0.12)' }}>
+                  sx={{ 
+                    textTransform: 'none', 
+                    px: 2, 
+                    py: 0.6, 
+                    borderRadius: 20, 
+                    fontWeight: 600, 
+                    color: 'white', 
+                    borderColor: 'rgba(255,255,255,0.7)',
+                    '&:hover': {
+                      borderColor: 'white',
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}>
                   Login
                 </Button>
                 <Button component={RouterLink} to="/register" variant="contained" size="small"
-                  sx={{ textTransform: 'none', px: 2.2, py: 0.6, borderRadius: 20, fontWeight: 700, background: 'linear-gradient(90deg,#0d6efd,#0b5ed7)', boxShadow: '0 6px 18px rgba(11,37,70,0.08)' }}>
+                  sx={{ 
+                    textTransform: 'none', 
+                    px: 2.2, 
+                    py: 0.6, 
+                    borderRadius: 20, 
+                    fontWeight: 700, 
+                    background: 'linear-gradient(90deg, #ff6b35, #f7931e)', 
+                    boxShadow: '0 6px 18px rgba(255,107,53,0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(90deg, #e55a2b, #e8841a)',
+                      boxShadow: '0 8px 25px rgba(255,107,53,0.4)'
+                    }
+                  }}>
                   Registro
                 </Button>
               </Box>
@@ -218,19 +362,81 @@ export default function Header({ initialQuery, showSearch = false }) {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Hide cart for admin users (role id 3) */}
+            {/* Ocultar carrito para administradores; permitir a vendedores usar carrito */}
             {!(token && userRole && Number(userRole) === 3) && (
-              <IconButton color="inherit" onClick={() => navigate('/carrito')} aria-label="carrito">
-                <Badge badgeContent={cartCount} color="error">
-                  <ShoppingCartIcon />
-                </Badge>
-              </IconButton>
+              <>
+                <IconButton 
+                  onClick={() => navigate('/carrito')} 
+                  aria-label="carrito"
+                  sx={{ 
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  <Badge badgeContent={cartCount} color="error">
+                    <ShoppingCartIcon />
+                  </Badge>
+                </IconButton>
+                {/* Acceso directo a vender: para Rol Vendedor, apunta al carrito */}
+                {token && userRole && Number(userRole) === 2 && (
+                  <Button
+                    onClick={() => navigate('/carrito')}
+                    size="small"
+                    variant="text"
+                    sx={{
+                      color: 'rgba(255,255,255,0.9)',
+                      textTransform: 'none',
+                      '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)', color: 'white' }
+                    }}
+                  >
+                    Vender
+                  </Button>
+                )}
+                
+                {/* Botón de favoritos - solo para usuarios logueados */}
+                {token && (
+                  <IconButton 
+                    onClick={() => navigate('/favoritos')} 
+                    aria-label="favoritos"
+                    sx={{ 
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.1)'
+                      }
+                    }}
+                  >
+                    <FavoriteIcon sx={{ color: '#ff69b4' }} />
+                  </IconButton>
+                )}
+              </>
             )}
 
             {token && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ mx: 1 }}>{userNombre || ''} {userApellido || ''}</Typography>
-                <Button color="error" variant="outlined" size="small" onClick={() => { clearUserCart(); clearAuth(); navigate('/'); }}>Cerrar sesión</Button>
+                <Typography sx={{ 
+                  mx: 1, 
+                  color: 'white', 
+                  fontWeight: 500,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                }}>{userNombre || ''} {userApellido || ''}</Typography>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={() => { clearUserCart(); clearAuth(); navigate('/'); }}
+                  sx={{
+                    color: '#ffcdd2',
+                    borderColor: '#ffcdd2',
+                    '&:hover': {
+                      backgroundColor: 'rgba(244,67,54,0.1)',
+                      borderColor: '#f44336',
+                      color: '#f44336'
+                    }
+                  }}
+                >
+                  Cerrar sesión
+                </Button>
               </Box>
             )}
           </Box>

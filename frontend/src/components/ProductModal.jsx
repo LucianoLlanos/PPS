@@ -36,22 +36,109 @@ export default function ProductModal({ product, onClose, onAdded }) {
   const src = img ? `http://localhost:3000/uploads/${img}` : '/img/descarga.jpg';
 
   return (
-    <Dialog open={!!product} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={src} alt={title} style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} onError={(e) => e.target.src = '/img/descarga.jpg'} />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ whiteSpace: 'pre-wrap' }}>{desc}</Typography>
-            <Typography sx={{ fontWeight: 700, fontSize: 18, mt: 2 }}>{formatCurrency(price)}</Typography>
-          </Box>
+    <Dialog 
+      open={!!product} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          maxHeight: '80vh',
+          overflowX: 'hidden'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        textAlign: 'center', 
+        pb: 1,
+        px: 2,
+        wordBreak: 'break-word'
+      }}>
+        {title}
+      </DialogTitle>
+      <DialogContent sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        gap: 2, 
+        p: 3,
+        overflowX: 'hidden',
+        overflowY: 'auto'
+      }}>
+        {/* Imagen del producto */}
+        <Box sx={{ 
+          width: '100%', 
+          maxWidth: '300px',
+          height: 250, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          bgcolor: '#f8f9fa',
+          borderRadius: 2,
+          overflow: 'hidden',
+          flexShrink: 0
+        }}>
+          <img 
+            src={src} 
+            alt={title} 
+            style={{ 
+              maxWidth: '100%', 
+              maxHeight: '100%', 
+              objectFit: 'contain',
+              borderRadius: 8 
+            }} 
+            onError={(e) => e.target.src = '/img/descarga.jpg'} 
+          />
+        </Box>
+        
+        {/* Descripción */}
+        <Box sx={{ 
+          width: '100%', 
+          textAlign: 'left',
+          overflowWrap: 'break-word',
+          wordBreak: 'break-word'
+        }}>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              lineHeight: 1.6,
+              color: 'text.secondary',
+              mb: 3,
+              whiteSpace: 'normal'
+            }}
+          >
+            {desc}
+          </Typography>
+          
+          {/* Precio */}
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              fontWeight: 700, 
+              color: 'primary.main',
+              textAlign: 'center',
+              bgcolor: 'primary.50',
+              py: 2,
+              px: 3,
+              borderRadius: 2,
+              mb: 2,
+              wordBreak: 'break-word'
+            }}
+          >
+            {formatCurrency(price)}
+          </Typography>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} variant="outlined">Cerrar</Button>
-        <Button onClick={handleAdd} variant="contained">Agregar al carrito</Button>
+      <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 3 }}>
+        <Button onClick={onClose} variant="outlined" size="large">
+          Cerrar
+        </Button>
+        <Button onClick={handleAdd} variant="contained" size="large">
+          Agregar al carrito
+        </Button>
       </DialogActions>
     </Dialog>
   );

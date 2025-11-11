@@ -622,10 +622,87 @@ const actualizarProducto = (req, res) => {
 
 const eliminarProducto = (req, res) => {
   const { id } = req.params;
-  const query = 'DELETE FROM productos WHERE idProducto=?';
-  connection.query(query, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error al eliminar producto' });
-    res.json({ mensaje: 'Producto eliminado' });
+  
+  // Primero verificar si el producto existe
+  connection.query('SELECT nombre FROM productos WHERE idProducto = ?', [id], (err, prodRows) => {
+    if (err) return res.status(500).json({ error: 'Error al buscar producto' });
+    if (!prodRows || prodRows.length === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    const nombreProducto = prodRows[0].nombre;
+    
+    // Verificar si el producto tiene pedidos asociados (histórico de ventas)
+    connection.query(
+      'SELECT COUNT(*) as count FROM detalle_pedidos WHERE idProducto = ?', 
+      [id], 
+      (err, pedidoRows) => {
+        if (err) return res.status(500).json({ error: 'Error al verificar pedidos del producto' });
+        
+        const tienePedidos = pedidoRows[0].count > 0;
+        
+        if (tienePedidos) {
+          return res.status(400).json({ 
+            error: 'No se puede eliminar el producto porque tiene pedidos asociados (histórico de ventas). Para mantener la integridad de los datos, considere marcarlo como inactivo o descontinuado en lugar de eliminarlo.' 
+          });
+        }
+        
+        // Si no tiene pedidos, proceder con la eliminación
+        connection.beginTransaction((trxErr) => {
+          if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
+          
+          // 1. Eliminar registros de stock_sucursal
+          connection.query('DELETE FROM stock_sucursal WHERE idProducto = ?', [id], (err1) => {
+            if (err1) {
+              return connection.rollback(() => 
+                res.status(500).json({ error: 'Error al eliminar stock por sucursal' })
+              );
+            }
+            
+            // 2. Eliminar imágenes del producto (producto_imagenes ya tiene CASCADE, pero por si acaso)
+            connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id], (err2) => {
+              if (err2) {
+                return connection.rollback(() => 
+                  res.status(500).json({ error: 'Error al eliminar imágenes del producto' })
+                );
+              }
+              
+              // 3. Finalmente eliminar el producto
+              connection.query('DELETE FROM productos WHERE idProducto = ?', [id], (err3) => {
+                if (err3) {
+                  return connection.rollback(() => 
+                    res.status(500).json({ error: 'Error al eliminar producto' })
+                  );
+                }
+                
+                // Confirmar transacción
+                connection.commit((commitErr) => {
+                  if (commitErr) {
+                    return connection.rollback(() => 
+                      res.status(500).json({ error: 'Error al confirmar transacción' })
+                    );
+                  }
+                  
+                  // Registrar en historial
+                  registrarHistorial(
+                    'productos', 
+                    id, 
+                    'eliminar', 
+                    null, 
+                    `Producto eliminado: ${nombreProducto}`
+                  );
+                  
+                  res.json({ 
+                    mensaje: 'Producto eliminado exitosamente',
+                    productoEliminado: nombreProducto
+                  });
+                });
+              });
+            });
+          });
+        });
+      }
+    );
   });
 };
 
@@ -650,7 +727,16 @@ const listarPedidos = (req, res) => {
   } = req.query;
 
   let sql = `
-        SELECT pe.idPedido, u.nombre AS nombreUsuario, u.apellido AS apellidoUsuario, pe.fecha, pe.estado
+        SELECT 
+          pe.idPedido, 
+          u.nombre AS nombreUsuario, 
+          u.apellido AS apellidoUsuario, 
+          COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+          pe.estado,
+          COALESCE(pe.total, 0) as total,
+          (SELECT COALESCE(SUM(dp.cantidad), 0) 
+           FROM detalle_pedidos dp 
+           WHERE dp.idPedido = pe.idPedido) as cantidadTotal
         FROM pedidos pe
         JOIN clientes c ON pe.idCliente = c.idCliente
         JOIN usuarios u ON c.idUsuario = u.idUsuario
@@ -668,30 +754,30 @@ const listarPedidos = (req, res) => {
     params.push(estado);
   }
   // Manejo robusto de fechas:
-  // - Si se pasa 'fecha' exacta, usar DATE(pe.fecha) = fecha
-  // - Si se pasan both fechaDesde y fechaHasta usar DATE(pe.fecha) BETWEEN fechaDesde AND fechaHasta (inclusive)
-  // - Si solo fechaDesde usar DATE(pe.fecha) >= fechaDesde
-  // - Si solo fechaHasta usar DATE(pe.fecha) <= fechaHasta
+  // - Si se pasa 'fecha' exacta, usar DATE(fechaPedido) = fecha
+  // - Si se pasan both fechaDesde y fechaHasta usar DATE(fechaPedido) BETWEEN fechaDesde AND fechaHasta (inclusive)
+  // - Si solo fechaDesde usar DATE(fechaPedido) >= fechaDesde
+  // - Si solo fechaHasta usar DATE(fechaPedido) <= fechaHasta
   if (fecha) {
-    where.push('DATE(pe.fecha) = ?');
+    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) = ?');
     params.push(fecha);
   } else if (fechaDesde && fechaHasta) {
-    where.push('DATE(pe.fecha) BETWEEN ? AND ?');
+    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) BETWEEN ? AND ?');
     params.push(fechaDesde, fechaHasta);
   } else {
     if (fechaDesde) {
-      where.push('DATE(pe.fecha) >= ?');
+      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) >= ?');
       params.push(fechaDesde);
     }
     if (fechaHasta) {
-      where.push('DATE(pe.fecha) <= ?');
+      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) <= ?');
       params.push(fechaHasta);
     }
   }
 
-  // Filtrar por producto usando EXISTS en detalle_pedido + productos
+  // Filtrar por producto usando EXISTS en detalle_pedidos + productos
   if (producto) {
-    where.push(`EXISTS (SELECT 1 FROM detalle_pedido dp JOIN productos pr ON dp.idProducto = pr.idProducto WHERE dp.idPedido = pe.idPedido AND pr.nombre LIKE ?)`);
+    where.push(`EXISTS (SELECT 1 FROM detalle_pedidos dp JOIN productos pr ON dp.idProducto = pr.idProducto WHERE dp.idPedido = pe.idPedido AND pr.nombre LIKE ?)`);
     params.push('%' + producto + '%');
   }
 
@@ -701,16 +787,16 @@ const listarPedidos = (req, res) => {
     params.push('%' + usuario + '%', '%' + usuario + '%', '%' + usuario + '%');
   }
 
-  // Filtrar por total del pedido (subconsulta que suma cantidad * precioUnitario)
+  // Filtrar por total del pedido (usar campo total o calcular)
   // Aceptar 0 y valores numéricos enviados como strings. Ignorar valores vacíos o no numéricos.
   const parsedTotalMin = typeof totalMin !== 'undefined' && totalMin !== '' ? Number(totalMin) : undefined;
   const parsedTotalMax = typeof totalMax !== 'undefined' && totalMax !== '' ? Number(totalMax) : undefined;
   if (typeof parsedTotalMin !== 'undefined' && !isNaN(parsedTotalMin)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
+    where.push(`COALESCE(pe.total, (SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) >= ?`);
     params.push(parsedTotalMin);
   }
   if (typeof parsedTotalMax !== 'undefined' && !isNaN(parsedTotalMax)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
+    where.push(`COALESCE(pe.total, (SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) <= ?`);
     params.push(parsedTotalMax);
   }
 
@@ -718,11 +804,11 @@ const listarPedidos = (req, res) => {
   const parsedCantidadMin = typeof cantidadMin !== 'undefined' && cantidadMin !== '' ? Number(cantidadMin) : undefined;
   const parsedCantidadMax = typeof cantidadMax !== 'undefined' && cantidadMax !== '' ? Number(cantidadMax) : undefined;
   if (typeof parsedCantidadMin !== 'undefined' && !isNaN(parsedCantidadMin)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) >= ?`);
+    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) >= ?`);
     params.push(parsedCantidadMin);
   }
   if (typeof parsedCantidadMax !== 'undefined' && !isNaN(parsedCantidadMax)) {
-    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) <= ?`);
+    where.push(`(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) <= ?`);
     params.push(parsedCantidadMax);
   }
 
@@ -737,17 +823,17 @@ const listarPedidos = (req, res) => {
   if (sort) {
     const parts = String(sort).split(',').map(s => s.trim()).filter(Boolean);
     parts.forEach(s => {
-      if (s === 'fecha_asc') orderClauses.push('pe.fecha ASC');
-      else if (s === 'fecha_desc') orderClauses.push('pe.fecha DESC');
-      else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) ASC");
-      else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedido dp WHERE dp.idPedido = pe.idPedido) DESC");
+      if (s === 'fecha_asc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) ASC');
+      else if (s === 'fecha_desc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) DESC');
+      else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) ASC");
+      else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) DESC");
     });
   }
 
   if (orderClauses.length) {
     sql += ' ORDER BY ' + orderClauses.join(', ');
   } else {
-    sql += ' ORDER BY pe.fecha DESC';
+    sql += ' ORDER BY COALESCE(pe.fechaPedido, pe.fecha) DESC';
   }
 
   connection.query(sql, params, (err, pedidos) => {
@@ -759,7 +845,7 @@ const listarPedidos = (req, res) => {
     const placeholders = ids.map(() => '?').join(',');
     const queryDetalles = `
             SELECT dp.idPedido, pr.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario
-            FROM detalle_pedido dp
+            FROM detalle_pedidos dp
             JOIN productos pr ON dp.idProducto = pr.idProducto
             WHERE dp.idPedido IN (${placeholders})
         `;
@@ -774,8 +860,8 @@ const listarPedidos = (req, res) => {
             cantidad: d.cantidad,
             total: d.cantidad * d.precioUnitario,
           }));
-        const total = productos.reduce((acc, prod) => acc + prod.total, 0);
-        return { ...p, productos, total };
+        // Mantener el total original de la base de datos en lugar de recalcular
+        return { ...p, productos };
       });
       res.json(pedidosFinal);
     });
@@ -783,7 +869,7 @@ const listarPedidos = (req, res) => {
 };
 
 const crearPedido = (req, res) => {
-  const { idCliente, estado, idSucursalOrigen, productos } = req.body;
+  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago } = req.body;
   if (
     !idCliente ||
     !estado ||
@@ -819,9 +905,23 @@ const crearPedido = (req, res) => {
           connection.beginTransaction((trxErr) => {
             if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
 
-            const queryPedido =
-              'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen) VALUES (?, ?, ?)';
-            connection.query(queryPedido, [clienteId, estado, idSucursalOrigen], (err2, result) => {
+            // Detectar si existe la columna metodoPago para guardarla explícitamente
+            const colCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1`;
+            connection.query(colCheck, (colErr, rowsCol) => {
+              if (colErr) {
+                console.warn('[crearPedido] No se pudo verificar columna metodoPago:', colErr.message || colErr);
+              }
+
+              let queryPedido, paramsPedido;
+              if (!colErr && rowsCol && rowsCol.length > 0) {
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null];
+              } else {
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null];
+              }
+
+              connection.query(queryPedido, paramsPedido, (err2, result) => {
               if (err2)
                 return connection.rollback(() =>
                   res.status(500).json({ error: 'Error al crear pedido' })
@@ -829,30 +929,57 @@ const crearPedido = (req, res) => {
               const idPedido = result.insertId;
 
               // Procesar productos en serie para insertar detalle y decrementar stocks
+              let totalPedido = 0;
+              let cantidadTotal = 0;
               const procesarProducto = (i) => {
                 if (i >= productos.length) {
-                  // Todo ok, confirmar transacción
-                  connection.commit((commitErr) => {
-                    if (commitErr)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al confirmar transacción' })
-                      );
-                    res.json({ mensaje: 'Pedido creado', idPedido });
+                  // Actualizar totales del pedido (compatibilidad si no existe columna cantidadTotal)
+                  const colCantCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1`;
+                  connection.query(colCantCheck, (chkErr, chkRows) => {
+                    if (chkErr) {
+                      console.warn('[crearPedido] No se pudo verificar columna cantidadTotal:', chkErr.message || chkErr);
+                    }
+
+                    const hasCantidadTotal = !chkErr && chkRows && chkRows.length > 0;
+                    const updSql = hasCantidadTotal
+                      ? 'UPDATE pedidos SET total = ?, cantidadTotal = ? WHERE idPedido = ?'
+                      : 'UPDATE pedidos SET total = ? WHERE idPedido = ?';
+                    const updParams = hasCantidadTotal
+                      ? [totalPedido, cantidadTotal, idPedido]
+                      : [totalPedido, idPedido];
+
+                    connection.query(updSql, updParams, (updErr) => {
+                      if (updErr)
+                        return connection.rollback(() =>
+                          res.status(500).json({ error: 'Error al actualizar totales del pedido' })
+                        );
+                      connection.commit((commitErr) => {
+                        if (commitErr)
+                          return connection.rollback(() =>
+                            res.status(500).json({ error: 'Error al confirmar transacción' })
+                          );
+                        res.json({ mensaje: 'Pedido creado', idPedido, total: totalPedido, cantidadTotal });
+                      });
+                    });
                   });
                   return;
                 }
                 const p = productos[i];
                 // Insertar detalle
                 const insertDetalle =
-                  'INSERT INTO detalle_pedido (idPedido, idProducto, cantidad, precioUnitario) VALUES (?, ?, ?, ?)';
+                  'INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES (?, ?, ?, ?, ?)';
+                const precioUnit = Number(p.precioUnitario || p.precio || 0);
+                const subtotal = precioUnit * Number(p.cantidad || 0);
                 connection.query(
                   insertDetalle,
-                  [idPedido, p.idProducto, p.cantidad, p.precioUnitario || 0],
+                  [idPedido, p.idProducto, p.cantidad, precioUnit, subtotal],
                   (err3) => {
                     if (err3)
                       return connection.rollback(() =>
                         res.status(500).json({ error: 'Error al insertar detalle de pedido' })
                       );
+                    totalPedido += subtotal;
+                    cantidadTotal += Number(p.cantidad || 0);
                     // Decrementar stock en sucursal (asegurando no quedar negativo)
                     const updSucursal =
                       'UPDATE stock_sucursal SET stockDisponible = stockDisponible - ? WHERE idProducto=? AND idSucursal=? AND stockDisponible >= ?';
@@ -892,6 +1019,7 @@ const crearPedido = (req, res) => {
 
               procesarProducto(0);
             });
+            });
           });
         };
 
@@ -918,7 +1046,7 @@ const crearPedido = (req, res) => {
 // Ver detalle de un pedido
 const verDetallePedido = (req, res) => {
   const { id } = req.params;
-  const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedido dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
+  const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedidos dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
   connection.query(query, [id], (err, detalles) => {
     if (err) return res.status(500).json({ error: 'Error al obtener detalle del pedido' });
     res.json(detalles);
@@ -941,7 +1069,7 @@ const eliminarPedido = (req, res) => {
       const idSucursalOrigen = pedido.idSucursalOrigen;
 
       connection.query(
-        'SELECT idProducto, cantidad FROM detalle_pedido WHERE idPedido=?',
+        'SELECT idProducto, cantidad FROM detalle_pedidos WHERE idPedido=?',
         [id],
         (err2, detalles) => {
           if (err2)
@@ -952,7 +1080,7 @@ const eliminarPedido = (req, res) => {
           const procesarDetalle = (i) => {
             if (i >= detalles.length) {
               // eliminar detalles y pedido
-              connection.query('DELETE FROM detalle_pedido WHERE idPedido=?', [id], (err5) => {
+              connection.query('DELETE FROM detalle_pedidos WHERE idPedido=?', [id], (err5) => {
                 if (err5)
                   return connection.rollback(() =>
                     res.status(500).json({ error: 'Error al eliminar detalle de pedido' })
@@ -1181,7 +1309,7 @@ const ventasSummary = (req, res) => {
       COALESCE(SUM(dp.cantidad * dp.precioUnitario), 0) AS ingresos_totales,
       COALESCE(SUM(dp.cantidad), 0) AS unidades_vendidas
     FROM pedidos pe
-    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
   `;
   const params = [start, end];
@@ -1209,7 +1337,7 @@ const ventasTimeseries = (req, res) => {
       COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) AS ingresos,
       COALESCE(SUM(dp.cantidad),0) AS unidades
     FROM pedidos pe
-    JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
+    JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
     GROUP BY DATE(pe.fecha)
     ORDER BY DATE(pe.fecha) ASC
@@ -1235,7 +1363,7 @@ const ventasTopProducts = (req, res) => {
 
   let sql = `
     SELECT dp.idProducto, pr.nombre AS nombre, SUM(dp.cantidad) AS cantidad_vendida, SUM(dp.cantidad * dp.precioUnitario) AS ingresos
-    FROM detalle_pedido dp
+    FROM detalle_pedidos dp
     JOIN pedidos pe ON dp.idPedido = pe.idPedido
     JOIN productos pr ON dp.idProducto = pr.idProducto
     WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?

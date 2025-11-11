@@ -13,7 +13,7 @@ function Clientes() {
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const load = () => {
-    api.get('/clientes')
+    api.get('/admin/clientes')
       .then(res => setClientes(res.data))
       .catch(() => setError('Error al obtener clientes'));
   };
@@ -30,7 +30,7 @@ function Clientes() {
   const submitEdit = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/clientes/${editCliente.idCliente}`, { direccion: form.direccion || null, telefono: form.telefono || null });
+      await api.put(`/admin/clientes/${editCliente.idCliente}`, { direccion: form.direccion || null, telefono: form.telefono || null });
       setSuccess('Cliente actualizado');
       setOpenSnackbar(true);
       setEditCliente(null);

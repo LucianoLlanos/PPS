@@ -1,15 +1,25 @@
 /* Contenedor principal de la aplicación */
 #root {
-  min-height: calc(100vh - 76px); /* Altura completa menos navbar */
+  min-height: 100vh; /* Altura completa */
+  overflow-x: hidden; /* Elimina scroll horizontal */
+}
+
+/* Prevenir scroll horizontal en toda la página */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Contenedor para páginas normales (no login) */
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1rem 2rem 1rem;
+  padding: 0 1rem 0 1rem; /* Eliminamos padding bottom para que el footer esté pegado */
   display: flex;
   flex-direction: column;
+  overflow-x: hidden; /* Elimina scroll horizontal en el contenedor */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Espaciado para el contenido principal */
@@ -52,4 +62,26 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* Footer sin márgenes - Forzar ancho completo en todas las páginas */
+footer {
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  width: 100vw !important;
+  max-width: none !important;
+  box-sizing: border-box;
+  /* Técnica para romper cualquier contenedor padre */
+  margin-left: calc(-50vw + 50%) !important;
+  margin-right: calc(-50vw + 50%) !important;
+  position: relative;
+}
+
+/* Asegurar que el contenedor de la app no interfiera con el footer */
+.app-container footer {
+  margin-left: calc(-50vw + 50%) !important;
+  margin-right: calc(-50vw + 50%) !important;
+  width: 100vw !important;
+  max-width: none !important;
 }

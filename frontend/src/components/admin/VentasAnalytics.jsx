@@ -32,9 +32,9 @@ export default function VentasAnalytics() {
       };
 
       const [sRes, tRes, pRes] = await Promise.all([
-        api.get('/ventas/summary' + qs(params)),
-        api.get('/ventas/timeseries' + qs(params)),
-        api.get('/ventas/top-products' + qs({...params, limit: 10}))
+        api.get('/admin/ventas/summary' + qs(params)),
+        api.get('/admin/ventas/timeseries' + qs(params)),
+        api.get('/admin/ventas/top-products' + qs({...params, limit: 10}))
       ]);
       setSummary(sRes.data);
       setTimeseries(tRes.data || []);
@@ -50,7 +50,7 @@ export default function VentasAnalytics() {
   // Cargar lista de sucursales para el selector
   useEffect(() => {
     let mounted = true;
-    api.get('/sucursales').then(res => { if (mounted) setSucursales(res.data || []); }).catch(() => {});
+    api.get('/admin/sucursales').then(res => { if (mounted) setSucursales(res.data || []); }).catch(() => {});
     return () => { mounted = false; };
   }, []);
 
@@ -86,8 +86,8 @@ export default function VentasAnalytics() {
 
   // Layout helpers: fixed heights to avoid visual jumps cuando cambian filtros
   const kpiHeight = 120; // altura fija para tarjetas KPI (adecuada para números grandes)
-  const panelHeight = 360; // altura fija para panels principales (Top productos / Series)
-  const chartHeight = 260; // altura interna para el gráfico dentro del panel
+  const panelHeight = 480; // altura fija para panels principales (Top productos / Series) - aumentada
+  const chartHeight = 360; // altura interna para el gráfico dentro del panel - aumentada
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', py: 3 }}>
@@ -154,7 +154,7 @@ export default function VentasAnalytics() {
       </Grid>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: panelHeight, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Typography variant="h6">Top productos (por ingresos)</Typography>
             <Box sx={{ width: '100%', overflowX: 'auto', mt: 1, flex: '1 1 auto' }}>
@@ -183,18 +183,38 @@ export default function VentasAnalytics() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, height: panelHeight, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Typography variant="h6">Series (ingresos por día)</Typography>
             <Box sx={{ maxHeight: panelHeight, overflow: 'hidden', mt: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ width: '100%', height: chartHeight, flex: `0 0 ${chartHeight}px` }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
-                    <YAxis width={100} tickFormatter={(v) => new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 }).format(v)} />
-                    <Tooltip formatter={(value) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)} />
-                    <Line type="monotone" dataKey="ingresos" stroke="#1976d2" strokeWidth={2} dot={{ r: 2 }} />
+                    <XAxis 
+                      dataKey="fecha" 
+                      tick={{ fontSize: 11 }} 
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis 
+                      width={120} 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v) => new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 }).format(v)} 
+                    />
+                    <Tooltip 
+                      formatter={(value) => [new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value), 'Ingresos']}
+                      labelFormatter={(label) => `Fecha: ${label}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="ingresos" 
+                      stroke="#1976d2" 
+                      strokeWidth={3} 
+                      dot={{ r: 4, fill: '#1976d2' }}
+                      activeDot={{ r: 6, fill: '#1976d2' }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>

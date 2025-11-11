@@ -11,6 +11,8 @@ html {
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden; /* Elimina scroll horizontal global */
+  max-width: 100vw;
 }
 
 /* Prevent layout shift when the vertical scrollbar appears: always reserve scrollbar space
@@ -27,8 +29,10 @@ body {
   background-color: #f8f9fa;
   color: #212529;
   line-height: 1.5;
-  padding-top: 10px; /* Altura del navbar (ajustada a 10px) */
   min-height: 100vh;
+  overflow-x: hidden; /* Elimina scroll horizontal en el body */
+  max-width: 100vw;
+  width: 100%;
 }
 
 /* Variables CSS para modo claro */

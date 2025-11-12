@@ -108,9 +108,9 @@ const createOrder = (req, res) => {
 
               const producto = productos[index];
 
-              // Obtener información del producto
+              // Obtener información del producto y validar stock
               connection.query(
-                'SELECT nombre, precio FROM productos WHERE idProducto = ?',
+                'SELECT nombre, precio, stockTotal FROM productos WHERE idProducto = ?',
                 [producto.idProducto],
                 (prodErr, prodRows) => {
                   if (prodErr) {
@@ -129,6 +129,19 @@ const createOrder = (req, res) => {
                   }
 
                   const productoInfo = prodRows[0];
+                  const stockDisponible = Number(productoInfo.stockTotal || 0);
+                  const cantidadSolicitada = Number(producto.cantidad || 0);
+
+                  // Validar stock disponible
+                  if (cantidadSolicitada > stockDisponible) {
+                    console.error(`❌ Stock insuficiente para ${productoInfo.nombre}: solicitado ${cantidadSolicitada}, disponible ${stockDisponible}`);
+                    return connection.rollback(() => {
+                      res.status(400).json({ 
+                        error: `Stock insuficiente para ${productoInfo.nombre}. Disponible: ${stockDisponible}, solicitado: ${cantidadSolicitada}` 
+                      });
+                    });
+                  }
+
                   const subtotal = productoInfo.precio * producto.cantidad;
                   totalPedido += subtotal;
 
@@ -149,11 +162,25 @@ const createOrder = (req, res) => {
                         });
                       }
 
-                      productosInsertados++;
-                      console.log(`✅ Producto ${index + 1}/${productos.length} insertado`);
-                      
-                      // Continuar con el siguiente producto
-                      insertarProducto(index + 1);
+                      // Descontar stock del producto
+                      connection.query(
+                        'UPDATE productos SET stockTotal = stockTotal - ? WHERE idProducto = ?',
+                        [producto.cantidad, producto.idProducto],
+                        (stockErr) => {
+                          if (stockErr) {
+                            console.error('❌ Error actualizando stock:', stockErr);
+                            return connection.rollback(() => {
+                              res.status(500).json({ error: 'Error actualizando stock del producto' });
+                            });
+                          }
+
+                          productosInsertados++;
+                          console.log(`✅ Producto ${index + 1}/${productos.length} insertado y stock actualizado`);
+                          
+                          // Continuar con el siguiente producto
+                          insertarProducto(index + 1);
+                        }
+                      );
                     }
                   );
                 }

@@ -113,6 +113,14 @@ export default function HomeProducts() {
       showToastNotification('⚠️ Los administradores no pueden usar el carrito', 'warning');
       return;
     }
+    
+    // Validar stock disponible
+    const stockDisponible = Number(p.stock || 0);
+    if (stockDisponible <= 0) {
+      showToastNotification(`⚠️ ${p.nombre} sin stock disponible`, 'error');
+      return;
+    }
+    
     cart.addToCart(p, 1);
     // Mostrar notificación de éxito
     showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
@@ -206,7 +214,14 @@ export default function HomeProducts() {
                         <IconButton size="small" onClick={() => setSelected(p)} aria-label="ver" sx={{ mr: 1 }}>
                           <VisibilityIcon />
                         </IconButton>
-                        <IconButton size="small" onClick={() => add(p)} color="primary" aria-label="agregar">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => add(p)} 
+                          color="primary" 
+                          aria-label="agregar"
+                          disabled={!p.stock || Number(p.stock) <= 0}
+                          title={!p.stock || Number(p.stock) <= 0 ? 'Sin stock' : 'Agregar al carrito'}
+                        >
                           <AddShoppingCartIcon />
                         </IconButton>
                       </Box>

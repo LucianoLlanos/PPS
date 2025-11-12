@@ -12,6 +12,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [productosStock, setProductosStock] = useState({}); // Mapa idProducto -> stock disponible
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -34,6 +35,25 @@ export default function Cart() {
     window.addEventListener('cart:updated', handleCartUpdate);
     return () => window.removeEventListener('cart:updated', handleCartUpdate);
   }, []);
+
+  // Cargar stock disponible de los productos en el carrito
+  useEffect(() => {
+    const fetchStock = async () => {
+      if (cartItems.length === 0) return;
+      try {
+        const res = await api.get('/productos');
+        const productos = res.data || [];
+        const stockMap = {};
+        productos.forEach(p => {
+          stockMap[p.idProducto] = Number(p.stock || 0);
+        });
+        setProductosStock(stockMap);
+      } catch (err) {
+        console.error('Error obteniendo stock:', err);
+      }
+    };
+    fetchStock();
+  }, [cartItems.length]);
 
   // Cargar datos auxiliares para vendedor
   useEffect(() => {
@@ -71,6 +91,14 @@ export default function Cart() {
 
   const handleQuantityChange = (id, newQuantity) => {
     if (newQuantity < 1) return;
+    
+    // Validar contra stock disponible
+    const stockDisponible = productosStock[id] || 0;
+    if (newQuantity > stockDisponible) {
+      alert(`Stock insuficiente. Disponible: ${stockDisponible}`);
+      return;
+    }
+    
     updateQuantity(id, newQuantity);
     loadCart();
   };
@@ -233,6 +261,9 @@ export default function Cart() {
                     return '/img/no-image.jpg';
                   };
                   const imageUrl = resolveImage(product);
+                  const productId = product.idProducto || product.id;
+                  const stockDisponible = productosStock[productId] || 0;
+                  
                   return (
                     <TableRow key={item.id}>
                       <TableCell>
@@ -241,6 +272,16 @@ export default function Cart() {
                           <Box>
                             <Typography sx={{ fontWeight: 600 }}>{product.nombre}</Typography>
                             <Typography variant="caption" color="text.secondary">{product.categoria || 'Sin categoría'}</Typography>
+                            {stockDisponible > 0 && (
+                              <Typography variant="caption" display="block" color="success.main">
+                                Stock disponible: {stockDisponible}
+                              </Typography>
+                            )}
+                            {stockDisponible === 0 && (
+                              <Typography variant="caption" display="block" color="error.main">
+                                Sin stock
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
                       </TableCell>
@@ -248,8 +289,26 @@ export default function Cart() {
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                           <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity - 1)} disabled={item.quantity <= 1}><RemoveIcon /></IconButton>
-                          <TextField value={item.quantity} size="small" inputProps={{ style: { textAlign: 'center', width: 64 } }} onChange={(e) => { const q = Math.max(1, parseInt(e.target.value) || 1); handleQuantityChange(item.id, q); }} />
-                          <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity + 1)}><AddIcon /></IconButton>
+                          <TextField 
+                            value={item.quantity} 
+                            size="small" 
+                            inputProps={{ 
+                              style: { textAlign: 'center', width: 64 },
+                              min: 1,
+                              max: stockDisponible
+                            }} 
+                            onChange={(e) => { 
+                              const q = Math.max(1, Math.min(stockDisponible, parseInt(e.target.value) || 1)); 
+                              handleQuantityChange(item.id, q); 
+                            }} 
+                          />
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                            disabled={item.quantity >= stockDisponible}
+                          >
+                            <AddIcon />
+                          </IconButton>
                         </Box>
                       </TableCell>
                       <TableCell align="center">{formatCurrency(subtotal)}</TableCell>

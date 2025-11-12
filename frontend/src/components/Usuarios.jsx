@@ -8,6 +8,7 @@ function Usuarios() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success'); // 'success' | 'error'
   const [editUser, setEditUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [form, setForm] = useState({ nombre: '', apellido: '', email: '', idRol: '', direccion: '', telefono: '' });
@@ -21,6 +22,13 @@ function Usuarios() {
   };
 
   useEffect(() => { loadUsuarios(); }, []);
+
+  // Auto-ocultar el banner de error superior después de unos segundos
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 5000); // 5s
+    return () => clearTimeout(t);
+  }, [error]);
 
   const handleEdit = (user) => {
     setEditUser(user);
@@ -38,26 +46,36 @@ function Usuarios() {
     e.preventDefault();
     try {
       await api.put(`/admin/usuarios/${editUser.idUsuario}`, { ...form });
-      setSuccess('Usuario actualizado correctamente');
-      setOpenSnackbar(true);
+  setSuccess('Usuario actualizado correctamente');
+  setSnackbarSeverity('success');
+  setOpenSnackbar(true);
       setEditUser(null);
       loadUsuarios();
-    } catch {
-      setError('Error al actualizar usuario');
-      setOpenSnackbar(true);
+    } catch (err) {
+  const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Error al actualizar usuario';
+  setError(msg);
+  setSuccess(null);
+  setSnackbarSeverity('error');
+  setOpenSnackbar(true);
     }
   };
 
   const confirmDelete = async () => {
     try {
       await api.delete(`/admin/usuarios/${deleteUser.idUsuario}`);
-      setSuccess('Usuario eliminado correctamente');
-      setOpenSnackbar(true);
+  setSuccess('Usuario eliminado correctamente');
+  setSnackbarSeverity('success');
+  setOpenSnackbar(true);
       setDeleteUser(null);
       loadUsuarios();
-    } catch {
-      setError('Error al eliminar usuario');
-      setOpenSnackbar(true);
+    } catch (err) {
+  const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Error al eliminar usuario';
+  setError(msg);
+  setSuccess(null);
+  setSnackbarSeverity('error');
+  setOpenSnackbar(true);
+      // Cerrar el modal también cuando hay error para que no quede bloqueando la pantalla
+      setDeleteUser(null);
     }
   };
 
@@ -65,14 +83,18 @@ function Usuarios() {
     e.preventDefault();
     try {
       await api.post('/admin/usuarios', { ...addForm });
-      setSuccess('Usuario creado correctamente');
-      setOpenSnackbar(true);
+  setSuccess('Usuario creado correctamente');
+  setSnackbarSeverity('success');
+  setOpenSnackbar(true);
       setAddUser(false);
       setAddForm({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
       loadUsuarios();
-    } catch {
-      setError('Error al crear usuario');
-      setOpenSnackbar(true);
+    } catch (err) {
+  const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Error al crear usuario';
+  setError(msg);
+  setSuccess(null);
+  setSnackbarSeverity('error');
+  setOpenSnackbar(true);
     }
   };
 
@@ -84,10 +106,12 @@ function Usuarios() {
           Agregar usuario
         </Button>
       </Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
-      </Snackbar>}
+  {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarSeverity === 'success' ? (success || 'Operación exitosa') : (error || 'Ocurrió un error')}
+        </Alert>
+      </Snackbar>
       <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100vw', overflowX: 'auto', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
         <Table sx={{ minWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
           <TableHead>

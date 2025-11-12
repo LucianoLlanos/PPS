@@ -5,6 +5,7 @@ import useAuthStore from '../store/useAuthStore';
 import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
 import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
+import Popper from '@mui/material/Popper';
 import SearchIcon from '@mui/icons-material/Search';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -16,6 +17,7 @@ export default function Header() {
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
   const timer = useRef(null);
+  const searchAnchorRef = useRef(null);
   const navigate = useNavigate();
   // seleccionar solo primitivos para evitar re-renders por referencia de objeto
   const userRole = useAuthStore((s) => s.user && s.user.idRol);
@@ -135,13 +137,16 @@ export default function Header() {
   };
 
   return (
-    <AppBar 
-      position="static" 
-      elevation={2} 
-      sx={{ 
+    <AppBar
+      position="sticky" // usar sticky para permanecer arriba y habilitar z-index
+      elevation={2}
+      sx={{
+        top: 0,
         background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
         borderBottom: '1px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 4px 20px rgba(25,118,210,0.15)'
+        boxShadow: '0 4px 20px rgba(25,118,210,0.15)',
+        zIndex: (theme) => theme.zIndex.drawer + 3, // mayor que drawer, modal y tooltip típicos del carrusel
+        position: 'sticky'
       }}
     >
       <Toolbar sx={{ display: 'flex', gap: 2, py: 1.5, minHeight: 'auto' }}>
@@ -243,7 +248,7 @@ export default function Header() {
             {(!token || (userRole && Number(userRole) !== 3)) && (
               <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 500, mx: 2, position: 'relative' }}>
                 <ClickAwayListener onClickAway={() => setShowSug(false)}>
-                  <Box>
+                  <Box ref={searchAnchorRef}>
                     <TextField
                       fullWidth
                       size="small"
@@ -285,20 +290,25 @@ export default function Header() {
                       }}
                     />
 
-                    {showSug && suggestions && suggestions.length > 0 && (
-                      <Paper sx={{ 
-                        position: 'absolute', 
-                        zIndex: 20, 
-                        left: 0, 
-                        right: 0, 
-                        mt: 0.5,
+                    <Popper
+                      open={Boolean(showSug && suggestions && suggestions.length > 0)}
+                      anchorEl={searchAnchorRef.current}
+                      placement="bottom-start"
+                      modifiers={[{ name: 'offset', options: { offset: [0, 6] } }]}
+                      style={{ zIndex: 4000 }}
+                    >
+                      <Paper sx={{
+                        width: searchAnchorRef.current ? searchAnchorRef.current.offsetWidth : undefined,
                         borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        overflow: 'hidden',
+                        bgcolor: 'background.paper',
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.25)'
                       }}>
                         <List dense>
                           {suggestions.map((s, idx) => (
                             <ListItem key={idx} disablePadding>
-                              <ListItemButton 
+                              <ListItemButton
                                 onMouseDown={() => pickSuggestion(s)}
                                 sx={{
                                   '&:hover': {
@@ -314,7 +324,7 @@ export default function Header() {
                           ))}
                         </List>
                       </Paper>
-                    )}
+                    </Popper>
                   </Box>
                 </ClickAwayListener>
               </Box>

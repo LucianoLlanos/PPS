@@ -140,14 +140,63 @@ const actualizarUsuario = (req, res) => {
 
 const eliminarUsuario = (req, res) => {
   const { id } = req.params;
-  connection.query('SELECT * FROM usuarios WHERE idUsuario=?', [id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar usuario' });
-    if (results.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const email = results[0].email;
-    connection.query('DELETE FROM usuarios WHERE idUsuario=?', [id], (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Error al eliminar usuario' });
-      registrarHistorial('usuarios', id, 'eliminar', email, `Usuario eliminado`);
-      res.json({ mensaje: 'Usuario eliminado' });
+  // Realizar todo dentro de una transacción para mantener consistencia
+  connection.beginTransaction((trxErr) => {
+    if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
+
+    connection.query('SELECT * FROM usuarios WHERE idUsuario=?', [id], (err, users) => {
+      if (err) return connection.rollback(() => res.status(500).json({ error: 'Error al buscar usuario' }));
+      if (!users || users.length === 0) return connection.rollback(() => res.status(404).json({ error: 'Usuario no encontrado' }));
+
+      const user = users[0];
+      const email = user.email;
+
+      // 1) Borrar favoritos del usuario (si existen) para evitar FK
+      connection.query('DELETE FROM user_favorites WHERE idUsuario = ?', [id], (favErr) => {
+        if (favErr) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar favoritos del usuario' }));
+
+        // 2) Si es Cliente o existe entrada en clientes, validar pedidos y eliminar registro de clientes
+        const handleCliente = () => {
+          connection.query('SELECT idCliente FROM clientes WHERE idUsuario = ? LIMIT 1', [id], (cliErr, cliRows) => {
+            if (cliErr) return connection.rollback(() => res.status(500).json({ error: 'Error al buscar cliente asociado' }));
+
+            if (!cliRows || cliRows.length === 0) {
+              // No es cliente: continuar a borrar el usuario
+              return deleteUsuario();
+            }
+
+            const idCliente = cliRows[0].idCliente;
+            // Verificar si tiene pedidos asociados
+            connection.query('SELECT COUNT(*) AS cnt FROM pedidos WHERE idCliente = ?', [idCliente], (pedErr, pedRows) => {
+              if (pedErr) return connection.rollback(() => res.status(500).json({ error: 'Error al verificar pedidos del cliente' }));
+              const tienePedidos = pedRows && pedRows[0] ? Number(pedRows[0].cnt) > 0 : false;
+              if (tienePedidos) {
+                // No permitir borrar usuario con pedidos históricos
+                return connection.rollback(() => res.status(400).json({ error: 'No se puede eliminar el usuario porque tiene pedidos asociados. Para preservar el historial de ventas, no se permite eliminar clientes con pedidos.' }));
+              }
+              // Eliminar registro de clientes
+              connection.query('DELETE FROM clientes WHERE idUsuario = ?', [id], (delCliErr) => {
+                if (delCliErr) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar datos de cliente' }));
+                deleteUsuario();
+              });
+            });
+          });
+        };
+
+        const deleteUsuario = () => {
+          connection.query('DELETE FROM usuarios WHERE idUsuario=?', [id], (err2) => {
+            if (err2) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar usuario' }));
+            registrarHistorial('usuarios', id, 'eliminar', email, `Usuario eliminado`);
+            connection.commit((commitErr) => {
+              if (commitErr) return connection.rollback(() => res.status(500).json({ error: 'Error al confirmar transacción' }));
+              res.json({ mensaje: 'Usuario eliminado' });
+            });
+          });
+        };
+
+        // Si el rol indica cliente o no se sabe, igual revisar tabla clientes
+        handleCliente();
+      });
     });
   });
 };

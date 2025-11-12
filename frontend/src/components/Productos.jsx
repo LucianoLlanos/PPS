@@ -383,7 +383,8 @@ function Productos() {
 
   const runBackfill = async () => {
     try {
-      await api.post('/stock_sucursal/backfill');
+      // Debe ir bajo el prefijo /admin según adminRoutes.js
+      await api.post('/admin/stock_sucursal/backfill');
       setSuccess('Backfill ejecutado: filas faltantes creadas');
     } catch {
       setError('Error al ejecutar backfill');
@@ -1010,7 +1011,8 @@ function Productos() {
           <Button variant="contained" onClick={async () => {
             if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
             try {
-              await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
+              // Endpoint correcto con prefijo /admin
+              await api.post(`/admin/productos/${selectedProductForReconcile}/reconcile`);
               setSuccess('Alineación ejecutada');
             } catch {
               setError('Error al alinear stock');

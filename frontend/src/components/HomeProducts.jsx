@@ -144,7 +144,7 @@ export default function HomeProducts() {
             {itemsToRender.map((p, idx) => {
               const isNew = idx === itemsToRender.length - 1;
               return (
-                <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} lg={isNew ? 6 : 3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Grid item key={p.idProducto || p.id || idx} xs={12} sm={6} md={isNew ? 6 : 4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <Card className="product-card"
                     sx={{
                       borderRadius: 3,

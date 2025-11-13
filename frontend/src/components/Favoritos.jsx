@@ -116,7 +116,7 @@ export default function Favoritos() {
       ) : (
         <Grid container spacing={3}>
           {favorites.map((product, index) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={product.idProducto || product.id || index}>
+            <Grid item xs={12} sm={6} md={4} key={product.idProducto || product.id || index}>
               <ProductCardClean
                 product={product}
                 onView={handleViewProduct}

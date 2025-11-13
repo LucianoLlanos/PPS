@@ -221,43 +221,25 @@ const registrarHistorial = (tabla, idRegistro, accion, usuario, descripcion) => 
 
 // PRODUCTOS
 const listarProductos = (req, res) => {
-  // Incluir imágenes adicionales desde producto_imagenes (similar al endpoint público /productos)
+  // Incluir todas las imágenes asociadas (múltiples) para que el panel admin pueda mostrarlas y permitir eliminarlas.
+  // Similar a endpoint público /productos pero manteniendo alias de stock y compatibilidad.
   const query = `
     SELECT 
       p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
-      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
     FROM productos p
     LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
     GROUP BY p.idProducto
   `;
   connection.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al obtener productos' });
-    const processed = (results || []).map((p) => ({
-      ...p,
-      imagenes: p.imagenes ? p.imagenes.split(',') : []
-    }));
-    res.json(processed);
-  });
-};
-
-// Obtener un producto (admin) con sus imágenes
-const verProductoAdmin = (req, res) => {
-  const { id } = req.params;
-  const query = `
-    SELECT 
-      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
-      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
-    FROM productos p
-    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
-    WHERE p.idProducto = ?
-    GROUP BY p.idProducto
-  `;
-  connection.query(query, [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener el producto' });
-    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-    const p = rows[0];
-    const data = { ...p, imagenes: p.imagenes ? p.imagenes.split(',') : [] };
-    res.json(data);
+    const parsed = results.map(r => {
+      const imgs = r.imagenes ? r.imagenes.split(',') : [];
+      // Fallback: si no hay filas en producto_imagenes, usar la imagen legacy de productos.imagen
+      const finalImgs = (imgs && imgs.length > 0) ? imgs : (r.imagen ? [r.imagen] : []);
+      return { ...r, imagenes: finalImgs };
+    });
+    res.json(parsed);
   });
 };
 
@@ -616,7 +598,21 @@ const actualizarProducto = (req, res) => {
           fs.unlink(imgPath, (unlinkErr) => {
             // ignorar errores de unlink (archivo puede no existir)
             remCount++;
-            if (remCount === removeList.length) done();
+            if (remCount === removeList.length) {
+              // Ajustar imagen principal: si la imagen actual fue eliminada o no quedan imágenes, setear a primera restante o NULL
+              connection.query('SELECT imagen FROM producto_imagenes WHERE producto_id = ? ORDER BY orden ASC, id ASC LIMIT 1', [id], (selErr, rowsSel) => {
+                if (selErr) {
+                  console.warn('[WARN] No se pudo seleccionar imagen principal restante:', selErr);
+                  return done();
+                }
+                const nuevaPrincipal = rowsSel && rowsSel[0] ? rowsSel[0].imagen : null;
+                // Si no hay filas, igualmente puede quedar alguna en campo legacy productos.imagen que no esté en la tabla; si la eliminamos explícitamente, la lista removeList lo cubre
+                connection.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [nuevaPrincipal, id], (updErr) => {
+                  if (updErr) console.warn('[WARN] No se pudo actualizar imagen principal tras eliminar:', updErr);
+                  done();
+                });
+              });
+            }
           });
         });
       });
@@ -767,6 +763,11 @@ const listarPedidos = (req, res) => {
           COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
           pe.estado,
           COALESCE(pe.total, 0) as total,
+          pe.metodoPago,
+          pe.cuotas,
+          pe.interes,
+          pe.descuento,
+          pe.totalConInteres,
           (SELECT COALESCE(SUM(dp.cantidad), 0) 
            FROM detalle_pedidos dp 
            WHERE dp.idPedido = pe.idPedido) as cantidadTotal
@@ -902,7 +903,7 @@ const listarPedidos = (req, res) => {
 };
 
 const crearPedido = (req, res) => {
-  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago } = req.body;
+  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = req.body;
   if (
     !idCliente ||
     !estado ||
@@ -947,8 +948,8 @@ const crearPedido = (req, res) => {
 
               let queryPedido, paramsPedido;
               if (!colErr && rowsCol && rowsCol.length > 0) {
-                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)';
-                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null];
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres) VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, totalConInteres || 0];
               } else {
                 queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
                 paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null];

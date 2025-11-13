@@ -111,8 +111,37 @@ function Productos() {
     setEditProd(prod);
     setForm({ nombre: prod.nombre, descripcion: prod.descripcion, precio: prod.precio, stockTotal: prod.stock });
     // inicializar previews con las imágenes existentes del producto (si las hay)
-    setImagePreviews(prod.imagenes ? [...prod.imagenes] : []);
+    let existing = Array.isArray(prod.imagenes) ? [...prod.imagenes] : [];
+    // Fallback defensivo: si no vino el array pero hay imagen principal legacy
+    if ((!existing || existing.length === 0) && prod.imagen) {
+      existing = [prod.imagen];
+    }
+    console.log('[DEBUG handleEdit] Producto seleccionado:', prod.idProducto, prod.nombre);
+    console.log('[DEBUG handleEdit] Imagenes recibidas:', prod.imagenes);
+    console.log('[DEBUG handleEdit] Imagen principal legacy:', prod.imagen);
+    console.log('[DEBUG handleEdit] Previews iniciales:', existing);
+    setImagePreviews(existing);
     setSelectedImages([]);
+    setImagesToRemove([]); // limpiar posibles eliminaciones previas
+
+    // Refresco en caliente: si por alguna razón /admin/productos no trajo todas las imágenes,
+    // consultamos el endpoint público /productos (que ya sabemos que incluye todas) y actualizamos las previews.
+    // Esto evita depender de un full reload si el backend cambió.
+    try {
+      api.get('/productos').then(res => {
+        if (res && Array.isArray(res.data)) {
+          const full = res.data.find(p => Number(p.idProducto) === Number(prod.idProducto));
+          if (full && Array.isArray(full.imagenes) && full.imagenes.length > 0) {
+            console.log('[DEBUG handleEdit] Imagenes desde /productos:', full.imagenes);
+            setImagePreviews(prev => {
+              // Si ya había previews (fallback) y son distintas, las reemplazamos por el set completo del endpoint público
+              const hadOnlyLegacy = prev.length <= 1;
+              return hadOnlyLegacy ? [...full.imagenes] : prev;
+            });
+          }
+        }
+      }).catch(() => {});
+    } catch {}
   };
 
   const handleDelete = (prod) => {
@@ -211,8 +240,9 @@ function Productos() {
     if (!form.stockTotal || isNaN(form.stockTotal) || Number(form.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setEditFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    // Si se cargaron imágenes nuevas, enviar como multipart/form-data
-    if (selectedImages && selectedImages.length > 0) {
+    // Enviar como multipart/form-data si hay imágenes nuevas O si se eliminaron imágenes existentes
+    // (antes sólo se enviaba FormData cuando había nuevas imágenes, impidiendo borrar sin añadir)
+    if ((selectedImages && selectedImages.length > 0) || (imagesToRemove && imagesToRemove.length > 0)) {
       const formData = new FormData();
       formData.append('nombre', nombre);
       formData.append('descripcion', descripcion);
@@ -242,6 +272,7 @@ function Productos() {
           setError(msg);
         });
     } else {
+      // Camino sin cambios de imágenes: permitir también enviar lista vacía explícita si se quisiera ampliar en futuro
       api.put(`/admin/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
         .then(() => {
           setSuccess('Producto actualizado correctamente');
@@ -849,17 +880,42 @@ function Productos() {
                     <Grid item xs={12}>
                       <InputLabel sx={{ mb: 1 }}>Imágenes del producto (máx.5)</InputLabel>
                       <input type="file" accept="image/*" multiple onChange={handleMultipleImagesChange} />
-                      {imagePreviews.length > 0 && (
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                          {imagePreviews.map((preview, index) => (
-                            <Box key={index} sx={{ position: 'relative' }}>
-                              <img src={typeof preview === 'string' && preview.startsWith('data:') ? preview : (typeof preview === 'string' ? `http://localhost:3000/uploads/${preview}` : preview)} alt={`Preview ${index+1}`} style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
-                              <IconButton size="small" onClick={() => removeImage(index)} sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}>×</IconButton>
-                              <Typography variant="caption" display="block" align="center">Imagen {index+1}</Typography>
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
+                      <Box sx={{ mt: 1 }}>
+                        {imagePreviews.length === 0 && (
+                          <Box sx={{ p:1, border: '1px dashed #ccc', borderRadius:2, fontSize:12, color:'#555' }}>
+                            No hay imágenes cargadas actualmente. Puedes subir hasta 5.
+                          </Box>
+                        )}
+                        {imagePreviews.length > 0 && (
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {imagePreviews.map((preview, index) => (
+                              <Box key={index} sx={{ position: 'relative' }}>
+                                <img
+                                  src={typeof preview === 'string' && preview.startsWith('data:')
+                                    ? preview
+                                    : (typeof preview === 'string'
+                                        ? `http://localhost:3000/uploads/${preview}`
+                                        : preview)}
+                                  alt={`Preview ${index + 1}`}
+                                  style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }}
+                                />
+                                <IconButton
+                                  size="small"
+                                  onClick={() => removeImage(index)}
+                                  sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                                  title="Eliminar esta imagen"
+                                >×</IconButton>
+                                <Typography variant="caption" display="block" align="center">
+                                  Imagen {index + 1}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                        <Typography variant="caption" sx={{ display:'block', mt:1, color:'#666' }}>
+                          {imagePreviews.length} / 5 imágenes actuales (puedes eliminar con la X).
+                        </Typography>
+                      </Box>
                     </Grid>
                   </Grid>
                 </Grid>

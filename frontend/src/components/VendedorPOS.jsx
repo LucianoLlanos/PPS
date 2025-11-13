@@ -15,7 +15,12 @@ import {
   MenuItem,
   Select,
   TextField,
-  Typography
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert
 } from '@mui/material';
 import { AddShoppingCart } from '@mui/icons-material';
 import { getCart, addToCart, removeFromCart, updateQuantity, getTotal, clearCart, getSubtotal } from '../utils/cart';
@@ -42,6 +47,8 @@ export default function VendedorPOS() {
   const [estado, setEstado] = useState('Entregado');
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [observaciones, setObservaciones] = useState('');
+  const [orderModal, setOrderModal] = useState({ open: false, id: null, modo: 'ok', extra: null });
+  const [canCloseModal, setCanCloseModal] = useState(true);
 
   const total = useMemo(() => getTotal(), [cartItems]);
 
@@ -91,19 +98,10 @@ export default function VendedorPOS() {
   const add = (p) => addToCart(p, 1);
 
   const handleCheckout = async () => {
-    if (!user || Number(user.idRol) !== 2) {
-      alert('Solo vendedores pueden registrar pedidos desde esta vista');
-      return;
-    }
-    if (!clienteIdUsuario) {
-      alert('Seleccioná un cliente');
-      return;
-    }
+    if (!user || Number(user.idRol) !== 2) { setOrderModal({ open: true, id: null, modo: 'error', extra: 'Solo vendedores pueden registrar pedidos desde esta vista' }); return; }
+    if (!clienteIdUsuario) { setOrderModal({ open: true, id: null, modo: 'error', extra: 'Seleccioná un cliente' }); return; }
     const items = getCart();
-    if (!items || items.length === 0) {
-      alert('El carrito está vacío');
-      return;
-    }
+    if (!items || items.length === 0) { setOrderModal({ open: true, id: null, modo: 'error', extra: 'El carrito está vacío' }); return; }
 
     const productosPayload = items.map((i) => ({
       idProducto: i.id,
@@ -124,18 +122,31 @@ export default function VendedorPOS() {
     try {
       setSubmitting(true);
       const res = await api.post('/admin/pedidos', payload);
+      const pedidoId = res.data?.idPedido || '';
       clearCart();
       reloadCart();
-      alert(`Pedido creado (ID ${res.data?.idPedido || ''})`);
+      setOrderModal({ open: true, id: pedidoId, modo: 'ok', extra: { sucursal: (sucursales.find(s => String(s.idSucursal) === String(sucursalId))?.nombre) || '' } });
     } catch (e) {
       console.error(e);
-      alert('No se pudo crear el pedido');
+      setOrderModal({ open: true, id: null, modo: 'error', extra: 'No se pudo crear el pedido' });
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Mantener visible hasta 2 minutos y permitir cierre manual inmediato en éxito
+  useEffect(() => {
+    if (orderModal.open && orderModal.modo === 'ok') {
+      setCanCloseModal(true);
+      const t = setTimeout(() => {
+        setOrderModal({ open: false, id: null, modo: 'ok', extra: null });
+      }, 120000); // 2 minutos
+      return () => clearTimeout(t);
+    }
+  }, [orderModal.open, orderModal.modo]);
+
   return (
+    <>
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }} className="vendedor-pos">
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
         Punto de Venta
@@ -309,7 +320,30 @@ export default function VendedorPOS() {
           </Card>
         </Grid>
       </Grid>
-    </Container>
+  </Container>
+  <Dialog open={orderModal.open} onClose={() => { setOrderModal({ open: false, id: null, modo: 'ok', extra: null }); }} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {orderModal.modo === 'ok' ? 'Pedido registrado' : 'Aviso'}
+      </DialogTitle>
+      <DialogContent dividers>
+        {orderModal.modo === 'ok' ? (
+          <Box>
+            <Typography variant="h6" sx={{ mb: 1 }}>Carga exitosa</Typography>
+            <Typography sx={{ mb: 2 }}>El pedido se registró correctamente.</Typography>
+            <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 2 }}>
+              <Typography variant="body2">ID Pedido: <strong>{orderModal.id}</strong></Typography>
+              <Typography variant="body2">Sucursal: <strong>{orderModal.extra?.sucursal || 'N/D'}</strong></Typography>
+            </Box>
+          </Box>
+        ) : (
+          <Alert severity="error" variant="outlined">{orderModal.extra || 'Ocurrió un error'}</Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => { setOrderModal({ open: false, id: null, modo: 'ok', extra: null }); }} variant="contained">Cerrar</Button>
+      </DialogActions>
+    </Dialog>
+  </>
   );
 }
  

@@ -41,13 +41,22 @@ export default function Login() {
       setShowWelcome(true);
       setLoading(false);
       setCountdown(3);
+      
+      // Usar setTimeout para navegar después de 3 segundos
+      setTimeout(() => {
+        setShowWelcome(false);
+        if (user && Number(user.idRol) === 3) {
+          navigate('/productos');
+        } else {
+          navigate('/');
+        }
+      }, 3000);
+      
+      // Countdown visual
       const countdownInterval = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(countdownInterval);
-            setShowWelcome(false);
-            if (user && Number(user.idRol) === 3) navigate('/productos');
-            else navigate('/');
             return 0;
           }
           return prev - 1;

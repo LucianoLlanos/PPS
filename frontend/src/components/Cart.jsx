@@ -92,6 +92,19 @@ export default function Cart() {
     }
   };
 
+  // Helpers de cálculo reutilizables
+  const getInteresFor = (metodo, c) => {
+    if (metodo === 'Tarjeta de crédito') {
+      if (c === 1) return 0;
+      if (c === 3) return 10;
+      if (c === 6) return 15;
+      if (c === 9) return 20;
+      if (c === 12) return 30;
+    }
+    return 0;
+  };
+  const getDescuentoFor = (metodo) => (metodo === 'Efectivo' ? 5 : 0);
+
   // Calcular interes según método de pago y cuotas
   const calcularInteres = () => {
     if (clienteMetodoPago === 'Tarjeta de crédito') {
@@ -245,6 +258,12 @@ export default function Cart() {
   const total = getTotal();
   const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
+  // Cálculos visibles para vendedor (usando los helpers en base a metodoPago/cuotas)
+  const interesV = getInteresFor(metodoPago, cuotas);
+  const descuentoV = getDescuentoFor(metodoPago);
+  const totalConAjustesV = total + total * (interesV / 100) - total * (descuentoV / 100);
+  const montoPorCuotaV = metodoPago === 'Tarjeta de crédito' && cuotas > 0 ? totalConAjustesV / cuotas : 0;
+
   const emptyCart = !cartItems || cartItems.length === 0;
 
   return (
@@ -338,6 +357,29 @@ export default function Cart() {
                 <Typography>Productos ({itemCount})</Typography>
                 <Typography>{formatCurrency(total)}</Typography>
               </Box>
+              {isSeller && !emptyCart && (
+                <>
+                  {/* Ajustes para vendedor visibles en el resumen */}
+                  {descuentoV > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'success.main' }}>
+                      <Typography variant="body2">Descuento ({descuentoV}%)</Typography>
+                      <Typography variant="body2">-{formatCurrency(total * (descuentoV / 100))}</Typography>
+                    </Box>
+                  )}
+                  {interesV > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'warning.main' }}>
+                      <Typography variant="body2">Interés ({interesV}%)</Typography>
+                      <Typography variant="body2">+{formatCurrency(total * (interesV / 100))}</Typography>
+                    </Box>
+                  )}
+                  {metodoPago === 'Tarjeta de crédito' && cuotas > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Valor por cuota</Typography>
+                      <Typography variant="body2" color="text.secondary">{formatCurrency(montoPorCuotaV)}</Typography>
+                    </Box>
+                  )}
+                </>
+              )}
               
               {!isSeller && user && (
                 <>
@@ -409,7 +451,7 @@ export default function Cart() {
               <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">Total</Typography>
                 <Typography variant="h6" color="primary">
-                  {!isSeller && user ? formatCurrency(calcularTotalConAjustes()) : formatCurrency(total)}
+                  {!isSeller && user ? formatCurrency(calcularTotalConAjustes()) : formatCurrency(totalConAjustesV)}
                 </Typography>
               </Box>
 
@@ -473,6 +515,49 @@ export default function Cart() {
                           <MenuItem value="Transferencia">Transferencia</MenuItem>
                         </Select>
                       </FormControl>
+                    </Grid>
+                    {metodoPago === 'Tarjeta de crédito' && (
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Cuotas</InputLabel>
+                          <Select label="Cuotas" value={cuotas} onChange={(e) => setCuotas(Number(e.target.value))}>
+                            <MenuItem value={1}>1 cuota (0% interés)</MenuItem>
+                            <MenuItem value={3}>3 cuotas (10% interés)</MenuItem>
+                            <MenuItem value={6}>6 cuotas (15% interés)</MenuItem>
+                            <MenuItem value={9}>9 cuotas (20% interés)</MenuItem>
+                            <MenuItem value={12}>12 cuotas (30% interés)</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>Resumen de pago</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                          <Typography variant="body2">Subtotal</Typography>
+                          <Typography variant="body2">{formatCurrency(total)}</Typography>
+                        </Box>
+                        {descuentoV > 0 && (
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                            <Typography variant="body2" color="success.main">Descuento ({descuentoV}%)</Typography>
+                            <Typography variant="body2" color="success.main">- {formatCurrency(total * (descuentoV/100))}</Typography>
+                          </Box>
+                        )}
+                        {interesV > 0 && (
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">Interés ({interesV}%)</Typography>
+                            <Typography variant="body2" color="text.secondary">+ {formatCurrency(total * (interesV/100))}</Typography>
+                          </Box>
+                        )}
+                        <Divider sx={{ my: 1 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Total</Typography>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{formatCurrency(totalConAjustesV)}</Typography>
+                        </Box>
+                        {metodoPago === 'Tarjeta de crédito' && (
+                          <Typography variant="caption" color="text.secondary">{cuotas} cuotas de {formatCurrency(montoPorCuotaV)}</Typography>
+                        )}
+                      </Box>
                     </Grid>
                     <Grid item xs={12}>
                       <TextField fullWidth size="small" label="Observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} multiline minRows={2} />

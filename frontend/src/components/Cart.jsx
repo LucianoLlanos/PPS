@@ -24,6 +24,11 @@ export default function Cart() {
   const [estado, setEstado] = useState('Entregado');
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [observaciones, setObservaciones] = useState('');
+  
+  // Datos para método de pago del cliente
+  const [clienteMetodoPago, setClienteMetodoPago] = useState('Efectivo');
+  const [cuotas, setCuotas] = useState(1);
+  
   // Modal de confirmación de pedido (cliente o vendedor)
   const [orderModal, setOrderModal] = useState({ open: false, id: null, modo: 'cliente', extra: null });
   const [canCloseModal, setCanCloseModal] = useState(true);
@@ -87,6 +92,33 @@ export default function Cart() {
     }
   };
 
+  // Calcular interes según método de pago y cuotas
+  const calcularInteres = () => {
+    if (clienteMetodoPago === 'Tarjeta de crédito') {
+      if (cuotas === 1) return 0;
+      if (cuotas === 3) return 10;
+      if (cuotas === 6) return 15;
+      if (cuotas === 9) return 20;
+      if (cuotas === 12) return 30;
+    }
+    return 0;
+  };
+
+  const calcularDescuento = () => {
+    return clienteMetodoPago === 'Efectivo' ? 5 : 0;
+  };
+
+  const calcularTotalConAjustes = () => {
+    const subtotal = getTotal();
+    const interes = calcularInteres();
+    const descuento = calcularDescuento();
+    
+    const montoInteres = subtotal * (interes / 100);
+    const montoDescuento = subtotal * (descuento / 100);
+    
+    return subtotal + montoInteres - montoDescuento;
+  };
+
   // Checkout para usuarios comunes (cliente)
   const handleCheckout = async () => {
     if (!user) { 
@@ -104,6 +136,10 @@ export default function Cart() {
       cantidad: item.quantity
     }));
 
+    const interes = calcularInteres();
+    const descuento = calcularDescuento();
+    const totalConAjustes = calcularTotalConAjustes();
+
     try {
       setLoading(true);
       const response = await fetch('http://localhost:3000/orders/create', {
@@ -112,7 +148,15 @@ export default function Cart() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${user.token || localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ productos, observaciones: '' })
+        body: JSON.stringify({ 
+          productos, 
+          observaciones: '',
+          metodoPago: clienteMetodoPago,
+          cuotas: cuotas,
+          interes: interes,
+          descuento: descuento,
+          totalConInteres: totalConAjustes
+        })
       });
       if (!response.ok) {
         const errPayload = await response.json().catch(() => ({}));
@@ -142,6 +186,23 @@ export default function Cart() {
       cantidad: item.quantity,
       precioUnitario: Number(item.product?.precio ?? item.product?.price ?? 0)
     }));
+    // Calcular ajustes para vendedor según método de pago/ cuotas
+    const calcularInteresV = () => {
+      if (metodoPago === 'Tarjeta de crédito') {
+        if (cuotas === 1) return 0;
+        if (cuotas === 3) return 10;
+        if (cuotas === 6) return 15;
+        if (cuotas === 9) return 20;
+        if (cuotas === 12) return 30;
+      }
+      return 0;
+    };
+    const calcularDescuentoV = () => (metodoPago === 'Efectivo' ? 5 : 0);
+    const subtotalV = getTotal();
+    const interesV = calcularInteresV();
+    const descuentoV = calcularDescuentoV();
+    const totalConAjustesV = subtotalV + subtotalV * (interesV / 100) - subtotalV * (descuentoV / 100);
+
     const obs = `Pago: ${metodoPago}${observaciones ? ' | ' + observaciones : ''}`;
     try {
       setLoading(true);
@@ -151,7 +212,11 @@ export default function Cart() {
         idSucursalOrigen: Number(sucursalId || 1),
         productos: productosPayload,
         observaciones: obs,
-        metodoPago
+        metodoPago,
+        cuotas,
+        interes: interesV,
+        descuento: descuentoV,
+        totalConInteres: totalConAjustesV
       });
       const pedidoId = res.data?.idPedido || '';
       clearCart();
@@ -273,13 +338,79 @@ export default function Cart() {
                 <Typography>Productos ({itemCount})</Typography>
                 <Typography>{formatCurrency(total)}</Typography>
               </Box>
+              
+              {!isSeller && user && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>Método de pago</Typography>
+                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                    <InputLabel>Forma de pago</InputLabel>
+                    <Select 
+                      label="Forma de pago" 
+                      value={clienteMetodoPago} 
+                      onChange={(e) => {
+                        setClienteMetodoPago(e.target.value);
+                        if (e.target.value !== 'Tarjeta de crédito') {
+                          setCuotas(1);
+                        }
+                      }}
+                    >
+                      <MenuItem value="Efectivo">Efectivo (5% descuento)</MenuItem>
+                      <MenuItem value="Tarjeta de crédito">Tarjeta de crédito</MenuItem>
+                      <MenuItem value="Tarjeta de débito">Tarjeta de débito</MenuItem>
+                      <MenuItem value="Transferencia">Transferencia</MenuItem>
+                    </Select>
+                  </FormControl>
+                  
+                  {clienteMetodoPago === 'Tarjeta de crédito' && (
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                      <InputLabel>Cuotas</InputLabel>
+                      <Select 
+                        label="Cuotas" 
+                        value={cuotas} 
+                        onChange={(e) => setCuotas(e.target.value)}
+                      >
+                        <MenuItem value={1}>1 cuota (sin interés)</MenuItem>
+                        <MenuItem value={3}>3 cuotas (10% interés)</MenuItem>
+                        <MenuItem value={6}>6 cuotas (15% interés)</MenuItem>
+                        <MenuItem value={9}>9 cuotas (20% interés)</MenuItem>
+                        <MenuItem value={12}>12 cuotas (30% interés)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                  
+                  {calcularDescuento() > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'success.main' }}>
+                      <Typography variant="body2">Descuento ({calcularDescuento()}%)</Typography>
+                      <Typography variant="body2">-{formatCurrency(total * (calcularDescuento() / 100))}</Typography>
+                    </Box>
+                  )}
+                  
+                  {calcularInteres() > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'warning.main' }}>
+                      <Typography variant="body2">Interés ({calcularInteres()}%)</Typography>
+                      <Typography variant="body2">+{formatCurrency(total * (calcularInteres() / 100))}</Typography>
+                    </Box>
+                  )}
+                  
+                  {clienteMetodoPago === 'Tarjeta de crédito' && cuotas > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Valor por cuota</Typography>
+                      <Typography variant="body2" color="text.secondary">{formatCurrency(calcularTotalConAjustes() / cuotas)}</Typography>
+                    </Box>
+                  )}
+                </>
+              )}
+              
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography>Envío</Typography>
                 <Typography color="success.main">Gratis</Typography>
               </Box>
               <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6">Total</Typography>
-                <Typography variant="h6" color="primary">{formatCurrency(total)}</Typography>
+                <Typography variant="h6" color="primary">
+                  {!isSeller && user ? formatCurrency(calcularTotalConAjustes()) : formatCurrency(total)}
+                </Typography>
               </Box>
 
               {!user && !emptyCart && (

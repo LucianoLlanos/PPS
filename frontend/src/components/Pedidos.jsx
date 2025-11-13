@@ -21,6 +21,7 @@ function Pedidos() {
   const [filterTotalMin, setFilterTotalMin] = useState('');
   const [filterTotalMax, setFilterTotalMax] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
+  const [filterMetodoPago, setFilterMetodoPago] = useState('');
   const [error, setError] = useState(null);
   // fieldErrors eliminado porque no se usa actualmente
   const [deletePedido, setDeletePedido] = useState(null);
@@ -59,7 +60,7 @@ function Pedidos() {
   }, []);
 
   const clearFilters = () => {
-    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado('');
+    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(''); setFilterMetodoPago('');
   };
 
   // Popover para filtros
@@ -75,6 +76,7 @@ function Pedidos() {
   if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${filterFechaFrom || '-'}..${filterFechaTo || '-'}` });
   if (filterTotalMin || filterTotalMax) activeFilters.push({ key: 'Total', val: `${filterTotalMin || '-'}..${filterTotalMax || '-'}` });
   if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado });
+  if (filterMetodoPago) activeFilters.push({ key: 'Pago', val: filterMetodoPago });
 
   const displayedPedidos = pedidos.filter(p => {
     if (filterId && !String(p.idPedido).includes(filterId)) return false;
@@ -100,6 +102,10 @@ function Pedidos() {
       // include day
       to.setHours(23,59,59,999);
       if (new Date(p.fecha) > to) return false;
+    }
+    if (filterMetodoPago) {
+      const metodo = (p.metodoPago || 'No especificado').toLowerCase();
+      if (!metodo.includes(filterMetodoPago.toLowerCase())) return false;
     }
     if (filterTotalMin && Number(p.total) < Number(filterTotalMin)) return false;
     if (filterTotalMax && Number(p.total) > Number(filterTotalMax)) return false;
@@ -260,6 +266,7 @@ function Pedidos() {
                 if (f.key === 'Fecha') { setFilterFechaFrom(''); setFilterFechaTo(''); }
                 if (f.key === 'Total') { setFilterTotalMin(''); setFilterTotalMax(''); }
                 if (f.key === 'Estado') setFilterEstado('');
+                if (f.key === 'Pago') setFilterMetodoPago('');
               }} />
             ))}
           </Stack>
@@ -278,6 +285,7 @@ function Pedidos() {
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Usuario</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Cantidades</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Forma de Pago</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Total</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
@@ -298,7 +306,24 @@ function Pedidos() {
                   </Box>
                 </TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.total || 0))}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {p.metodoPago || 'No especificado'}
+                    </Typography>
+                    {p.cuotas && Number(p.cuotas) > 1 && (
+                      <Typography variant="caption" color="text.secondary">
+                        {p.cuotas} cuotas {p.interes > 0 && `(${p.interes}% int.)`}
+                      </Typography>
+                    )}
+                    {p.descuento && Number(p.descuento) > 0 && (
+                      <Typography variant="caption" color="success.main" display="block">
+                        {p.descuento}% desc.
+                      </Typography>
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
                   <FormControl size="small" sx={{ minWidth: 200 }}>
                     <Select
@@ -341,6 +366,16 @@ function Pedidos() {
                 {renderStatusMenuItem('Enviado', 'Enviado')}
                 {renderStatusMenuItem('Entregado', 'Entregado')}
                 {renderStatusMenuItem('Cancelado', 'Cancelado')}
+              </Select>
+            </FormControl>
+            <FormControl size="small">
+              <InputLabel>Método de pago</InputLabel>
+              <Select value={filterMetodoPago} onChange={e => setFilterMetodoPago(e.target.value)} label="Método de pago">
+                <MenuItem value="">(todos)</MenuItem>
+                <MenuItem value="Efectivo">Efectivo</MenuItem>
+                <MenuItem value="Tarjeta de crédito">Tarjeta de crédito</MenuItem>
+                <MenuItem value="Tarjeta de débito">Tarjeta de débito</MenuItem>
+                <MenuItem value="Transferencia">Transferencia</MenuItem>
               </Select>
             </FormControl>
             <TextField size="small" label="Cant. min" value={filterCantidadMin} onChange={e => setFilterCantidadMin(e.target.value)} />

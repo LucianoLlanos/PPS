@@ -3,10 +3,11 @@ const { connection } = require('../db/DB');
 // Crear pedido desde el carrito del cliente
 const createOrder = (req, res) => {
   const idUsuario = req.user.idUsuario;
-  const { productos, observaciones } = req.body;
+  const { productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = req.body;
 
   console.log('📦 Creando pedido para usuario:', idUsuario);
   console.log('📦 Productos recibidos:', productos);
+  console.log('💳 Método de pago:', metodoPago, '| Cuotas:', cuotas, '| Interés:', interes, '%');
 
   if (!productos || !Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({ error: 'Se requiere un array de productos' });
@@ -49,13 +50,13 @@ const createOrder = (req, res) => {
         // Crear el pedido principal
         const fechaPedido = new Date();
         const insertPedidoQuery = `
-          INSERT INTO pedidos (idCliente, estado, fechaPedido, observaciones, idSucursalOrigen) 
-          VALUES (?, 'Pendiente', ?, ?, 1)
+          INSERT INTO pedidos (idCliente, estado, fechaPedido, observaciones, idSucursalOrigen, metodoPago, cuotas, interes, descuento, totalConInteres) 
+          VALUES (?, 'Pendiente', ?, ?, 1, ?, ?, ?, ?, ?)
         `;
 
         connection.query(
           insertPedidoQuery,
-          [idCliente, fechaPedido, observaciones || null],
+          [idCliente, fechaPedido, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, totalConInteres || 0],
           (err, pedidoResult) => {
             if (err) {
               console.error('❌ Error creando pedido:', err);
@@ -74,9 +75,10 @@ const createOrder = (req, res) => {
             const insertarProducto = (index) => {
               if (index >= productos.length) {
                 // Todos los productos insertados, actualizar total del pedido
+                const totalFinal = totalConInteres || totalPedido;
                 connection.query(
                   'UPDATE pedidos SET total = ? WHERE idPedido = ?',
-                  [totalPedido, idPedido],
+                  [totalFinal, idPedido],
                   (updateErr) => {
                     if (updateErr) {
                       console.error('❌ Error actualizando total:', updateErr);

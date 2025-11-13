@@ -763,6 +763,11 @@ const listarPedidos = (req, res) => {
           COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
           pe.estado,
           COALESCE(pe.total, 0) as total,
+          pe.metodoPago,
+          pe.cuotas,
+          pe.interes,
+          pe.descuento,
+          pe.totalConInteres,
           (SELECT COALESCE(SUM(dp.cantidad), 0) 
            FROM detalle_pedidos dp 
            WHERE dp.idPedido = pe.idPedido) as cantidadTotal
@@ -898,7 +903,7 @@ const listarPedidos = (req, res) => {
 };
 
 const crearPedido = (req, res) => {
-  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago } = req.body;
+  const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = req.body;
   if (
     !idCliente ||
     !estado ||
@@ -943,8 +948,8 @@ const crearPedido = (req, res) => {
 
               let queryPedido, paramsPedido;
               if (!colErr && rowsCol && rowsCol.length > 0) {
-                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)';
-                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null];
+                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres) VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)';
+                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, totalConInteres || 0];
               } else {
                 queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
                 paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null];

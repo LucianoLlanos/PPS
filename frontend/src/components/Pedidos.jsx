@@ -79,6 +79,9 @@ function Pedidos() {
   if (filterMetodoPago) activeFilters.push({ key: 'Pago', val: filterMetodoPago });
 
   const displayedPedidos = pedidos.filter(p => {
+    // Ocultar pedidos Entregados a menos que el filtro de estado sea exactamente 'Entregado'
+    if (!filterEstado && p.estado === 'Entregado') return false;
+    if (filterEstado && filterEstado !== 'Entregado' && p.estado === 'Entregado') return false;
     if (filterId && !String(p.idPedido).includes(filterId)) return false;
     if (filterProducto) {
       const found = (p.productos || []).some(prod => (prod.nombre || '').toLowerCase().includes(filterProducto.toLowerCase()));
@@ -276,9 +279,10 @@ function Pedidos() {
       {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
       </Snackbar>}
-      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100vw', overflowX: 'auto', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
-        <Table sx={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
-          <TableHead>
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', overflow: 'hidden', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' } }}>
+        <Box sx={{ overflow: 'auto', flex: 1 }}>
+        <Table stickyHeader sx={{ width: '100%', minWidth: 960, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
+          <TableHead sx={{ position: 'sticky', top: 0, zIndex: 5 }}>
         <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }}>ID</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Productos</TableCell>
@@ -348,6 +352,7 @@ function Pedidos() {
             ))}
           </TableBody>
         </Table>
+        </Box>
       </TableContainer>
 
       <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>

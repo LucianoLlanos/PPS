@@ -7,6 +7,7 @@ import Clientes from './components/Clientes';
 import Login from './components/Login';
 import Register from './components/Register';
 import HomeProducts from './components/HomeProducts';
+import ProductDetail from './components/ProductDetail';
 import Cart from './components/Cart';
 import Favoritos from './components/Favoritos';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
@@ -68,6 +69,9 @@ function App() {
           <Routes>
             {/* Vista principal pública - Sin contenedor para permitir carrusel full-width */}
             <Route path="/" element={<HomeProducts />} />
+            {/* Alias singular y plural para compatibilidad */}
+            <Route path="/producto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
+            <Route path="/productos/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
             
             {/* Otras rutas con contenedor normal */}
             <Route path="/carrito" element={<PageWrapper><Cart /></PageWrapper>} />

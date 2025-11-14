@@ -46,6 +46,28 @@ app.get('/productos', (req, res) => {
   });
 });
 
+// Endpoint detalle de producto por id
+app.get('/productos/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  const query = `
+    SELECT 
+      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes
+    FROM productos p 
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id 
+    WHERE p.idProducto = ?
+    GROUP BY p.idProducto
+  `;
+  connection.query(query, [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener producto' });
+    if (!results || results.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const r = results[0];
+    const producto = { ...r, imagenes: r.imagenes ? r.imagenes.split(',') : [] };
+    res.json(producto);
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/favorites', favoritesRoutes);
 app.use('/orders', ordersRoutes);

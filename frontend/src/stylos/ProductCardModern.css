@@ -1,0 +1,7 @@
+.product-card-modern{opacity:0;transform:translateY(14px);animation:cardIn .6s cubic-bezier(.17,.67,.27,1) forwards;}
+@keyframes cardIn{0%{opacity:0;transform:translateY(14px);}60%{opacity:.9;transform:translateY(-2px);}100%{opacity:1;transform:translateY(0);}}
+.product-card-modern:nth-of-type(2){animation-delay:.05s}
+.product-card-modern:nth-of-type(3){animation-delay:.1s}
+.product-card-modern:nth-of-type(4){animation-delay:.15s}
+/* Responsive reduce desplazamiento */
+@media (max-width:600px){.product-card-modern{animation-duration:.5s;}}

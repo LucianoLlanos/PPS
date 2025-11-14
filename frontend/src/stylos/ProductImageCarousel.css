@@ -1,12 +1,11 @@
 .carousel-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 450ms ease; opacity: 0; max-height: 220px; z-index: 10; }
-.carousel-indicators { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; gap: 0.4rem; background: transparent; padding: 0; border-radius: 0.5rem; z-index: 30; pointer-events: none; }
 .carousel-counter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.72); color: #fff; padding: 0.25rem 0.5rem; border-radius: 0.45rem; font-size: 11px; font-weight: 600; pointer-events: none; z-index: 78; }
 .carousel-image.active { opacity: 1; z-index: 20; }
 .carousel-image.placeholder { opacity: 1; object-fit: contain; height: 220px; max-height: 220px; }
 
-.carousel-indicators { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 0.45rem; background: rgba(0,0,0,0.28); padding: 0.14rem 0.5rem; border-radius: 0.5rem; z-index: 32; pointer-events: none; }
-.carousel-indicator { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.5); transition: all 0.18s; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-.carousel-indicator.active { background: #fff; transform: scale(1.12); }
+.carousel-indicators { position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 32; pointer-events: none; }
+.carousel-indicator { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.55); transition: background 0.4s, transform 0.4s; }
+.carousel-indicator.active { background: #ffffff; box-shadow: 0 0 0 2px rgba(255,255,255,0.4); transform: scale(1.15); }
 
 .carousel-counter { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 12px; font-weight: 500; pointer-events: none; }
 
@@ -47,5 +46,7 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+/* Minimal mode count badge (camera icon + total) */
 
 /* Don't auto-hide indicators/counter based on DOM order; JS controls visibility via showNameOnly. */

@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import '../stylos/ProductImageCarousel.css';
 
-const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null, showNameOnly = false }) => {
+// Props:
+// minimal: oculta overlays de nombre, stock y contador numérico (solo dots discretos)
+// auto: controla si hace auto-rotación al hover (por defecto true)
+// height: permite ajustar la altura sin duplicar lógica
+const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null, minimal = true, auto = true, height = 190 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const intervalRef = useRef(null);
@@ -36,22 +40,21 @@ const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null
 
   // Auto-avanzar al hacer hover / pointer
   useEffect(() => {
+    if (!auto) return;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
     if (!isHovered || imageList.length <= 1) return;
-
+    // Rotación más lenta para menos distracción
     intervalRef.current = setInterval(() => {
-      // debug counter removed
       setCurrentIndex((prev) => (prev + 1) % imageList.length);
-    }, 900);
-
+    }, 2600);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
     };
-  }, [isHovered, imageList.length]);
+  }, [isHovered, imageList.length, auto]);
 
   const handleImageError = (e) => {
     e.target.src = '/img/descarga.jpg';
@@ -61,17 +64,13 @@ const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null
     return imagen ? `http://localhost:3000/uploads/${imagen}` : '/img/descarga.jpg';
   };
 
-  const handleClick = () => {
-    if (imageList.length <= 1) return;
-    setCurrentIndex((prev) => (prev + 1) % imageList.length);
-  };
+  // Desactivado el avance manual por click para evitar conflicto con navegación de tarjeta
 
   return (
     <Box
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => { setIsHovered(false); setCurrentIndex(0); }}
-      onClick={handleClick}
-      sx={{ position: 'relative', width: '100%', height: 220, overflow: 'hidden', cursor: imageList.length > 1 ? 'pointer' : 'default', display: 'block' }}
+      sx={{ position: 'relative', width: '100%', height, overflow: 'hidden', cursor: 'default', display: 'block', borderRadius: minimal ? 0 : 2 }}
     >
         {imageList.length === 0 && (
           <img
@@ -96,24 +95,26 @@ const ProductImageCarousel = ({ imagenes = [], nombre = 'Producto', stock = null
           />
         ))}
 
-      {imageList.length > 1 && !showNameOnly && (
+      {imageList.length > 1 && (
         <Box className="carousel-indicators" aria-hidden="true">
           {imageList.map((_, index) => (
             <Box key={index} className={`carousel-indicator ${index === currentIndex ? 'active' : ''}`} />
           ))}
         </Box>
       )}
-
-      {imageList.length > 1 && (
-        <Box className="carousel-counter">
-          {currentIndex + 1} / {imageList.length}
-        </Box>
-      )}
-
-      {/* Name overlay and optional stock chip */}
-      <Box className="carousel-name">{nombre}</Box>
-      {stock != null && (
-        <Box className="carousel-stock">{`Stock: ${stock}`}</Box>
+      {/* Overlays desactivados en modo minimal */}
+      {!minimal && (
+        <>
+          <Box className="carousel-name">{nombre}</Box>
+          {stock != null && (
+            <Box className="carousel-stock">{`Stock: ${stock}`}</Box>
+          )}
+          {imageList.length > 1 && (
+            <Box className="carousel-counter">
+              {currentIndex + 1} / {imageList.length}
+            </Box>
+          )}
+        </>
       )}
     </Box>
   );

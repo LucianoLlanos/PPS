@@ -57,21 +57,21 @@
 .servicios-admin-notes-text { font-size:0.75rem; margin:0; line-height:1.35; }
 
 .servicios-apple { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f7f9fb; padding:0.6rem; }
-.servicios-form-paper { border-radius:10px; box-shadow:0 6px 20px rgba(15,23,42,0.04); }
+.servicios-form-paper { border-radius:0; box-shadow:none; border:1px solid #e5e9ef; }
 .servicios-form-body { padding:12px !important; }
-.servicios-field .MuiOutlinedInput-root { border-radius:10px; }
+.servicios-field .MuiOutlinedInput-root { border-radius:0; }
 .servicios-field .MuiInputBase-input { padding:10px 12px; min-height:40px; box-sizing:border-box; }
 .servicios-field textarea.MuiInputBase-input { min-height:100px; max-height:220px; }
-.servicios-field .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline { border-color:rgba(0,0,0,0.08); }
-.servicios-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline { border-color:rgba(10,132,255,0.9); box-shadow:0 6px 20px rgba(10,132,255,0.06); }
+.servicios-field .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline { border-color:#e5e9ef; }
+.servicios-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline { border-color:#2f6fff; box-shadow:none; }
 .servicios-field .MuiOutlinedInput-input:focus, .servicios-field textarea.MuiInputBase-input:focus, .servicios-field input:focus { outline:none !important; }
 
-.servicios-submit-btn { background:linear-gradient(180deg,#0a84ff,#0066ff); color:#fff; border-radius:10px; padding:8px 12px; box-shadow:0 6px 18px rgba(10,132,255,0.12); }
-.servicios-submit-btn:hover:not(:disabled) { filter:brightness(0.98); }
+.servicios-submit-btn { background:#135ef7; color:#fff; border-radius:0; padding:10px 14px; box-shadow:none; }
+.servicios-submit-btn:hover:not(:disabled) { background:#0f4fe0; }
 
-.servicios-info-paper { border-radius:10px; background:linear-gradient(180deg,#ffffff,#fbfdff); box-shadow:0 6px 20px rgba(15,23,42,0.04); }
-.servicios-card { border-radius:10px; box-shadow:0 6px 16px rgba(15,23,42,0.04); transition:transform .12s ease, box-shadow .12s ease; }
-.servicios-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(15,23,42,0.06); }
+.servicios-info-paper { border-radius:0; background:#fff; box-shadow:none; border:1px solid #e5e9ef; }
+.servicios-card { border-radius:0; box-shadow:none; border:1px solid #e5e9ef; transition:background-color .12s ease; }
+.servicios-card:hover { background:#fbfdff; }
 
 .servicios-form-body .MuiFormControl-root { margin-bottom:10px; }
 .servicios-form-title { font-size:1.05rem; font-weight:700; margin-top:2px; }

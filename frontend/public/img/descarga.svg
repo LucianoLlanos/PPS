@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="Imagen no disponible">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e9eff7"/>
+      <stop offset="100%" stop-color="#cfd8e3"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <g fill="none" stroke="#8aa0b6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="140" y="140" width="520" height="360" rx="16" ry="16" fill="#f6f8fb" stroke="#9ab0c6"/>
+    <path d="M180 440l130-150 110 120 70-80 130 160"/>
+    <circle cx="280" cy="260" r="36" fill="#e6eef7"/>
+  </g>
+  <text x="400" y="560" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="22" text-anchor="middle" fill="#5b6b7b">Imagen no disponible</text>
+</svg>

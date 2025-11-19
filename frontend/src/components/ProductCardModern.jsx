@@ -29,6 +29,15 @@ export default function ProductCardModern({ product, onAdd, onView, onToggleFavo
     onView();
   };
 
+  const [pulse, setPulse] = useState(false);
+
+  const handleFavClick = (e) => {
+    e.stopPropagation();
+    setPulse(true);
+    setTimeout(() => setPulse(false), 420);
+    onToggleFavorite();
+  };
+
   return (
     <Card
       className="product-card-modern"
@@ -46,19 +55,19 @@ export default function ProductCardModern({ product, onAdd, onView, onToggleFavo
         cursor: 'pointer',
         overflow: 'hidden',
         '&:hover': {
-          boxShadow: '0 6px 20px -2px rgba(0,0,0,0.18)',
-          transform: 'translateY(-4px)'
+          boxShadow: '0 10px 28px -6px rgba(0,0,0,0.24)',
+          transform: 'translateY(-3px)'
         }
       }}
     >
-      <Box sx={{ position: 'relative', height: 180, overflow: 'hidden', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-        <ProductImageCarousel imagenes={imagenes} nombre={nombre} stock={stock} minimal={true} />
+      <Box sx={{ position: 'relative', height: 186, overflow: 'hidden', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <ProductImageCarousel imagenes={imagenes} nombre={nombre} stock={stock} minimal={true} height={186} pauseOnHover={false} intervalMs={2000} />
         {/* Overlay acciones */}
         <Fade in timeout={250}>
-          <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', flexDirection: 'column', gap: 1, zIndex: 40, pointerEvents: 'auto' }}>
             <Tooltip title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'} placement="left">
-              <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); onToggleFavorite(); }} sx={{ bgcolor: 'rgba(255,255,255,0.85)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }}>
-                {isFavorite ? <FavoriteIcon color="error" fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+              <IconButton size="small" onClick={handleFavClick} sx={{ bgcolor: 'rgba(255,255,255,0.85)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }}>
+                {isFavorite ? <FavoriteIcon className={pulse ? 'fav-pulse' : ''} color="error" fontSize="small" /> : <FavoriteBorderIcon className={pulse ? 'fav-pulse' : ''} fontSize="small" />}
               </IconButton>
             </Tooltip>
             <Tooltip title="Ver detalle" placement="left">
@@ -76,17 +85,17 @@ export default function ProductCardModern({ product, onAdd, onView, onToggleFavo
           </Box>
         </Fade>
         {stock <= 0 && (
-          <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
             <Typography variant="caption" sx={{ bgcolor: 'error.main', color: '#fff', px: 1.5, py: 0.5, borderRadius: 2 }}>Sin stock</Typography>
           </Box>
         )}
       </Box>
 
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 0.75, flexGrow: 1 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.15, minHeight: 38, letterSpacing: '-0.3px' }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.15, minHeight: 38, letterSpacing: '-0.2px' }}>
           {nombre}
         </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.55px', mb: 0.75 }}>{formatCurrency(precio)}</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: '-0.45px', mb: 0.75 }}>{formatCurrency(precio)}</Typography>
         <Box sx={{ position: 'relative', flexGrow: 1, mb: 0.5 }}>
           <Typography
             variant="body2"

@@ -4,18 +4,23 @@ import api from '../api/axios';
 import useAuthStore from '../store/useAuthStore';
 import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
-import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener, Popper } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import MenuIcon from '@mui/icons-material/Menu';
 
 export default function Header() {
+  const brandUnderline = '#f7931e';
   const [cartCount, setCartCount] = useState(0);
   const [q, setQ] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
+  const [activeSugIndex, setActiveSugIndex] = useState(-1); // índice seleccionado con teclado
   const timer = useRef(null);
+  const searchAnchorRef = useRef(null);
+  const searchInputRef = useRef(null);
   const navigate = useNavigate();
   // seleccionar solo primitivos para evitar re-renders por referencia de objeto
   const userRole = useAuthStore((s) => s.user && s.user.idRol);
@@ -26,27 +31,54 @@ export default function Header() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const location = useLocation();
 
-  // Devuelve un objeto sx para resaltar ligeramente la sección activa del header
+  // Helper para evaluar ruta activa
+  const isActivePath = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+
+  // Estilo de links del header: sin fondo; brillo en texto al hover; subrayado cuando está activo
   const activeStyle = (path) => {
-    const active = location.pathname === path || location.pathname.startsWith(path + '/');
-    if (!active) return { 
+    const active = isActivePath(path);
+    const afterBase = {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      bottom: 0,
+      height: 2,
+      width: '100%',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      transform: 'scaleX(0)',
+      transformOrigin: 'center',
+      transition: 'transform .35s ease',
+      pointerEvents: 'none'
+    };
+    const base = {
       textTransform: 'none',
-      color: 'rgba(255,255,255,0.9)',
-      '&:hover': { 
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        color: 'white'
+      color: 'rgba(255,255,255,0.92)',
+      borderRadius: 0,
+      backgroundColor: 'transparent',
+      transition: 'color .2s ease, text-shadow .2s ease',
+      position: 'relative',
+      '&::after': afterBase,
+      '&:hover': {
+        backgroundColor: 'transparent',
+        color: '#fff',
+        textShadow: '0 0 4px rgba(255,255,255,0.6)'
+      },
+      '&:hover::after': { transform: 'scaleX(1)' },
+      '&:active': { backgroundColor: 'transparent' },
+      '&.Mui-focusVisible': { 
+        backgroundColor: 'transparent',
+        outline: '2px solid rgba(255,255,255,0.9)',
+        outlineOffset: '2px'
       }
     };
+    if (!active) return base;
     return {
-      textTransform: 'none',
-      borderRadius: 1.5,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      color: 'white',
-      fontWeight: 600,
-      '&:hover': { 
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        color: 'white'
-      }
+      ...base,
+      color: '#fff',
+      fontWeight: 700,
+      textShadow: '0 0 4px rgba(255,255,255,0.5)',
+      '&::after': { ...afterBase, transform: 'scaleX(1)', backgroundColor: brandUnderline },
+      '&:hover::after': { transform: 'scaleX(1)', backgroundColor: brandUnderline }
     };
   };
 
@@ -201,37 +233,49 @@ export default function Header() {
             left: { md: '50%' },
             transform: { md: 'translateX(calc(-50% - 12px))' }
           }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mr: { xs: 1, md: 3 } }}>
               {token && userRole && Number(userRole) === 3 && (
                 <>
-                  <Button component={RouterLink} to="/ventas-analytics" variant="text" size="small" sx={activeStyle('/ventas-analytics')}>Ventas</Button>
-                  <Button component={RouterLink} to="/servicios-admin" variant="text" size="small" startIcon={pendingServicios > 0 ? <Badge badgeContent={pendingServicios} color="error" sx={{ mr: 1 }} /> : null} sx={activeStyle('/servicios-admin')}>
+                  <Button component={RouterLink} to="/ventas-analytics" variant="text" size="small" disableRipple aria-current={isActivePath('/ventas-analytics') ? 'page' : undefined} sx={activeStyle('/ventas-analytics')}>Ventas</Button>
+                  <Button component={RouterLink} to="/servicios-admin" variant="text" size="small" disableRipple aria-current={isActivePath('/servicios-admin') ? 'page' : undefined} startIcon={pendingServicios > 0 ? <Badge badgeContent={pendingServicios} color="error" sx={{ mr: 1 }} /> : null} sx={activeStyle('/servicios-admin')}>
                     Servicios
                   </Button>
-                  <Button component={RouterLink} to="/productos" variant="text" size="small" sx={activeStyle('/productos')}>Productos</Button>
-                  <Button component={RouterLink} to="/usuarios" variant="text" size="small" sx={activeStyle('/usuarios')}>Usuarios</Button>
-                  <Button component={RouterLink} to="/pedidos" variant="text" size="small" sx={activeStyle('/pedidos')}>Pedidos</Button>
-                  <Button component={RouterLink} to="/clientes" variant="text" size="small" sx={activeStyle('/clientes')}>Clientes</Button>
-                  <Button component={RouterLink} to="/empresa-admin" variant="text" size="small" sx={activeStyle('/empresa-admin')}>Empresa</Button>
-                  <Button component={RouterLink} to="/carousel-admin" variant="text" size="small" sx={activeStyle('/carousel-admin')}>Carrusel</Button>
+                  <Button component={RouterLink} to="/productos" variant="text" size="small" disableRipple aria-current={isActivePath('/productos') ? 'page' : undefined} sx={activeStyle('/productos')}>Productos</Button>
+                  <Button component={RouterLink} to="/usuarios" variant="text" size="small" disableRipple aria-current={isActivePath('/usuarios') ? 'page' : undefined} sx={activeStyle('/usuarios')}>Usuarios</Button>
+                  <Button component={RouterLink} to="/pedidos" variant="text" size="small" disableRipple aria-current={isActivePath('/pedidos') ? 'page' : undefined} sx={activeStyle('/pedidos')}>Pedidos</Button>
+                  <Button component={RouterLink} to="/clientes" variant="text" size="small" disableRipple aria-current={isActivePath('/clientes') ? 'page' : undefined} sx={activeStyle('/clientes')}>Clientes</Button>
+                  <Button component={RouterLink} to="/empresa-admin" variant="text" size="small" disableRipple aria-current={isActivePath('/empresa-admin') ? 'page' : undefined} sx={activeStyle('/empresa-admin')}>Empresa</Button>
+                  <Button component={RouterLink} to="/carousel-admin" variant="text" size="small" disableRipple aria-current={isActivePath('/carousel-admin') ? 'page' : undefined} sx={activeStyle('/carousel-admin')}>Carrusel</Button>
                 </>
               )}
 
               {/* Ya no usamos panel aparte de vendedor; el flujo será desde el carrito */}
 
               {token && userRole && Number(userRole) !== 3 && Number(userRole) !== 2 && (
-                <Button 
-                  component={RouterLink} 
-                  to="/servicios" 
-                  variant="outlined" 
-                  size="small"
+                <Button
+                  component={RouterLink}
+                  to="/servicios"
+                  variant="text"
+                  size="medium"
+                  disableRipple
+                  aria-current={isActivePath('/servicios') ? 'page' : undefined}
                   sx={{
-                    color: 'white',
-                    borderColor: 'rgba(255,255,255,0.7)',
+                    ...activeStyle('/servicios'),
+                    px: 1.5,
+                    py: 0.75,
+                    fontSize: { xs: '0.95rem', md: '1.05rem' },
+                    fontWeight: 700,
+                    letterSpacing: 0.2,
+                    borderRadius: 0,
+                    color: 'rgba(255,255,255,0.95)',
+                    transition: 'text-shadow 0.2s ease, color 0.2s ease',
                     '&:hover': {
-                      borderColor: 'white',
-                      backgroundColor: 'rgba(255,255,255,0.1)'
-                    }
+                      backgroundColor: 'transparent !important',
+                      color: '#ffffff',
+                      textShadow: '0 0 8px rgba(255,255,255,0.8)'
+                    },
+                    '&:active': { backgroundColor: 'transparent' },
+                    '&.Mui-focusVisible': { backgroundColor: 'transparent' }
                   }}
                 >
                   Servicios
@@ -241,7 +285,7 @@ export default function Header() {
 
             {/* Buscador para usuarios no-admin */}
             {(!token || (userRole && Number(userRole) !== 3)) && (
-              <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 500, mx: 2, position: 'relative' }}>
+              <Box component="form" onSubmit={submit} sx={{ flex: 1, maxWidth: 500, ml: { xs: 1, md: 1 }, mr: { xs: 1, md: 0 }, position: 'relative', zIndex: 2001 }} ref={searchAnchorRef}>
                 <ClickAwayListener onClickAway={() => setShowSug(false)}>
                   <Box>
                     <TextField
@@ -251,6 +295,27 @@ export default function Header() {
                       value={q}
                       onChange={(e) => handleChange(e.target.value)}
                       onFocus={() => { if (suggestions.length > 0) setShowSug(true); }}
+                      inputRef={searchInputRef}
+                      onKeyDown={(e) => {
+                        if (!suggestions || suggestions.length === 0) return;
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setShowSug(true);
+                          setActiveSugIndex((prev) => (prev + 1) % suggestions.length);
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setShowSug(true);
+                          setActiveSugIndex((prev) => (prev <= 0 ? suggestions.length - 1 : prev - 1));
+                        } else if (e.key === 'Enter') {
+                          if (showSug && activeSugIndex >= 0) {
+                            e.preventDefault();
+                            pickSuggestion(suggestions[activeSugIndex]);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowSug(false);
+                          setActiveSugIndex(-1);
+                        }
+                      }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           bgcolor: 'rgba(255,255,255,0.9)',
@@ -276,9 +341,29 @@ export default function Header() {
                         }
                       }}
                       InputProps={{
-                        startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary' }} /></InputAdornment>),
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon sx={{ color: 'text.secondary' }} />
+                          </InputAdornment>
+                        ),
                         endAdornment: (
-                          <InputAdornment position="end">
+                          <InputAdornment position="end" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {q?.length > 0 && (
+                              <IconButton
+                                size="small"
+                                aria-label="Limpiar búsqueda"
+                                onClick={() => {
+                                  setQ('');
+                                  setSuggestions([]);
+                                  setShowSug(false);
+                                  setActiveSugIndex(-1);
+                                  if (searchInputRef.current) searchInputRef.current.focus();
+                                }}
+                                sx={{ color: '#e53935', '&:hover': { color: '#c62828' } }}
+                              >
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                            )}
                             <Button type="submit" variant="contained" size="small" sx={{ borderRadius: 2, textTransform: 'none' }}>Buscar</Button>
                           </InputAdornment>
                         )
@@ -286,34 +371,39 @@ export default function Header() {
                     />
 
                     {showSug && suggestions && suggestions.length > 0 && (
-                      <Paper sx={{ 
-                        position: 'absolute', 
-                        zIndex: 20, 
-                        left: 0, 
-                        right: 0, 
-                        mt: 0.5,
-                        borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                      }}>
-                        <List dense>
-                          {suggestions.map((s, idx) => (
-                            <ListItem key={idx} disablePadding>
-                              <ListItemButton 
-                                onMouseDown={() => pickSuggestion(s)}
-                                sx={{
-                                  '&:hover': {
-                                    bgcolor: 'primary.light',
-                                    color: 'white'
-                                  }
-                                }}
-                              >
-                                <SearchIcon sx={{ mr: 2, color: 'text.secondary', fontSize: '1rem' }} />
-                                <ListItemText primary={s} />
-                              </ListItemButton>
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Paper>
+                      <Popper open anchorEl={searchAnchorRef.current} placement="bottom-start" style={{ zIndex: 3000 }}>
+                        <Paper sx={{ 
+                          mt: 0.5,
+                          borderRadius: 2,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          overflow: 'hidden',
+                          width: searchAnchorRef.current ? searchAnchorRef.current.offsetWidth : undefined
+                        }}>
+                          <List dense role="listbox" aria-label="Sugerencias de búsqueda">
+                            {suggestions.map((s, idx) => (
+                              <ListItem key={idx} disablePadding>
+                                <ListItemButton 
+                                  onMouseDown={() => pickSuggestion(s)}
+                                  onMouseEnter={() => setActiveSugIndex(idx)}
+                                  role="option"
+                                  aria-selected={idx === activeSugIndex}
+                                  sx={{
+                                    bgcolor: idx === activeSugIndex ? 'primary.main' : 'transparent',
+                                    color: idx === activeSugIndex ? 'white' : 'inherit',
+                                    '&:hover': {
+                                      bgcolor: idx === activeSugIndex ? 'primary.main' : 'action.hover',
+                                      color: idx === activeSugIndex ? 'white' : 'inherit'
+                                    }
+                                  }}
+                                >
+                                  <SearchIcon sx={{ mr: 2, color: idx === activeSugIndex ? 'inherit' : 'text.secondary', fontSize: '1rem' }} />
+                                  <ListItemText primary={s} />
+                                </ListItemButton>
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Paper>
+                      </Popper>
                     )}
                   </Box>
                 </ClickAwayListener>
@@ -429,7 +519,7 @@ export default function Header() {
                     color: '#ffcdd2',
                     borderColor: '#ffcdd2',
                     '&:hover': {
-                      backgroundColor: 'rgba(244,67,54,0.1)',
+                      backgroundColor: 'rgba(244,67,54,0.12)',
                       borderColor: '#f44336',
                       color: '#f44336'
                     }

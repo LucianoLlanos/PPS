@@ -15,12 +15,19 @@ html {
   max-width: 100vw;
 }
 
+/* Utilidades numéricas para tablas/admin */
+.tnum { font-feature-settings: 'tnum' 1, 'lnum' 1; font-variant-numeric: tabular-nums lining-nums; }
+.num-right { text-align: right !important; }
+.num-center { text-align: center !important; }
+.nowrap { white-space: nowrap !important; }
+
 /* Prevent layout shift when the vertical scrollbar appears: always reserve scrollbar space
    or let the browser keep the gutter stable. This avoids the centered content jumping left/right
    when pages become scrollable. If you prefer the scrollbar to be always visible, use
    `html { overflow-y: scroll; }` — currently we keep the default but request a stable gutter. */
 html {
-  scrollbar-gutter: stable;
+  /* Reservar siempre el gutter del scrollbar para evitar saltos horizontales al abrir diálogos/menús */
+  scrollbar-gutter: stable both-edges;
 }
 
 body {
@@ -34,6 +41,10 @@ body {
   max-width: 100vw;
   width: 100%;
 }
+
+/* Cuando MUI aplica scroll lock, puede añadir padding-right al body. Lo neutralizamos
+   porque ya estamos reservando el gutter con scrollbar-gutter estable. */
+body.MuiModal-scrollLock { padding-right: 0 !important; }
 
 /* Variables CSS para modo claro */
 :root {
@@ -81,7 +92,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: none; /* Evita halo/gris adicional en inputs nativos */
 }
 
 /* Custom aesthetic scrollbars (WebKit browsers) */
@@ -116,4 +127,105 @@ html {
 }
 .scroll-compact::-webkit-scrollbar { width: 8px; height: 8px; }
 .scroll-compact::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.16); }
+
+/* Global MUI shape overrides (cuadrado) */
+.MuiOutlinedInput-root { border-radius: 0 !important; }
+.MuiInputBase-root { border-radius: 0 !important; }
+.MuiMenu-paper { border-radius: 0 !important; border: 1px solid #e5e9ef; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.MuiPaper-root.MuiPopover-paper { border-radius: 0 !important; }
+.MuiDialog-paper { border-radius: 0 !important; }
+.MuiAlert-root { border-radius: 0 !important; }
+
+/* Inputs MUI: eliminar contornos/halos extra y usar solo el borde del notched outline */
+.MuiOutlinedInput-root.Mui-focused { outline: none !important; box-shadow: none !important; }
+.MuiOutlinedInput-root input:focus { outline: none !important; box-shadow: none !important; }
+.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline { transition: border-color .2s ease, border-width .2s ease; }
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline { border-color: #1976d2 !important; border-width: 2px; }
+
+/* Consistencia de botones principales */
+.MuiButton-root { border-radius: 0 !important; }
+
+/* Ajuste de snackbar para no tapar navbar (margen superior dinámico ya en componente) */
+.MuiSnackbarContent-root { border-radius: 0 !important; }
+
+/* Page enter fade */
+.page-fade { opacity: 0; transform: translateY(6px); }
+.page-fade.page-fade-in { opacity: 1; transform: none; transition: opacity .25s ease, transform .28s ease; }
+
+/* Page fade-only variant for full-bleed pages (no transform to avoid width jumps) */
+.page-fade-fade-only { opacity: 0; }
+.page-fade-fade-only.page-fade-in { opacity: 1; transition: opacity .25s ease; }
+
+/* Scroll reveal utility */
+.reveal { opacity: 0; transform: translateY(6px); will-change: opacity, transform; }
+.reveal.reveal--visible { opacity: 1; transform: none; transition: opacity .3s ease, transform .3s ease; }
+
+/* Fade-only variant to avoid layout quirks on tables/rows/cells */
+.reveal-fade { opacity: 0; }
+.reveal-fade.reveal--visible { opacity: 1; transition: opacity .25s ease; }
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .page-fade, .reveal { opacity: 1 !important; transform: none !important; }
+  .page-fade.page-fade-in, .reveal.reveal--visible { transition: none !important; }
+}
+
+/* Favorite pulse animation */
+@keyframes favPulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,0,0,0)); }
+  35% { transform: scale(1.18); filter: drop-shadow(0 0 6px rgba(239,68,68,0.45)); }
+  70% { transform: scale(0.98); filter: drop-shadow(0 0 2px rgba(239,68,68,0.25)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,0,0,0)); }
+}
+.fav-pulse { animation: favPulse 360ms ease-in-out; }
+
+/* Desactivar transiciones/animaciones temporalmente para evitar pantallazos en cambios de ruta */
+.no-anim *, .no-anim *::before, .no-anim *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Overlay de cargando con logo redondo */
+.route-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2300;
+  display: grid;
+  place-items: center;
+  background: rgba(15,23,42,0.05);
+  backdrop-filter: saturate(100%) blur(0px);
+}
+.route-loader-overlay.route-loader-overlay--strong { background: rgba(255,255,255,0.85); backdrop-filter: saturate(100%) blur(1.5px); }
+.route-loader {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12), 0 6px 16px rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.9);
+}
+.route-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 4px solid rgba(25,118,210,0.18);
+  border-top-color: #1976d2;
+  animation: routeSpin 900ms linear infinite;
+}
+.route-loader-logo {
+  position: absolute;
+  inset: 0;
+  width: 58px;
+  height: 58px;
+  margin: auto;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) inset;
+}
+@keyframes routeSpin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-loader-ring { animation: none; }
+}
 

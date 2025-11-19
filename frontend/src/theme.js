@@ -19,6 +19,32 @@ const theme = createTheme({
     borderRadius: 12
   },
   components: {
+    MuiModal: {
+      defaultProps: {
+        // Evita que MUI modifique el body (overflow/padding-right) al abrir Dialog/Menu/Popover
+        disableScrollLock: true
+      }
+    },
+    MuiDialog: {
+      defaultProps: {
+        disableScrollLock: true
+      }
+    },
+    MuiPopover: {
+      defaultProps: {
+        disableScrollLock: true
+      }
+    },
+    MuiMenu: {
+      defaultProps: {
+        disableScrollLock: true
+      }
+    },
+    MuiSelect: {
+      defaultProps: {
+        MenuProps: { disableScrollLock: true }
+      }
+    },
     MuiButton: {
       defaultProps: {
         disableElevation: true

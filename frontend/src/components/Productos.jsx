@@ -2,7 +2,9 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import api from '../api/axios';
 import '../stylos/admin/Admin.css';
 import '../stylos/admin/Productos.css';
-import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment } from '@mui/material';
+import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment, Tooltip } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { formatCurrency } from '../utils/format';
 
 function Productos() {
@@ -48,8 +50,8 @@ function Productos() {
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
   useEffect(() => {
     if (addProd) {
-      // Scroll hacia arriba cuando se abre el modal de agregar producto
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll instantáneo para evitar barra de scroll transitoria al abrir modal
+      window.scrollTo(0, 0);
     }
   }, [addProd]);
 
@@ -577,30 +579,30 @@ function Productos() {
   }
 
   return (
-    <div className="productos-page root-apple">
-      <div className="productos-header-container">
-        <h2 className="productos-title">Productos</h2>
-  <div ref={toolsRef} className="productos-tools-container">
-          <button className="btn btn-success" onClick={() => setAddProd(true)}>
-            <i className="bi bi-plus-circle me-1"></i> Agregar producto
-          </button>
-          <button className="btn btn-secondary ms-2" onClick={() => setToolsOpen(!toolsOpen)} title="Herramientas">Herramientas <i className="bi bi-caret-down-fill ms-1"></i></button>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Productos</Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }} ref={toolsRef}>
+          <Button variant="contained" color="success" onClick={() => setAddProd(true)} sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Agregar producto</Button>
+          <Button variant="outlined" onClick={() => setToolsOpen(!toolsOpen)} sx={{ borderRadius: 999, textTransform: 'none' }}>Herramientas</Button>
           {toolsOpen && (
-            <div className="productos-tools-dropdown card shadow-sm">
-              <div className="list-group list-group-flush">
-                <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
-                  <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
-                  <span className="small text-muted d-block">Crea filas faltantes por sucursal (stock=0) y actualiza la estructura.</span>
-                </button>
-                <button className="list-group-item list-group-item-action" title="Ajusta los stocks de cada sucursal para que la suma coincida con el stock total del producto" aria-label="Alinear stock por producto" onClick={() => { setToolsOpen(false); setShowSelectReconcileModal(true); setSelectedProductForReconcile(productos.length ? productos[0].idProducto : null); }}>
-                  <i className="bi bi-sliders me-2"></i> Alinear stock por producto
-                  <span className="small text-muted d-block">Ajusta cantidades en sucursales para que sumen al stock total del producto.</span>
-                </button>
+            <Box sx={{ position: 'relative' }}>
+              <div className="productos-tools-dropdown card shadow-sm">
+                <div className="list-group list-group-flush">
+                  <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
+                    <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
+                    <span className="small text-muted d-block">Crea filas faltantes por sucursal (stock=0) y actualiza la estructura.</span>
+                  </button>
+                  <button className="list-group-item list-group-item-action" title="Ajusta los stocks de cada sucursal para que la suma coincida con el stock total del producto" aria-label="Alinear stock por producto" onClick={() => { setToolsOpen(false); setShowSelectReconcileModal(true); setSelectedProductForReconcile(productos.length ? productos[0].idProducto : null); }}>
+                    <i className="bi bi-sliders me-2"></i> Alinear stock por producto
+                    <span className="small text-muted d-block">Ajusta cantidades en sucursales para que sumen al stock total del producto.</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
       {/* Modal Agregar Producto - migrado a MUI Dialog */}
       {addProd && (
         <Box>
@@ -753,36 +755,44 @@ function Productos() {
       </div>
 
       <Box sx={{ mt: 3 }}>
-        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 2 }}>
-          <Table stickyHeader>
+        <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
+          <Table stickyHeader className="admin-table" sx={{ background: 'transparent' }}>
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
+                <TableCell className="tnum num-right nowrap">ID</TableCell>
                 <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('nombre')}>Nombre {sortField === 'nombre' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
                 <TableCell>Descripción</TableCell>
-                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
-                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell className="tnum num-right nowrap" sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell className="tnum num-right nowrap" sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
                 <TableCell>Acciones</TableCell>
                 {sucursalesList.map(s => (
-                  <TableCell key={s.idSucursal} align="center">{s.nombreSucursal}</TableCell>
+                  <TableCell key={s.idSucursal} className="tnum num-center nowrap">{s.nombreSucursal}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {productosFiltradosPaged.map(p => (
-                <TableRow key={p.idProducto} hover>
-                  <TableCell>{p.idProducto}</TableCell>
+              {productosFiltradosPaged.map((p, idx) => (
+                <TableRow key={p.idProducto} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
+                  <TableCell className="tnum num-right nowrap">{p.idProducto}</TableCell>
                   <TableCell>{p.nombre}</TableCell>
                   <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</TableCell>
-                  <TableCell>{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
-                  <TableCell>{p.stock}</TableCell>
-                  <TableCell>
-                    <Button size="small" variant="contained" sx={{ mr: 1 }} onClick={() => handleEdit(p)}>Editar</Button>
-                    <Button size="small" color="error" variant="outlined" onClick={() => handleDelete(p)}>Eliminar</Button>
+                  <TableCell className="tnum num-right nowrap">{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
+                  <TableCell className="tnum num-right nowrap">{p.stock}</TableCell>
+                  <TableCell className="nowrap">
+                    <Tooltip title="Editar">
+                      <IconButton size="small" color="primary" onClick={() => handleEdit(p)} aria-label="Editar">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Eliminar">
+                      <IconButton size="small" color="error" onClick={() => handleDelete(p)} aria-label="Eliminar">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                   {sucursalesList.map(s => {
                     const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
-                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} align="center">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
+                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} className="tnum num-center nowrap">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
                   })}
                 </TableRow>
               ))}
@@ -1021,7 +1031,7 @@ function Productos() {
         </DialogActions>
       </Dialog>
     )}
-    </div>
+    </Box>
   );
 }
 

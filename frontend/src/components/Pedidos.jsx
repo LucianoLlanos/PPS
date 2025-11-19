@@ -6,7 +6,9 @@ import {
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { getStatusInfo } from '../utils/statusColors';
+import StatusPill from './StatusPill';
 
 function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
@@ -116,24 +118,13 @@ function Pedidos() {
     return true;
   });
 
-  const renderStatusValue = (value) => {
-    const info = getStatusInfo(value);
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
-        <Box component="span" sx={{ color: info.color, fontWeight: 600, fontSize: '0.95rem' }}>{info.label || value}</Box>
-      </Box>
-    );
-  };
+  const renderStatusValue = (value) => <StatusPill value={value} variant="inline" />;
 
   const renderStatusMenuItem = (value, label) => {
     const info = getStatusInfo(value);
     return (
-      <MenuItem value={value} key={value}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
-          <Box component="span" sx={{ color: info.color }}>{label}</Box>
-        </Box>
+      <MenuItem value={value} key={value} sx={{ my: 0.25 }}>
+        <StatusPill value={value} label={label} />
       </MenuItem>
     );
   };
@@ -284,13 +275,13 @@ function Pedidos() {
         <Table stickyHeader sx={{ width: '100%', minWidth: 960, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
           <TableHead sx={{ position: 'sticky', top: 0, zIndex: 5 }}>
         <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }} className="tnum num-right">ID</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Productos</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Usuario</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Cantidades</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Forma de Pago</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Total</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }} className="tnum num-right">Total</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
             </TableRow>
@@ -299,7 +290,7 @@ function Pedidos() {
           <TableBody>
             {displayedPedidos.map((p, idx) => (
               <TableRow key={p.idPedido} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{p.idPedido}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{p.idPedido}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{p.productos.map((prod, i) => (<div key={i}>{prod.nombre} <span style={{ color: '#6b7280' }}>(x{prod.cantidad})</span></div>))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
@@ -327,13 +318,25 @@ function Pedidos() {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <FormControl size="small" sx={{ minWidth: 170 }}>
                     <Select
                       value={p.estado || 'Pendiente'}
                       onChange={e => handleEstado(p, e.target.value)}
                       renderValue={renderStatusValue}
+                      MenuProps={{
+                        disableScrollLock: true,
+                        MenuListProps: { dense: true },
+                        PaperProps: { sx: { borderRadius: 2, boxShadow: '0 14px 34px rgba(15,23,42,0.18)', px: 1, py: 1 } }
+                      }}
+                      sx={{
+                        '.MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '.MuiSelect-select': { py: 0.6, display: 'flex', alignItems: 'center' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '.MuiSelect-icon': { color: '#6b7280' }
+                      }}
                     >
                       {renderStatusMenuItem('Pendiente', 'Pendiente')}
                       {renderStatusMenuItem('En Proceso', 'En Proceso')}
@@ -344,9 +347,11 @@ function Pedidos() {
                   </FormControl>
                 </TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <Button variant="contained" color="error" size="small" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2, py: 0.7, fontSize: '0.97rem' }} onClick={() => handleDelete(p)}>
-                    Eliminar
-                  </Button>
+                  <Tooltip title="Eliminar pedido">
+                    <IconButton color="error" size="small" onClick={() => handleDelete(p)}>
+                      <DeleteOutlineIcon />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -355,7 +360,7 @@ function Pedidos() {
         </Box>
       </TableContainer>
 
-      <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+      <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableScrollLock>
         <Box sx={{ p: 2, width: 420 }}>
           <Typography sx={{ fontWeight: 600, mb: 1 }}>Filtros</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
@@ -364,7 +369,7 @@ function Pedidos() {
             <TextField size="small" label="Usuario" value={filterUsuario} onChange={e => setFilterUsuario(e.target.value)} />
             <FormControl size="small">
               <InputLabel>Estado</InputLabel>
-              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')}>
+              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')} MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">(todos)</MenuItem>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
@@ -375,7 +380,7 @@ function Pedidos() {
             </FormControl>
             <FormControl size="small">
               <InputLabel>Método de pago</InputLabel>
-              <Select value={filterMetodoPago} onChange={e => setFilterMetodoPago(e.target.value)} label="Método de pago">
+              <Select value={filterMetodoPago} onChange={e => setFilterMetodoPago(e.target.value)} label="Método de pago" MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">(todos)</MenuItem>
                 <MenuItem value="Efectivo">Efectivo</MenuItem>
                 <MenuItem value="Tarjeta de crédito">Tarjeta de crédito</MenuItem>
@@ -398,14 +403,14 @@ function Pedidos() {
       </Popover>
 
       {/* Modal Alta */}
-      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth disableScrollLock>
         <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Registrar Pedido</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Usuario</InputLabel>
-              <Select name="usuario" value={addForm.usuario} onChange={handleAddChange} required label="Usuario">
+              <Select name="usuario" value={addForm.usuario} onChange={handleAddChange} required label="Usuario" MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">Selecciona usuario (solo clientes)</MenuItem>
                 {usuarios.filter(u => u.nombreRol && u.nombreRol.toLowerCase() === 'cliente').map(u => (
                   <MenuItem key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</MenuItem>
@@ -414,7 +419,7 @@ function Pedidos() {
             </FormControl>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Sucursal</InputLabel>
-              <Select name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required label="Sucursal">
+              <Select name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required label="Sucursal" MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">Selecciona sucursal</MenuItem>
                 {sucursales.map(s => (
                   <MenuItem key={s.idSucursal} value={s.idSucursal}>{s.nombre} ({s.direccion})</MenuItem>
@@ -427,7 +432,7 @@ function Pedidos() {
                 <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                   <FormControl sx={{ minWidth: 180 }} size="small">
                     <InputLabel>Producto</InputLabel>
-                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto">
+                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto" MenuProps={{ disableScrollLock: true }}>
                       <MenuItem value="">Producto</MenuItem>
                       {productosList.map(pr => (
                         <MenuItem key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</MenuItem>
@@ -446,7 +451,7 @@ function Pedidos() {
             </Box>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Estado</InputLabel>
-              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado" renderValue={renderStatusValue}>
+              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado" renderValue={renderStatusValue} MenuProps={{ disableScrollLock: true }}>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
                 {renderStatusMenuItem('Enviado', 'Enviado')}
@@ -463,7 +468,7 @@ function Pedidos() {
       </Dialog>
 
       {/* Modal Borrado */}
-      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth>
+      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth disableScrollLock>
         <DialogTitle sx={{ fontWeight: 600 }}>¿Eliminar pedido?</DialogTitle>
         <DialogContent>
           {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}

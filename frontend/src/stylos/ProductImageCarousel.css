@@ -1,7 +1,7 @@
-.carousel-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 450ms ease; opacity: 0; max-height: 220px; z-index: 10; }
+.carousel-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 450ms ease; opacity: 0; z-index: 10; }
 .carousel-counter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.72); color: #fff; padding: 0.25rem 0.5rem; border-radius: 0.45rem; font-size: 11px; font-weight: 600; pointer-events: none; z-index: 78; }
 .carousel-image.active { opacity: 1; z-index: 20; }
-.carousel-image.placeholder { opacity: 1; object-fit: contain; height: 220px; max-height: 220px; }
+.carousel-image.placeholder { opacity: 1; object-fit: contain; height: 100%; max-height: none; }
 
 .carousel-indicators { position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 32; pointer-events: none; }
 .carousel-indicator { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.55); transition: background 0.4s, transform 0.4s; }

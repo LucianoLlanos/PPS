@@ -13,10 +13,13 @@ const getUserFavorites = (req, res) => {
       p.descripcion,
       p.precio,
       p.imagen,
-      p.stockTotal as stock
+      p.stockTotal as stock,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
     FROM user_favorites f
     INNER JOIN productos p ON f.idProducto = p.idProducto
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
     WHERE f.idUsuario = ?
+    GROUP BY f.id, p.idProducto, p.nombre, p.descripcion, p.precio, p.imagen, p.stockTotal
     ORDER BY f.created_at DESC
   `;
 
@@ -26,8 +29,15 @@ const getUserFavorites = (req, res) => {
       return res.status(500).json({ message: 'Error del servidor', error: err.message });
     }
 
-    console.log('✅ Favoritos obtenidos:', results.length);
-    res.json(results);
+    // Convertir campo imagenes (string) a array y aplicar fallback a imagen legacy
+    const processed = (results || []).map(r => {
+      const imgs = r.imagenes ? r.imagenes.split(',') : [];
+      const finalImgs = imgs.length > 0 ? imgs : (r.imagen ? [r.imagen] : []);
+      return { ...r, imagenes: finalImgs };
+    });
+
+    console.log('✅ Favoritos obtenidos:', processed.length);
+    res.json(processed);
   });
 };
 

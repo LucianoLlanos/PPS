@@ -358,7 +358,7 @@ export default function EmpresaAdmin() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
+      <Paper elevation={0} sx={{ p: 4, borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
           <BusinessIcon sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
@@ -389,7 +389,7 @@ export default function EmpresaAdmin() {
 
         {/* Pestañas de navegación */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
-          <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+          <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} variant="scrollable" allowScrollButtonsMobile>
             <Tab icon={<InfoIcon />} label="Información General" />
             <Tab icon={<GroupIcon />} label="Estructura Organizacional" />
           </Tabs>
@@ -575,7 +575,7 @@ export default function EmpresaAdmin() {
       </Paper>
 
       {/* Dialog de confirmación para eliminar PDF */}
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} disableScrollLock>
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>
           <Typography>
@@ -599,6 +599,7 @@ export default function EmpresaAdmin() {
         onClose={cerrarDialogoCargo} 
         maxWidth="sm" 
         fullWidth
+        disableScrollLock
       >
         <DialogTitle>
           {cargoEditando ? 'Editar Cargo' : 'Nuevo Cargo'}
@@ -631,6 +632,7 @@ export default function EmpresaAdmin() {
                 value={nuevoCargo.nivel_jerarquico}
                 label="Nivel Jerárquico"
                 onChange={(e) => handleCargoInputChange('nivel_jerarquico', e.target.value)}
+                MenuProps={{ disableScrollLock: true }}
               >
                 <MenuItem value={1}>Nivel 1 - Dirección</MenuItem>
                 <MenuItem value={2}>Nivel 2 - Gerencia</MenuItem>

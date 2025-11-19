@@ -196,21 +196,21 @@ export default function CarouselAdmin() {
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', maxWidth: '100%', height: { xs: '76vh', md: '72vh' } }}>
+        <Table stickyHeader sx={{ background: 'transparent' }}>
           <TableHead>
-            <TableRow>
-              <TableCell>Imagen</TableCell>
-              <TableCell>Título</TableCell>
-              <TableCell>Descripción</TableCell>
-              <TableCell>Orden</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Acciones</TableCell>
+            <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)' }}>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Imagen</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Título</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Descripción</TableCell>
+              <TableCell className="tnum num-right" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Orden</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {banners.map((banner) => (
-              <TableRow key={banner.id}>
+            {banners.map((banner, idx) => (
+              <TableRow key={banner.id} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
                 <TableCell>
                   <Avatar
                     src={`http://localhost:3000/uploads/${banner.imagen}`}
@@ -233,14 +233,7 @@ export default function CarouselAdmin() {
                     {banner.descripcion || '-'}
                   </Typography>
                 </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={banner.orden} 
-                    size="small" 
-                    color="primary" 
-                    variant="outlined" 
-                  />
-                </TableCell>
+                <TableCell className="tnum num-right">{banner.orden}</TableCell>
                 <TableCell>
                   <Switch
                     checked={banner.activo}
@@ -302,7 +295,7 @@ export default function CarouselAdmin() {
       )}
 
       {/* Dialog for creating/editing banners */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth disableScrollLock>
         <DialogTitle>
           {editingBanner ? 'Editar Banner' : 'Nuevo Banner'}
         </DialogTitle>

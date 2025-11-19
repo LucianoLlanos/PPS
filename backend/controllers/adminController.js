@@ -243,6 +243,31 @@ const listarProductos = (req, res) => {
   });
 };
 
+// Ver producto por id (detalle para panel admin) incluyendo todas las imágenes
+const verProductoAdmin = (req, res) => {
+  const { id } = req.params;
+  if (!id || isNaN(Number(id))) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  const query = `
+    SELECT 
+      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
+    FROM productos p
+    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
+    WHERE p.idProducto = ?
+    GROUP BY p.idProducto
+  `;
+  connection.query(query, [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener producto' });
+    if (!results || results.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const r = results[0];
+    const imgs = r.imagenes ? r.imagenes.split(',') : [];
+    const finalImgs = (imgs && imgs.length > 0) ? imgs : (r.imagen ? [r.imagen] : []);
+    res.json({ ...r, imagenes: finalImgs });
+  });
+};
+
 const crearProducto = (req, res) => {
   console.log('[DEBUG] Datos recibidos:', req.body);
   console.log('[DEBUG] Archivos recibidos:', req.files ? req.files.map(f => f.filename) : 'No hay archivos');

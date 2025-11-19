@@ -7,6 +7,7 @@ export default function CarouselBanner() {
   const [banners, setBanners] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     fetchBanners();
@@ -23,18 +24,18 @@ export default function CarouselBanner() {
     }
   };
 
-  // Auto-advance carousel every 5 seconds
+  // Auto-advance carousel every 5 seconds (pausado en hover)
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || paused) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => 
+      setCurrentIndex((prevIndex) =>
         prevIndex === banners.length - 1 ? 0 : prevIndex + 1
       );
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners.length, paused]);
 
   const goToPrevious = () => {
     setCurrentIndex(currentIndex === 0 ? banners.length - 1 : currentIndex - 1);
@@ -59,18 +60,14 @@ export default function CarouselBanner() {
   };
 
   if (loading) {
+    // Evitar texto visible: usar placeholder silencioso, quedará cubierto por el overlay global
     return (
       <Box sx={{ 
         width: '100%', 
         height: 300, 
         bgcolor: '#f5f5f5', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
         mb: 4 
-      }}>
-        <Typography color="text.secondary">Cargando...</Typography>
-      </Box>
+      }} />
     );
   }
 
@@ -84,7 +81,10 @@ export default function CarouselBanner() {
     <Box sx={{
       position: 'relative',
       width: '100vw',
-      height: { xs: 300, md: 380 },
+      height: {
+        xs: 'clamp(220px, 36vh, 380px)',
+        md: 'clamp(320px, 50vh, 520px)'
+      },
       mb: 0,
       mt: 0,
       overflow: 'hidden',
@@ -98,6 +98,8 @@ export default function CarouselBanner() {
       <Fade in={true} timeout={500} key={currentIndex}>
         <Box
           onClick={() => handleBannerClick(currentBanner.enlace)}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
           sx={{
             position: 'relative',
             width: '100%',
@@ -108,7 +110,7 @@ export default function CarouselBanner() {
                 : `http://localhost:3000/uploads/${currentBanner.imagen}`})` :
               'linear-gradient(135deg, #FFE600 0%, #FF6B35 25%, #4ECDC4 50%, #45B7D1 75%, #96CEB4 100%)',
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundPosition: { xs: 'center', md: 'center 35%' },
             backgroundRepeat: 'no-repeat',
             cursor: currentBanner.enlace ? 'pointer' : 'default',
             display: 'flex',
@@ -122,15 +124,26 @@ export default function CarouselBanner() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(0,0,0,0.45)',
+              background: 'rgba(0,0,0,0.46)',
+              pointerEvents: 'none',
+              zIndex: 0
+            },
+            // Degradado inferior para fundir con el contenido de la página
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: { xs: '32%', md: '40%' },
+              background: 'linear-gradient(180deg, rgba(16,24,32,0) 0%, rgba(255,255,255,0.58) 64%, #ffffff 100%)',
               pointerEvents: 'none',
               zIndex: 1
-            },
-            '&::after': { display: 'none' }
+            }
           }}
         >
           {/* Contenido del banner - Estilo MercadoLibre */}
-          <Box sx={{
+            <Box sx={{
             position: 'relative',
             zIndex: 2,
             display: 'flex',
@@ -152,7 +165,7 @@ export default function CarouselBanner() {
                   fontWeight: 700,
                   mb: 1.5,
                   color: '#fff',
-                  fontSize: { xs: '1.9rem', md: '3rem' },
+                  fontSize: { xs: 'clamp(1.6rem, 4.5vw, 2.2rem)', md: 'clamp(2.4rem, 4.2vw, 3.2rem)' },
                   lineHeight: 1.15,
                   letterSpacing: '-0.5px'
                 }}
@@ -166,7 +179,7 @@ export default function CarouselBanner() {
                   sx={{
                     mb: 3,
                     color: 'rgba(255,255,255,0.9)',
-                    fontSize: { xs: '1rem', md: '1.35rem' },
+                    fontSize: { xs: 'clamp(0.95rem, 2.6vw, 1.05rem)', md: 'clamp(1.1rem, 1.8vw, 1.3rem)' },
                     fontWeight: 400,
                     letterSpacing: '-0.25px'
                   }}

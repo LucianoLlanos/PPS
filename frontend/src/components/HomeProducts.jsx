@@ -13,7 +13,8 @@ import { formatCurrency } from '../utils/format';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import useFavoritesStore from '../store/useFavoritesStore';
-import { Box, Grid, Typography, Button, Snackbar, Alert } from '@mui/material';
+import { Box, Grid, Typography, Button, Chip, Stack, Divider } from '@mui/material';
+import useSnackbarStore from '../store/useSnackbarStore';
 import ProductCardModern from './ProductCardModern';
 
 export default function HomeProducts() {
@@ -23,15 +24,13 @@ export default function HomeProducts() {
 
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [category, setCategory] = useState('Todos');
   const perPage = 12;
   const [selected, setSelected] = useState(null);
   const [expandedMap, setExpandedMap] = useState({});
   const [canToggleMap, setCanToggleMap] = useState({});
   
-  // Estados para notificaciones toast
-  const [toastMessage, setToastMessage] = useState('');
-  const [showToast, setShowToast] = useState(false);
-  const [toastType, setToastType] = useState('success'); // 'success' o 'warning'
+  const snackbar = useSnackbarStore();
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
@@ -41,15 +40,8 @@ export default function HomeProducts() {
 
   // (insertBreaks removed) ProductCardClean handles long words now
 
-  // Función para mostrar notificación toast
   const showToastNotification = (message, type = 'success') => {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    // Ocultar después de 3 segundos
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3000);
+    snackbar.show(message, type === 'warning' ? 'warning' : 'success');
   };
 
   const fetch = async () => {
@@ -71,7 +63,9 @@ export default function HomeProducts() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const q = params.get('q') || '';
+    const cat = params.get('cat') || 'Todos';
     setQuery(q);
+    setCategory(cat);
     fetch();
   }, [location.search]);
 
@@ -86,9 +80,33 @@ export default function HomeProducts() {
     return () => window.removeEventListener('catalog:query', onLive);
   }, []);
 
+  const normalizeCategory = (p) => {
+    const raw = (p.categoria || p.category || '').toString().trim();
+    if (raw) return raw;
+    const text = `${p.nombre || ''} ${p.descripcion || ''}`.toLowerCase();
+    if (text.includes('bomba')) return 'Bombas de agua';
+    if (text.includes('tanque')) return 'Tanques de agua';
+    if (text.includes('solar') || text.includes('panel')) return 'Energía solar';
+    if (text.includes('saneamiento') || text.includes('cloaca')) return 'Saneamiento';
+    if (text.includes('agua')) return 'Agua';
+    return 'Otros';
+  };
+
+  const categories = React.useMemo(() => {
+    const set = new Set();
+    (productos || []).forEach((p) => set.add(normalizeCategory(p)));
+    const all = Array.from(set).filter(Boolean);
+    const hasOtros = all.includes('Otros');
+    const withoutOtros = all.filter((c) => c !== 'Otros').sort((a,b)=>a.localeCompare(b));
+    return ['Todos', ...withoutOtros, ...(hasOtros ? ['Otros'] : [])];
+  }, [productos]);
+
   const filtered = productos.filter(p => {
     const text = (p.nombre || p.name || '').toString().toLowerCase() + ' ' + (p.descripcion || p.description || '').toString().toLowerCase();
-    return text.includes(query.toLowerCase());
+    const byText = text.includes(query.toLowerCase());
+    if (!byText) return false;
+    if (category === 'Todos') return true;
+    return normalizeCategory(p) === category;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
@@ -125,11 +143,11 @@ export default function HomeProducts() {
   return (
     <Box sx={{ 
       width: '100%', 
-      overflow: 'hidden', // Previene scroll horizontal
+      overflow: 'hidden',
       maxWidth: '100vw',
       boxSizing: 'border-box',
-      mt: 0, // Sin margen superior
-      pt: 0  // Sin padding superior
+      mt: 0,
+      pt: 0
     }}>
       {/* Carrusel de banners publicitarios - ocupa todo el ancho */}
       <CarouselBanner />
@@ -137,29 +155,96 @@ export default function HomeProducts() {
       {/* Título de la empresa */}
       <CompanyTitle />
 
-      {/* Contenedor para el catálogo de productos */}
-      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2, pt: 3, pb: 0 }}>
-        <Grid container spacing={1.5} sx={{ mb: 1.5, justifyContent: 'center' }}>
-          {itemsToRender.map((p, idx) => (
-            <Grid item key={p.idProducto || p.id || idx} xs={6} sm={4} md={3} lg={3} sx={{ display: 'flex', justifyContent: 'center' }}>
-              <ProductCardModern
-                product={p}
-                onAdd={() => add(p)}
-                onView={() => navigate(`/productos/${p.idProducto || p.id}`, { state: { product: p } })}
-                onToggleFavorite={() => {
-                  if (!user) {
-                    showToastNotification('Debes iniciar sesión para agregar favoritos', 'warning');
-                    return;
-                  }
-                  toggleFavorite(p);
-                }}
-                isFavorite={isFavorite(p.idProducto || p.id)}
-                canExpand={false}
-                onToggleExpand={() => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: !m[p.idProducto || p.id] }))}
-              />
-            </Grid>
-          ))}
-        </Grid>
+      {/* Sección Catálogo con degradado suave */}
+      <Box sx={{
+        width: '100%',
+        background: 'linear-gradient(180deg, #f8fbff 0%, #f2f7ff 55%, #eef5ff 100%)',
+        py: { xs: 3, md: 4 },
+        pt: { xs: 3.25, md: 4.75 },
+      }}>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, letterSpacing: '-0.6px', color: '#0b1b2b' }}>Catálogo</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Equipamientos y soluciones en energía, agua y saneamiento
+          </Typography>
+
+          {categories.length > 1 && (
+            <Box sx={{ mb: 2.5, position: 'relative' }}>
+              <Stack direction="row" spacing={0.75} sx={{ overflowX: 'auto', pb: 0.5, px: 2 }}>
+                {categories.map((c) => (
+                  <Chip
+                    key={c}
+                    label={c}
+                    clickable
+                    size="small"
+                    color={c === category ? 'primary' : 'default'}
+                    variant={c === category ? 'filled' : 'outlined'}
+                    onClick={() => {
+                      setCategory(c);
+                      setPage(1);
+                      try {
+                        const params = new URLSearchParams(location.search);
+                        if (c && c !== 'Todos') params.set('cat', c); else params.delete('cat');
+                        if (!params.get('q')) params.delete('q');
+                        window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+                      } catch {}
+                    }}
+                    sx={{
+                      borderRadius: 999,
+                      fontWeight: 700,
+                      px: 1.25,
+                      height: 28,
+                      letterSpacing: '-0.1px'
+                    }}
+                  />
+                ))}
+                {category !== 'Todos' && (
+                  <Chip
+                    label="Limpiar"
+                    size="small"
+                    onClick={() => {
+                      setCategory('Todos');
+                      setPage(1);
+                      try {
+                        const params = new URLSearchParams(location.search);
+                        params.delete('cat');
+                        if (!params.get('q')) params.delete('q');
+                        window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+                      } catch {}
+                    }}
+                    sx={{ borderRadius: 999, fontWeight: 700, px: 1.25, height: 28 }}
+                  />
+                )}
+              </Stack>
+              {/* Fade edges para hint de scroll horizontal en mobile */}
+              <Box sx={{ pointerEvents: 'none', position: 'absolute', left: 0, top: 0, bottom: 0, width: 18, background: 'linear-gradient(to right, #f2f7ff 30%, rgba(242,247,255,0))', zIndex: 2 }} />
+              <Box sx={{ pointerEvents: 'none', position: 'absolute', right: 0, top: 0, bottom: 0, width: 18, background: 'linear-gradient(to left, #f2f7ff 30%, rgba(242,247,255,0))', zIndex: 2 }} />
+              <Divider sx={{ mt: 1 }} />
+            </Box>
+          )}
+
+          <Grid container spacing={1.5} sx={{ mb: 1.5, justifyContent: 'center' }}>
+            {itemsToRender.map((p, idx) => (
+              <Grid item key={p.idProducto || p.id || idx} xs={6} sm={4} md={3} lg={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                <ProductCardModern
+                  product={p}
+                  onAdd={() => add(p)}
+                  onView={() => navigate(`/productos/${p.idProducto || p.id}`, { state: { product: p } })}
+                  onToggleFavorite={() => {
+                    if (!user) {
+                      showToastNotification('Debes iniciar sesión para agregar favoritos', 'warning');
+                      return;
+                    }
+                    toggleFavorite(p);
+                  }}
+                  isFavorite={isFavorite(p.idProducto || p.id)}
+                  canExpand={false}
+                  onToggleExpand={() => setExpandedMap(m => ({ ...m, [p.idProducto || p.id]: !m[p.idProducto || p.id] }))}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       </Box>
 
       {itemsToRender.length === 0 && (
@@ -176,9 +261,7 @@ export default function HomeProducts() {
 
       {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} onAdded={(message, type) => { showToastNotification(message, type); }} />}
 
-      <Snackbar open={showToast} autoHideDuration={3000} onClose={() => setShowToast(false)} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
-        <Alert onClose={() => setShowToast(false)} severity={toastType === 'success' ? 'success' : 'warning'} sx={{ width: '100%' }}>{toastMessage}</Alert>
-      </Snackbar>
+      {/* Notificación global movida a GlobalSnackbar mounted en App.jsx */}
 
       {/* Footer */}
       <Footer />

@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
+import { CustomersService } from '../services/CustomersService';
+import { SucursalesService } from '../services/SucursalesService';
+import { OrdersAdminService } from '../services/OrdersAdminService';
 import {
   Autocomplete,
   Box,
@@ -53,11 +56,16 @@ export default function VendedorPOS() {
   const total = useMemo(() => getTotal(), [cartItems]);
 
   // Carga de datos
+  const productsService = React.useMemo(() => new ProductsService(), []);
+  const customersService = React.useMemo(() => new CustomersService(), []);
+  const sucursalesService = React.useMemo(() => new SucursalesService(), []);
+  const ordersAdminService = React.useMemo(() => new OrdersAdminService(), []);
+
   const loadProductos = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/productos');
-      setProductos(res.data || []);
+      const list = await productsService.listPublic();
+      setProductos(list || []);
     } catch (e) {
       setProductos([]);
     } finally {
@@ -67,13 +75,13 @@ export default function VendedorPOS() {
 
   const loadClientesYSucursales = async () => {
     try {
-      const [resCli, resSuc] = await Promise.all([
-        api.get('/admin/clientes'),
-        api.get('/admin/sucursales'),
+      const [cli, sucs] = await Promise.all([
+        customersService.list(),
+        sucursalesService.list(),
       ]);
-      setClientes(resCli.data || []);
-      setSucursales(resSuc.data || []);
-      const first = (resSuc.data || [])[0];
+      setClientes(cli || []);
+      setSucursales(sucs || []);
+      const first = (sucs || [])[0];
       if (first) setSucursalId(String(first.idSucursal));
     } catch (e) {
       // ignorar
@@ -111,18 +119,16 @@ export default function VendedorPOS() {
 
     const obs = `Pago: ${metodoPago}${observaciones ? ' | ' + observaciones : ''}`;
 
-    const payload = {
-      idCliente: Number(clienteIdUsuario),
-      estado,
-      idSucursalOrigen: Number(sucursalId || 1),
-      productos: productosPayload,
-      observaciones: obs,
-    };
-
     try {
       setSubmitting(true);
-      const res = await api.post('/admin/pedidos', payload);
-      const pedidoId = res.data?.idPedido || '';
+      const res = await ordersAdminService.create({
+        idCliente: Number(clienteIdUsuario),
+        estado,
+        idSucursalOrigen: Number(sucursalId || 1),
+        productos: productosPayload,
+        observaciones: obs,
+      });
+      const pedidoId = res.idPedido || '';
       clearCart();
       reloadCart();
       setOrderModal({ open: true, id: pedidoId, modo: 'ok', extra: { sucursal: (sucursales.find(s => String(s.idSucursal) === String(sucursalId))?.nombre) || '' } });

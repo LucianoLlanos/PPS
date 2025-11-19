@@ -1,159 +1,160 @@
-const { connection } = require('../db/DB');
 const path = require('path');
 const fs = require('fs');
+const { SellerService } = require('../services/sellerService');
 
-// Helpers
-function saveImage(file) {
-  if (!file) return null;
-  return file.filename; // multer will set filename
+class SellerController {
+  constructor(service = new SellerService()) {
+    this.service = service;
+
+    this.createProduct = this.createProduct.bind(this);
+    this.listProducts = this.listProducts.bind(this);
+    this.getProduct = this.getProduct.bind(this);
+    this.updateProduct = this.updateProduct.bind(this);
+    this.deleteProduct = this.deleteProduct.bind(this);
+
+    this.createOrder = this.createOrder.bind(this);
+    this.listOrders = this.listOrders.bind(this);
+    this.updateOrderStatus = this.updateOrderStatus.bind(this);
+
+    this.createSlide = this.createSlide.bind(this);
+    this.listSlides = this.listSlides.bind(this);
+    this.deleteSlide = this.deleteSlide.bind(this);
+  }
+
+  // Helpers
+  saveImage(file) {
+    if (!file) return null;
+    return file.filename;
+  }
+
+  async createProduct(req, res) {
+    try {
+      const { name, description, price, stock } = req.body;
+      const image = this.saveImage(req.file);
+      const id = await this.service.createProduct({ name, description, price, stock, image });
+      res.json({ id, name, description, price, stock, image });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async listProducts(req, res) {
+    try {
+      const rows = await this.service.listProducts();
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async getProduct(req, res) {
+    try {
+      const { id } = req.params;
+      const row = await this.service.getProduct(id);
+      if (!row) return res.status(404).json({ error: 'Producto no encontrado' });
+      res.json(row);
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async updateProduct(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, description, price, stock } = req.body;
+      const newImage = this.saveImage(req.file);
+      // fetch old image to delete if needed
+      const prev = await this.service.updateProduct({ id, name, description, price, stock, image: newImage });
+      if (newImage && prev && prev.image) {
+        const imgPath = path.join(__dirname, '..', 'uploads', prev.image);
+        fs.unlink(imgPath, () => {});
+      }
+      res.json({ id, name, description, price, stock, image: newImage || (prev ? prev.image : null) });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async deleteProduct(req, res) {
+    try {
+      const { id } = req.params;
+      const result = await this.service.deleteProduct(id);
+      if (result.notFound) return res.status(404).json({ error: 'Producto no encontrado' });
+      if (result.image) {
+        const imgPath = path.join(__dirname, '..', 'uploads', result.image);
+        fs.unlink(imgPath, () => {});
+      }
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async createOrder(req, res) {
+    try {
+      const { customer_name, items, total, status } = req.body;
+      const itemsStr = typeof items === 'string' ? items : JSON.stringify(items || []);
+      const id = await this.service.createOrder({ customer_name, items: itemsStr, total, status });
+      res.json({ id, customer_name, items: itemsStr, total, status: status || 'pending' });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async listOrders(req, res) {
+    try {
+      const rows = await this.service.listOrders();
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async updateOrderStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      await this.service.updateOrderStatus(id, status);
+      res.json({ id, status });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async createSlide(req, res) {
+    try {
+      const { title, caption, link } = req.body;
+      const image = this.saveImage(req.file);
+      const id = await this.service.createSlide({ title, caption, link, image });
+      res.json({ id, title, caption, link, image });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async listSlides(req, res) {
+    try {
+      const rows = await this.service.listSlides();
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async deleteSlide(req, res) {
+    try {
+      const { id } = req.params;
+      const result = await this.service.deleteSlide(id);
+      if (result.notFound) return res.status(404).json({ error: 'Slide no encontrado' });
+      if (result.image) {
+        const imgPath = path.join(__dirname, '..', 'uploads', result.image);
+        fs.unlink(imgPath, () => {});
+      }
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message || e });
+    }
+  }
 }
 
-const sellerController = {
-  // Productos
-  createProduct: (req, res) => {
-    const { name, description, price, stock } = req.body;
-    const image = saveImage(req.file);
-    const sql = 'INSERT INTO products (name, description, price, stock, image) VALUES (?, ?, ?, ?, ?)';
-    connection.query(sql, [name, description, price, stock, image], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ id: result.insertId, name, description, price, stock, image });
-    });
-  },
-
-  listProducts: (req, res) => {
-    // Leer productos desde ambas tablas posibles y normalizar los campos
-    const q = `
-      SELECT id AS id, name AS name, description AS description, price AS price, stock AS stock, image AS image
-      FROM products
-      UNION ALL
-      SELECT idProducto AS id, nombre AS name, descripcion AS description, precio AS price, stockTotal AS stock, NULL AS image
-      FROM productos
-      ORDER BY id ASC`;
-    connection.query(q, (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(results);
-    });
-  },
-
-  getProduct: (req, res) => {
-    const { id } = req.params;
-    // Buscar en products primero, luego en productos
-    connection.query('SELECT id AS id, name AS name, description AS description, price AS price, stock AS stock, image AS image FROM products WHERE id = ?', [id], (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      if (results && results.length > 0) return res.json(results[0]);
-      // intentar en tabla productos (idProducto)
-      connection.query('SELECT idProducto AS id, nombre AS name, descripcion AS description, precio AS price, stockTotal AS stock, NULL AS image FROM productos WHERE idProducto = ?', [id], (err2, results2) => {
-        if (err2) return res.status(500).json({ error: err2 });
-        if (!results2 || results2.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-        res.json(results2[0]);
-      });
-    });
-  },
-
-  updateProduct: (req, res) => {
-    const { id } = req.params;
-    const { name, description, price, stock } = req.body;
-    const image = saveImage(req.file);
-
-    // If new image uploaded, update image field and delete old file
-    connection.query('SELECT image FROM products WHERE id = ?', [id], (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      if (!results.length) return res.status(404).json({ error: 'Producto no encontrado' });
-      const oldImage = results[0].image;
-
-      const sql = 'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image = COALESCE(?, image) WHERE id = ?';
-      connection.query(sql, [name, description, price, stock, image, id], (err2) => {
-        if (err2) return res.status(500).json({ error: err2 });
-        // remove old image file if new one uploaded
-        if (image && oldImage) {
-          const imgPath = path.join(__dirname, '..', 'uploads', oldImage);
-          fs.unlink(imgPath, (unlinkErr) => {
-            // ignore unlink errors
-          });
-        }
-        res.json({ id, name, description, price, stock, image: image || oldImage });
-      });
-    });
-  },
-
-  deleteProduct: (req, res) => {
-    const { id } = req.params;
-    connection.query('SELECT image FROM products WHERE id = ?', [id], (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      if (!results.length) return res.status(404).json({ error: 'Producto no encontrado' });
-      const image = results[0].image;
-      connection.query('DELETE FROM products WHERE id = ?', [id], (err2) => {
-        if (err2) return res.status(500).json({ error: err2 });
-        if (image) {
-          const imgPath = path.join(__dirname, '..', 'uploads', image);
-          fs.unlink(imgPath, () => {});
-        }
-        res.json({ success: true });
-      });
-    });
-  },
-
-  // Pedidos
-  createOrder: (req, res) => {
-    const { customer_name, items, total, status } = req.body; // items as JSON string or array
-    const sql = 'INSERT INTO orders (customer_name, items, total, status) VALUES (?, ?, ?, ?)';
-    const itemsStr = typeof items === 'string' ? items : JSON.stringify(items || []);
-    connection.query(sql, [customer_name, itemsStr, total, status || 'pending'], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ id: result.insertId, customer_name, items: itemsStr, total, status: status || 'pending' });
-    });
-  },
-
-  listOrders: (req, res) => {
-    connection.query('SELECT * FROM orders ORDER BY id DESC', (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(results.map(r => ({ ...r, items: JSON.parse(r.items || '[]') })));
-    });
-  },
-
-  updateOrderStatus: (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    connection.query('UPDATE orders SET status = ? WHERE id = ?', [status, id], (err) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ id, status });
-    });
-  },
-
-  // Carrusel
-  createSlide: (req, res) => {
-    const { title, caption, link } = req.body;
-    const image = saveImage(req.file);
-    const sql = 'INSERT INTO carousel (title, caption, link, image) VALUES (?, ?, ?, ?)';
-    connection.query(sql, [title, caption, link, image], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ id: result.insertId, title, caption, link, image });
-    });
-  },
-
-  listSlides: (req, res) => {
-    connection.query('SELECT * FROM carousel ORDER BY id ASC', (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(results);
-    });
-  },
-
-  deleteSlide: (req, res) => {
-    const { id } = req.params;
-    connection.query('SELECT image FROM carousel WHERE id = ?', [id], (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      if (!results.length) return res.status(404).json({ error: 'Slide no encontrado' });
-      const image = results[0].image;
-      connection.query('DELETE FROM carousel WHERE id = ?', [id], (err2) => {
-        if (err2) return res.status(500).json({ error: err2 });
-        if (image) {
-          const imgPath = path.join(__dirname, '..', 'uploads', image);
-          fs.unlink(imgPath, () => {});
-        }
-        res.json({ success: true });
-      });
-    });
-  }
-};
-
-module.exports = sellerController;
+module.exports = new SellerController();

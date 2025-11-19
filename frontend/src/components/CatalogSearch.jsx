@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Box, TextField, InputAdornment, Button, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
 import { useNavigate } from 'react-router-dom';
 
 export default function CatalogSearch({ initialQuery = '' }) {
@@ -16,6 +16,8 @@ export default function CatalogSearch({ initialQuery = '' }) {
     setQ(initialQuery || '');
   }, [initialQuery]);
 
+  const productsService = React.useMemo(() => new ProductsService(), []);
+
   const fetchSuggestions = async (text) => {
     if (!text || text.trim().length === 0) {
       setSuggestions([]);
@@ -23,8 +25,8 @@ export default function CatalogSearch({ initialQuery = '' }) {
       return;
     }
     try {
-      const res = await api.get('/productos');
-      const items = (res.data || []).map(p => p.nombre || p.name || '');
+      const list = await productsService.listPublic();
+      const items = (list || []).map(p => p.nombre || p.name || '');
       const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 8);
       setSuggestions(filtered);
       setShowSug(true);

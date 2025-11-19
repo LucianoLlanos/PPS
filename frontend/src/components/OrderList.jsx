@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import React, { useEffect, useState, useMemo } from 'react';
+import { OrdersAdminService } from '../services/OrdersAdminService';
 import { formatCurrency } from '../utils/format';
 
 export default function OrderList() {
+  const ordersService = useMemo(() => new OrdersAdminService(), []);
   const [orders, setOrders] = useState([]);
   const [filterId, setFilterId] = useState('');
   const [filterCustomer, setFilterCustomer] = useState('');
@@ -15,8 +16,8 @@ export default function OrderList() {
 
   const fetch = async () => {
     try {
-      const res = await api.get('/seller/orders');
-      setOrders(res.data);
+      const res = await ordersService.list().catch(() => []);
+      setOrders(Array.isArray(res) ? res : []);
     } catch {
       // Error silencioso
     }
@@ -29,7 +30,7 @@ export default function OrderList() {
       // try parse JSON, otherwise split by comma
       try { items = JSON.parse(itemsText); } catch { items = itemsText ? itemsText.split(',').map(s => s.trim()).filter(Boolean) : []; }
       const payload = { customer_name: customer, items, total: Number(total || 0), status: 'pending' };
-      await api.post('/seller/orders', payload);
+      await ordersService.create(payload);
       setCustomer(''); setTotal(''); setItemsText('');
       fetch();
     } catch (err) {
@@ -41,7 +42,7 @@ export default function OrderList() {
 
   const changeStatus = async (id, status) => {
     try {
-      await api.put('/seller/orders/' + id + '/status', { status });
+      await ordersService.update(id, { status });
       setOrders(orders.map(o => o.id === id ? { ...o, status } : o));
     } catch {
       // Error silencioso

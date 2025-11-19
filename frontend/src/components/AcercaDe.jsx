@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -19,9 +19,10 @@ import {
   PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import PiramideOrganizacional from './PiramideOrganizacional';
-import axios from '../api/axios';
+import { EmpresaService } from '../services/EmpresaService';
 
 export default function AcercaDe() {
+  const empresaService = useMemo(() => new EmpresaService(), []);
   const [empresaInfo, setEmpresaInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,8 +34,8 @@ export default function AcercaDe() {
   const cargarInfoEmpresa = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/empresa');
-      setEmpresaInfo(response.data);
+      const data = await empresaService.getInfo();
+      setEmpresaInfo(data);
       setError('');
     } catch (err) {
       console.error('Error al cargar información de la empresa:', err);
@@ -46,12 +47,9 @@ export default function AcercaDe() {
 
   const descargarPdf = async () => {
     try {
-      const response = await axios.get('/empresa/pdf', {
-        responseType: 'blob'
-      });
-      
+      const blob = await empresaService.downloadPdf();
       // Crear URL para el blob
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'informacion-empresa.pdf');

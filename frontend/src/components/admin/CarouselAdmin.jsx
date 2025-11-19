@@ -14,9 +14,11 @@ import {
   Visibility as VisibilityIcon,
   DragIndicator as DragIcon
 } from '@mui/icons-material';
-import api from '../../api/axios';
+import { useMemo, useCallback } from 'react';
+import { CarouselService } from '../../services/CarouselService';
 
 export default function CarouselAdmin() {
+  const carouselService = useMemo(() => new CarouselService(), []);
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -36,23 +38,20 @@ export default function CarouselAdmin() {
     fetchBanners();
   }, []);
 
-  const fetchBanners = async () => {
+  const fetchBanners = useCallback(async () => {
     try {
-      const response = await api.get('/carousel/admin');
-      setBanners(response.data || []);
+      const data = await carouselService.listAdmin();
+      setBanners(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error cargando banners:', error);
-      if (error.response?.status === 401) {
-        showSnackbar('Sesión expirada. Por favor, inicia sesión nuevamente.', 'error');
-      } else if (error.response?.status === 403) {
-        showSnackbar('No tienes permisos para acceder a esta sección.', 'error');
-      } else {
-        showSnackbar(`Error cargando banners: ${error.response?.data?.error || error.message}`, 'error');
-      }
+      const status = error?.response?.status;
+      if (status === 401) showSnackbar('Sesión expirada. Por favor, inicia sesión.', 'error');
+      else if (status === 403) showSnackbar('Sin permisos para esta sección.', 'error');
+      else showSnackbar(`Error cargando banners: ${error.response?.data?.error || error.message}`, 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [carouselService]);
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -124,28 +123,20 @@ export default function CarouselAdmin() {
 
     try {
       if (editingBanner) {
-        await api.put(`/carousel/admin/${editingBanner.id}`, submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        showSnackbar('Banner actualizado exitosamente');
+        await carouselService.updateAdmin(editingBanner.id, submitData);
+        showSnackbar('Banner actualizado');
       } else {
-        await api.post('/carousel/admin', submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        showSnackbar('Banner creado exitosamente');
+        await carouselService.uploadAdmin(submitData);
+        showSnackbar('Banner creado');
       }
-      
       fetchBanners();
       handleCloseDialog();
     } catch (error) {
       console.error('Error guardando banner:', error);
-      if (error.response?.status === 401) {
-        showSnackbar('Sesión expirada. Por favor, inicia sesión nuevamente.', 'error');
-      } else if (error.response?.status === 403) {
-        showSnackbar('No tienes permisos para realizar esta acción.', 'error');
-      } else {
-        showSnackbar(`Error guardando banner: ${error.response?.data?.error || error.message}`, 'error');
-      }
+      const status = error?.response?.status;
+      if (status === 401) showSnackbar('Sesión expirada.', 'error');
+      else if (status === 403) showSnackbar('Sin permisos.', 'error');
+      else showSnackbar(`Error guardando banner: ${error.response?.data?.error || error.message}`, 'error');
     }
   };
 
@@ -153,8 +144,8 @@ export default function CarouselAdmin() {
     if (!window.confirm('¿Estás seguro de eliminar este banner?')) return;
 
     try {
-      await api.delete(`/carousel/admin/${id}`);
-      showSnackbar('Banner eliminado exitosamente');
+      await carouselService.removeAdmin(id);
+      showSnackbar('Banner eliminado');
       fetchBanners();
     } catch (error) {
       console.error('Error eliminando banner:', error);
@@ -164,10 +155,8 @@ export default function CarouselAdmin() {
 
   const handleToggleActive = async (id, currentStatus) => {
     try {
-      await api.patch(`/carousel/admin/${id}/estado`, {
-        activo: !currentStatus
-      });
-      showSnackbar(`Banner ${!currentStatus ? 'activado' : 'desactivado'} exitosamente`);
+      await carouselService.toggleEstado(id, !currentStatus);
+      showSnackbar(`Banner ${!currentStatus ? 'activado' : 'desactivado'}`);
       fetchBanners();
     } catch (error) {
       console.error('Error cambiando estado:', error);
@@ -196,24 +185,24 @@ export default function CarouselAdmin() {
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', maxWidth: '100%', height: { xs: '76vh', md: '72vh' } }}>
+        <Table stickyHeader sx={{ background: 'transparent' }}>
           <TableHead>
-            <TableRow>
-              <TableCell>Imagen</TableCell>
-              <TableCell>Título</TableCell>
-              <TableCell>Descripción</TableCell>
-              <TableCell>Orden</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Acciones</TableCell>
+            <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)' }}>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Imagen</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Título</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Descripción</TableCell>
+              <TableCell className="tnum num-right" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Orden</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {banners.map((banner) => (
-              <TableRow key={banner.id}>
+            {banners.map((banner, idx) => (
+              <TableRow key={banner.id} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
                 <TableCell>
                   <Avatar
-                    src={`http://localhost:3000/uploads/${banner.imagen}`}
+                    src={(process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000') + '/uploads/' + banner.imagen}
                     variant="rounded"
                     sx={{ width: 80, height: 60 }}
                   />
@@ -233,14 +222,7 @@ export default function CarouselAdmin() {
                     {banner.descripcion || '-'}
                   </Typography>
                 </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={banner.orden} 
-                    size="small" 
-                    color="primary" 
-                    variant="outlined" 
-                  />
-                </TableCell>
+                <TableCell className="tnum num-right">{banner.orden}</TableCell>
                 <TableCell>
                   <Switch
                     checked={banner.activo}
@@ -253,7 +235,7 @@ export default function CarouselAdmin() {
                     <Tooltip title="Ver">
                       <IconButton 
                         size="small"
-                        onClick={() => window.open(`http://localhost:3000/uploads/${banner.imagen}`, '_blank')}
+                        onClick={() => window.open((process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000') + '/uploads/' + banner.imagen, '_blank')}
                       >
                         <VisibilityIcon />
                       </IconButton>
@@ -302,7 +284,7 @@ export default function CarouselAdmin() {
       )}
 
       {/* Dialog for creating/editing banners */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth disableScrollLock>
         <DialogTitle>
           {editingBanner ? 'Editar Banner' : 'Nuevo Banner'}
         </DialogTitle>

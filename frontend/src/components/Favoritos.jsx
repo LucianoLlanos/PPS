@@ -2,13 +2,14 @@ import React, { useEffect } from 'react';
 import { Box, Typography, Grid, Alert, CircularProgress, Button, Container } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import ProductCardClean from './ProductCardClean';
+import ProductCardModern from './ProductCardModern';
 import useFavoritesStore from '../store/useFavoritesStore';
 import useAuthStore from '../store/useAuthStore';
+import cart from '../utils/cart';
 import { useNavigate } from 'react-router-dom';
 
 export default function Favoritos() {
-  const { favorites, loading, error, loadFavorites, clearError } = useFavoritesStore();
+  const { favorites, loading, error, loadFavorites, clearError, toggleFavorite, isFavorite } = useFavoritesStore();
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
@@ -19,16 +20,19 @@ export default function Favoritos() {
     }
   }, [user, loadFavorites]);
 
-  // Función para ver detalle del producto
+  // Ver detalle
   const handleViewProduct = (product) => {
-    // Aquí puedes implementar la lógica para mostrar el detalle del producto
-    console.log('Ver producto:', product);
+    navigate(`/productos/${product.idProducto || product.id}`, { state: { product } });
   };
 
-  // Función para agregar al carrito
+  // Agregar al carrito con validaciones similares a HomeProducts
   const handleAddToCart = (product) => {
-    // Aquí puedes integrar con el store del carrito
-    console.log('Agregar al carrito:', product);
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (Number(user.idRol) === 3) return; // Evitar que admin use carrito
+    cart.addToCart(product, 1);
   };
 
   if (!user) {
@@ -114,13 +118,15 @@ export default function Favoritos() {
           </Button>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={1.5} sx={{ justifyContent: 'center' }}>
           {favorites.map((product, index) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={product.idProducto || product.id || index}>
-              <ProductCardClean
+            <Grid item key={product.idProducto || product.id || index} xs={6} sm={4} md={3} lg={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <ProductCardModern
                 product={product}
-                onView={handleViewProduct}
-                onAdd={handleAddToCart}
+                onAdd={() => handleAddToCart(product)}
+                onView={() => handleViewProduct(product)}
+                onToggleFavorite={() => toggleFavorite(product)}
+                isFavorite={isFavorite(product.idProducto || product.id)}
               />
             </Grid>
           ))}

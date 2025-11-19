@@ -1,66 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const adminController = require('../controllers/adminController.js');
+const { makeDiskStorage } = require('../core/uploads');
+// Controladores por dominio
+const UsersAdminController = require('../controllers/admin/UsersAdminController');
+const ProductsAdminController = require('../controllers/admin/ProductsAdminController');
+const OrdersAdminController = require('../controllers/admin/OrdersAdminController');
+const StockAdminController = require('../controllers/admin/StockAdminController');
+const SucursalesAdminController = require('../controllers/admin/SucursalesAdminController');
+const ClientsAdminController = require('../controllers/admin/ClientsAdminController');
+const ServiciosPostventaController = require('../controllers/admin/ServiciosPostventaController');
+const AnalyticsAdminController = require('../controllers/admin/AnalyticsAdminController');
 
 // Multer setup para subida de imágenes
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '..', 'uploads'));
-  },
-  filename: function (req, file, cb) {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, unique + ext);
-  }
-});
+const storage = makeDiskStorage('.');
 const upload = multer({ storage });
 
 // Usuarios
-router.get('/usuarios', adminController.listarUsuarios);
-router.post('/usuarios', adminController.crearUsuario);
-router.put('/usuarios/:id', adminController.actualizarUsuario);
-router.delete('/usuarios/:id', adminController.eliminarUsuario);
+router.get('/usuarios', UsersAdminController.listarUsuarios);
+router.post('/usuarios', UsersAdminController.crearUsuario);
+router.put('/usuarios/:id(\\d+)', UsersAdminController.actualizarUsuario);
+router.delete('/usuarios/:id(\\d+)', UsersAdminController.eliminarUsuario);
 
 // Productos (con soporte de múltiples imágenes)
-router.get('/productos', adminController.listarProductos);
-router.post('/productos', upload.array('imagenes', 5), adminController.crearProducto); // Máximo 5 imágenes
-router.put('/productos/:id', upload.array('imagenes', 5), adminController.actualizarProducto);
-router.delete('/productos/:id', adminController.eliminarProducto);
+router.get('/productos', ProductsAdminController.listarProductos);
+router.get('/productos/:id(\\d+)', ProductsAdminController.verProductoAdmin);
+router.post('/productos', upload.array('imagenes', 5), ProductsAdminController.crearProducto); // Máximo 5 imágenes
+router.put('/productos/:id(\\d+)', upload.array('imagenes', 5), ProductsAdminController.actualizarProducto);
+router.delete('/productos/:id(\\d+)', ProductsAdminController.eliminarProducto);
 
 // Pedidos
-router.get('/pedidos', adminController.listarPedidos);
-router.post('/pedidos', adminController.crearPedido);
+router.get('/pedidos', OrdersAdminController.listarPedidos);
+router.post('/pedidos', OrdersAdminController.crearPedido);
 // Asegurar que los endpoints que toman :id sólo acepten IDs numéricos (evita colisiones con rutas como /pedidos/summary)
-router.get('/pedidos/:id(\\d+)', adminController.verDetallePedido);
-router.delete('/pedidos/:id(\\d+)', adminController.eliminarPedido);
-router.put('/pedidos/:id(\\d+)', adminController.actualizarPedido);
+router.get('/pedidos/:id(\\d+)', OrdersAdminController.verDetallePedido);
+router.delete('/pedidos/:id(\\d+)', OrdersAdminController.eliminarPedido);
+router.put('/pedidos/:id(\\d+)', OrdersAdminController.actualizarPedido);
 
 // Ventas (alias de pedidos para compatibilidad frontend)
-router.get('/ventas', adminController.listarPedidos);
-router.post('/ventas', adminController.crearPedido);
+router.get('/ventas', OrdersAdminController.listarPedidos);
+router.post('/ventas', OrdersAdminController.crearPedido);
 // Analytics de ventas (solo pedidos con estado 'Entregado')
-router.get('/ventas/summary', adminController.ventasSummary);
-router.get('/ventas/timeseries', adminController.ventasTimeseries);
-router.get('/ventas/top-products', adminController.ventasTopProducts);
-router.get('/ventas/:id(\\d+)', adminController.verDetallePedido);
-router.delete('/ventas/:id(\\d+)', adminController.eliminarPedido);
-router.put('/ventas/:id(\\d+)', adminController.actualizarPedido);
+router.get('/ventas/summary', AnalyticsAdminController.ventasSummary);
+router.get('/ventas/timeseries', AnalyticsAdminController.ventasTimeseries);
+router.get('/ventas/top-products', AnalyticsAdminController.ventasTopProducts);
+router.get('/ventas/:id(\\d+)', OrdersAdminController.verDetallePedido);
+router.delete('/ventas/:id(\\d+)', OrdersAdminController.eliminarPedido);
+router.put('/ventas/:id(\\d+)', OrdersAdminController.actualizarPedido);
 // (Las rutas de analytics ya están registradas más arriba; evitar duplicados)
 
 // Sucursales, clientes, servicios
-router.get('/sucursales', adminController.listarSucursales);
-router.get('/clientes', adminController.listarClientes);
-router.get('/clientes/:id', adminController.verCliente);
-router.put('/clientes/:id', adminController.actualizarCliente);
-router.get('/servicios', adminController.listarServicios);
-router.get('/stock_sucursal', adminController.listarStockSucursal);
+router.get('/sucursales', SucursalesAdminController.listarSucursales);
+router.get('/clientes', ClientsAdminController.listarClientes);
+router.get('/clientes/:id', ClientsAdminController.verCliente);
+router.put('/clientes/:id', ClientsAdminController.actualizarCliente);
+router.get('/servicios', ServiciosPostventaController.listarServicios);
+router.get('/stock_sucursal', StockAdminController.listarStockSucursal);
 // Actualizar stock por sucursal (idSucursal, idProducto)
-router.put('/stock_sucursal/:idSucursal/:idProducto', adminController.actualizarStockSucursal);
+router.put('/stock_sucursal/:idSucursal(\\d+)/:idProducto(\\d+)', StockAdminController.actualizarStockSucursal);
 // Backfill para crear filas faltantes en stock_sucursal
-router.post('/stock_sucursal/backfill', adminController.backfillStockSucursales);
+router.post('/stock_sucursal/backfill', StockAdminController.backfillStockSucursales);
 // Reconciliar stockTotal de un producto con stock_sucursal
-router.post('/productos/:idProducto/reconcile', adminController.reconcileStockProducto);
+router.post('/productos/:idProducto(\\d+)/reconcile', StockAdminController.reconcileStockProducto);
 
 module.exports = router;

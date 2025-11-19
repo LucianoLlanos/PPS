@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import api from '../api/axios';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ServiciosService } from '../services/ServiciosService';
 import {
   Container,
   Grid,
@@ -28,8 +28,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import '../stylos/admin/ServiciosAdmin.css';
 import { STATUSES, getStatusInfo } from '../utils/statusColors';
+import StatusPill from './StatusPill';
 
 function ServiciosAdmin() {
+  const serviciosService = useMemo(() => new ServiciosService(), []);
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -57,8 +59,8 @@ function ServiciosAdmin() {
   const cargarServicios = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/servicios/admin/todas');
-      setServicios(response.data || []);
+      const data = await serviciosService.listAdmin();
+      setServicios(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       setError('Error al cargar los servicios');
@@ -147,7 +149,7 @@ function ServiciosAdmin() {
   const handleCambiarEstado = async () => {
     if (!editandoServicio || !nuevoEstado) return;
     try {
-      await api.put(`/servicios/admin/solicitud/${editandoServicio.idSolicitud}`, { estado: nuevoEstado, observacionesAdmin: observaciones });
+      await serviciosService.updateAdmin(editandoServicio.idSolicitud, { estado: nuevoEstado, observacionesAdmin: observaciones });
       setSuccess('Estado actualizado correctamente');
       setEditandoServicio(null); setNuevoEstado(''); setObservaciones('');
       cargarServicios();
@@ -249,7 +251,7 @@ function ServiciosAdmin() {
                     <CardHeader
                     title={`Solicitud #${servicio.idSolicitud}`}
                     subheader={`Creado: ${formatearFecha(servicio.fechaCreacion)}`}
-                    action={<Chip label={estadoInfo.label} className={`estado-chip chip-${servicio.estado} estado-chip-header`} />}
+                    action={<StatusPill value={servicio.estado} label={estadoInfo.label} />}
                   />
                   <CardContent className="servicio-card-content">
                     <Grid container spacing={1}>
@@ -264,7 +266,9 @@ function ServiciosAdmin() {
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="subtitle2">Tipo de Servicio</Typography>
-                        <Chip label={tiposServicio[servicio.tipoServicio] || servicio.tipoServicio} color="info" className="chip-tipo" />
+                        <Box sx={{ display: 'inline-block' }}>
+                          <StatusPill value="tipo" label={tiposServicio[servicio.tipoServicio] || servicio.tipoServicio} />
+                        </Box>
                         <Typography variant="subtitle2">Descripción</Typography>
                         <ExpandableText text={servicio.descripcion || ''} lines={3} className="servicios-history-description" />
                         {(servicio.fechaPreferida || servicio.horaPreferida) && (
@@ -296,7 +300,7 @@ function ServiciosAdmin() {
       )}
 
       {/* Dialog de edición */}
-      <Dialog open={!!editandoServicio} onClose={cerrarModal} fullWidth maxWidth="sm">
+      <Dialog open={!!editandoServicio} onClose={cerrarModal} fullWidth maxWidth="sm" disableScrollLock>
         <DialogTitle>Cambiar Estado - {editandoServicio ? `Solicitud #${editandoServicio.idSolicitud}` : ''}</DialogTitle>
         <DialogContent dividers>
           {editandoServicio && (
@@ -315,7 +319,7 @@ function ServiciosAdmin() {
               </div>
               <div>
                 <Typography variant="caption" color="text.secondary">Nuevo estado</Typography>
-                <Select fullWidth value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}>
+                <Select fullWidth value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)} MenuProps={{ disableScrollLock: true }}>
                   {STATUSES.map(st => <MenuItem key={st.value} value={st.value}>{st.label}</MenuItem>)}
                 </Select>
               </div>

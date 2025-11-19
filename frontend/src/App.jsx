@@ -7,6 +7,8 @@ import Clientes from './components/Clientes';
 import Login from './components/Login';
 import Register from './components/Register';
 import HomeProducts from './components/HomeProducts';
+import PageFade from './components/PageFade';
+import ProductDetail from './components/ProductDetail';
 import Cart from './components/Cart';
 import Favoritos from './components/Favoritos';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
@@ -18,8 +20,11 @@ import CarouselAdmin from './components/admin/CarouselAdmin';
 import NotFound from './components/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
+import GlobalSnackbar from './components/GlobalSnackbar';
 import Footer from './components/Footer';
 import PageWrapper from './components/PageWrapper';
+import FloatingQuickMenu from './components/FloatingQuickMenu';
+import RouteScroller from './components/RouteScroller';
 import './App.css';
 
 import useAuthStore from './store/useAuthStore';
@@ -57,17 +62,27 @@ function App() {
   
   return (
     <Router>
+      <RouteScroller behavior="smooth" />
       <Header />
+      <GlobalSnackbar />
+      {/* Menú flotante global abajo a la derecha */}
+      <FloatingQuickMenu
+        whatsapp={import.meta.env.VITE_WHATSAPP_PHONE}
+        instagram={import.meta.env.VITE_INSTAGRAM_HANDLE}
+      />
       <Routes>
         {/* Rutas públicas principales */}
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<PageWrapper><Login onLogin={handleLogin} /></PageWrapper>} />
+        <Route path="/register" element={<PageWrapper><Register /></PageWrapper>} />
         
         {/* Rutas con layout principal */}
         <Route path="/*" element={
           <Routes>
             {/* Vista principal pública - Sin contenedor para permitir carrusel full-width */}
-            <Route path="/" element={<HomeProducts />} />
+            <Route path="/" element={<PageFade><HomeProducts /></PageFade>} />
+            {/* Alias singular y plural para compatibilidad */}
+            <Route path="/producto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
+            <Route path="/productos/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
             
             {/* Otras rutas con contenedor normal */}
             <Route path="/carrito" element={<PageWrapper><Cart /></PageWrapper>} />

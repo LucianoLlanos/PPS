@@ -1,3 +1,4 @@
+// Monolithic adminController obsoleto: usar controladores modulares en ./admin/*
 const { connection } = require('../db/DB');
 const bcrypt = require('bcryptjs');
 
@@ -20,146 +21,11 @@ const crearUsuario = (req, res) => {
   connection.query('SELECT * FROM usuarios WHERE email=?', [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al validar email' });
     if (results.length > 0) return res.status(409).json({ error: 'El email ya está registrado' });
-    const hashedPwd = bcrypt.hashSync(password, 10);
-    const query =
-      'INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)';
-    connection.query(query, [nombre, apellido, email, hashedPwd, idRol], (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Error al crear usuario' });
-      const newUserId = result.insertId;
-      // Si el rol es Cliente (1), crear también la fila en clientes con direccion/telefono opcionales
-      if (Number(idRol) === 1) {
-        connection.query(
-          'INSERT INTO clientes (idUsuario, direccion, telefono) VALUES (?, ?, ?)',
-          [newUserId, direccion || null, telefono || null],
-          (errCli) => {
-            if (errCli) {
-              // Intentar borrar el usuario creado para no dejar datos inconsistentes
-              connection.query('DELETE FROM usuarios WHERE idUsuario=?', [newUserId], () => {
-                return res
-                  .status(500)
-                  .json({ error: 'Error al crear registro de cliente, usuario no creado' });
-              });
-            } else {
-              registrarHistorial(
-                'usuarios',
-                newUserId,
-                'crear',
-                email,
-                `Usuario cliente creado: ${nombre} ${apellido}`
-              );
-              return res.json({ mensaje: 'Usuario creado', id: newUserId });
-            }
-          }
-        );
-      } else {
-        registrarHistorial(
-          'usuarios',
-          newUserId,
-          'crear',
-          email,
-          `Usuario creado: ${nombre} ${apellido}`
-        );
-        return res.json({ mensaje: 'Usuario creado', id: newUserId });
-      }
-    });
-  });
-};
+    // Archivo obsoleto: la lógica administrativa ha sido migrada a controladores modulares en ./admin/*.
+    // Se deja este stub vacío para evitar referencias rotas durante la transición post-merge.
+    // No utilizar este controlador; preferir los nuevos controladores específicos.
 
-const actualizarUsuario = (req, res) => {
-  const { id } = req.params;
-  const { nombre, apellido, email, password, idRol, direccion, telefono } = req.body;
-  // Validar existencia
-  connection.query('SELECT * FROM usuarios WHERE idUsuario=?', [id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar usuario' });
-    if (results.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    // Si no se envía password en el body, conservar la existente
-    const currentPassword = results[0].password;
-    const pwdToUse =
-      typeof password !== 'undefined' && password !== null && password !== ''
-        ? bcrypt.hashSync(password, 10)
-        : currentPassword;
-    const query =
-      'UPDATE usuarios SET nombre=?, apellido=?, email=?, password=?, idRol=? WHERE idUsuario=?';
-    connection.query(query, [nombre, apellido, email, pwdToUse, idRol, id], (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Error al actualizar usuario' });
-
-      // Si el rol es Cliente, asegurar que exista/actualizar la fila en clientes con direccion/telefono
-      if (Number(idRol) === 1) {
-        connection.query('SELECT * FROM clientes WHERE idUsuario=?', [id], (errC, rowsC) => {
-          if (errC) return res.status(500).json({ error: 'Error al buscar datos de cliente' });
-          if (rowsC && rowsC.length > 0) {
-            connection.query(
-              'UPDATE clientes SET direccion=?, telefono=? WHERE idUsuario=?',
-              [direccion || null, telefono || null, id],
-              (errU) => {
-                if (errU)
-                  return res.status(500).json({ error: 'Error al actualizar datos de cliente' });
-                registrarHistorial(
-                  'usuarios',
-                  id,
-                  'actualizar',
-                  email,
-                  `Usuario cliente actualizado: ${nombre} ${apellido}`
-                );
-                return res.json({ mensaje: 'Usuario actualizado' });
-              }
-            );
-          } else {
-            connection.query(
-              'INSERT INTO clientes (idUsuario, direccion, telefono) VALUES (?, ?, ?)',
-              [id, direccion || null, telefono || null],
-              (errI) => {
-                if (errI)
-                  return res.status(500).json({ error: 'Error al crear registro de cliente' });
-                registrarHistorial(
-                  'usuarios',
-                  id,
-                  'actualizar',
-                  email,
-                  `Usuario cliente actualizado/creado: ${nombre} ${apellido}`
-                );
-                return res.json({ mensaje: 'Usuario actualizado' });
-              }
-            );
-          }
-        });
-      } else {
-        // Si no es cliente, solo registrar historial y responder
-        registrarHistorial(
-          'usuarios',
-          id,
-          'actualizar',
-          email,
-          `Usuario actualizado: ${nombre} ${apellido}`
-        );
-        return res.json({ mensaje: 'Usuario actualizado' });
-      }
-    });
-  });
-};
-
-const eliminarUsuario = (req, res) => {
-  const { id } = req.params;
-  // Realizar todo dentro de una transacción para mantener consistencia
-  connection.beginTransaction((trxErr) => {
-    if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-
-    connection.query('SELECT * FROM usuarios WHERE idUsuario=?', [id], (err, users) => {
-      if (err) return connection.rollback(() => res.status(500).json({ error: 'Error al buscar usuario' }));
-      if (!users || users.length === 0) return connection.rollback(() => res.status(404).json({ error: 'Usuario no encontrado' }));
-
-      const user = users[0];
-      const email = user.email;
-
-      // 1) Borrar favoritos del usuario (si existen) para evitar FK
-      connection.query('DELETE FROM user_favorites WHERE idUsuario = ?', [id], (favErr) => {
-        if (favErr) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar favoritos del usuario' }));
-
-        // 2) Si es Cliente o existe entrada en clientes, validar pedidos y eliminar registro de clientes
-        const handleCliente = () => {
-          connection.query('SELECT idCliente FROM clientes WHERE idUsuario = ? LIMIT 1', [id], (cliErr, cliRows) => {
-            if (cliErr) return connection.rollback(() => res.status(500).json({ error: 'Error al buscar cliente asociado' }));
-
+    module.exports = { deprecated: true };
             if (!cliRows || cliRows.length === 0) {
               // No es cliente: continuar a borrar el usuario
               return deleteUsuario();

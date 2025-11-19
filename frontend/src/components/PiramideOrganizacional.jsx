@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -14,9 +14,10 @@ import {
   Person as PersonIcon,
   Business as BusinessIcon
 } from '@mui/icons-material';
-import axios from '../api/axios';
+import { EmpresaService } from '../services/EmpresaService';
 
 const PiramideOrganizacional = ({ editable = false, onCargoClick = null }) => {
+  const empresaService = useMemo(() => new EmpresaService(), []);
   const [organizacion, setOrganizacion] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,8 +29,8 @@ const PiramideOrganizacional = ({ editable = false, onCargoClick = null }) => {
   const cargarOrganizacion = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/empresa/organizacion');
-      setOrganizacion(response.data);
+      const data = await empresaService.getOrganizacion();
+      setOrganizacion(data || {});
       setError('');
     } catch (err) {
       console.error('Error al cargar organización:', err);

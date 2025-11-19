@@ -9,7 +9,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 // Rutas de favoritos
 router.get('/', authMiddleware, favoritesController.getUserFavorites);
 router.post('/', authMiddleware, favoritesController.addToFavorites);
-router.delete('/:idProducto', authMiddleware, favoritesController.removeFromFavorites);
-router.get('/:idProducto/check', authMiddleware, favoritesController.isFavorite);
+router.delete('/:idProducto(\\d+)', authMiddleware, favoritesController.removeFromFavorites);
+router.get('/:idProducto(\\d+)/check', authMiddleware, favoritesController.isFavorite);
 
 module.exports = router;

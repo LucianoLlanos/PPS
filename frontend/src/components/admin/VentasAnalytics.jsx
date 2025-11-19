@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import api from '../../api/axios';
+import { AnalyticsService } from '../../services/AnalyticsService';
+import { SucursalesService } from '../../services/SucursalesService';
 import { Box, Typography, Grid, Paper, Button, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import {
   ResponsiveContainer,
@@ -20,25 +21,22 @@ export default function VentasAnalytics() {
   const [selectedSucursal, setSelectedSucursal] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  const analyticsService = React.useMemo(() => new AnalyticsService(), []);
+  const sucursalesService = React.useMemo(() => new SucursalesService(), []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
       if (selectedSucursal) params.idSucursal = selectedSucursal;
-
-      const qs = (obj) => {
-        const entries = Object.entries(obj).map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
-        return entries.length ? `?${entries.join('&')}` : '';
-      };
-
-      const [sRes, tRes, pRes] = await Promise.all([
-        api.get('/admin/ventas/summary' + qs(params)),
-        api.get('/admin/ventas/timeseries' + qs(params)),
-        api.get('/admin/ventas/top-products' + qs({...params, limit: 10}))
+      const [summaryData, tsData, topData] = await Promise.all([
+        analyticsService.summary(params),
+        analyticsService.timeseries(params),
+        analyticsService.topProducts({ ...params, limit: 10 })
       ]);
-      setSummary(sRes.data);
-      setTimeseries(tRes.data || []);
-      setTopProducts(pRes.data || []);
+      setSummary(summaryData);
+      setTimeseries(tsData || []);
+      setTopProducts(topData || []);
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error cargando analytics', err);
@@ -50,9 +48,9 @@ export default function VentasAnalytics() {
   // Cargar lista de sucursales para el selector
   useEffect(() => {
     let mounted = true;
-    api.get('/admin/sucursales').then(res => { if (mounted) setSucursales(res.data || []); }).catch(() => {});
+    sucursalesService.list().then(data => { if (mounted) setSucursales(data || []); }).catch(() => {});
     return () => { mounted = false; };
-  }, []);
+  }, [sucursalesService]);
 
   // Export CSV helper
   const exportCSV = () => {

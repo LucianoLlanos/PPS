@@ -1,14 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import React, { useEffect, useState, useMemo } from 'react';
+import { OrdersAdminService } from '../services/OrdersAdminService';
+import { SucursalesService } from '../services/SucursalesService';
+import { UsersAdminService } from '../services/UsersAdminService';
+import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { getStatusInfo } from '../utils/statusColors';
+import StatusPill from './StatusPill';
 
 function Pedidos() {
+  const ordersService = useMemo(() => new OrdersAdminService(), []);
+  const sucursalesService = useMemo(() => new SucursalesService(), []);
+  const usersService = useMemo(() => new UsersAdminService(), []);
+  const productsService = useMemo(() => new ProductsService(), []);
   const [pedidos, setPedidos] = useState([]);
   // filtros por columna
   const [filterId, setFilterId] = useState('');
@@ -21,6 +30,7 @@ function Pedidos() {
   const [filterTotalMin, setFilterTotalMin] = useState('');
   const [filterTotalMax, setFilterTotalMax] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
+  const [filterMetodoPago, setFilterMetodoPago] = useState('');
   const [error, setError] = useState(null);
   // fieldErrors eliminado porque no se usa actualmente
   const [deletePedido, setDeletePedido] = useState(null);
@@ -38,17 +48,17 @@ function Pedidos() {
     let mounted = true;
     const load = async () => {
       try {
-        const [resPedidos, resSucursales, resUsuarios, resProductos] = await Promise.all([
-          api.get('/admin/pedidos').catch(() => ({ data: [] })),
-          api.get('/admin/sucursales').catch(() => ({ data: [] })),
-          api.get('/admin/usuarios').catch(() => ({ data: [] })),
-          api.get('/admin/productos').catch(() => ({ data: [] })),
+        const [listPedidos, listSucursales, listUsuarios, listProductos] = await Promise.all([
+          ordersService.list().catch(() => []),
+          sucursalesService.list().catch(() => []),
+          usersService.list().catch(() => []),
+          productsService.listAdmin().catch(() => []),
         ]);
         if (!mounted) return;
-        setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
-        setSucursales(Array.isArray(resSucursales.data) ? resSucursales.data : []);
-        setUsuarios(Array.isArray(resUsuarios.data) ? resUsuarios.data : []);
-        setProductosList(Array.isArray(resProductos.data) ? resProductos.data : []);
+        setPedidos(Array.isArray(listPedidos) ? listPedidos : []);
+        setSucursales(Array.isArray(listSucursales) ? listSucursales : []);
+        setUsuarios(Array.isArray(listUsuarios) ? listUsuarios : []);
+        setProductosList(Array.isArray(listProductos) ? listProductos : []);
       } catch (e) {
         console.error(e);
         setError('No se pudieron cargar los datos');
@@ -56,10 +66,10 @@ function Pedidos() {
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [ordersService, sucursalesService, usersService, productsService]);
 
   const clearFilters = () => {
-    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado('');
+    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(''); setFilterMetodoPago('');
   };
 
   // Popover para filtros
@@ -75,8 +85,12 @@ function Pedidos() {
   if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${filterFechaFrom || '-'}..${filterFechaTo || '-'}` });
   if (filterTotalMin || filterTotalMax) activeFilters.push({ key: 'Total', val: `${filterTotalMin || '-'}..${filterTotalMax || '-'}` });
   if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado });
+  if (filterMetodoPago) activeFilters.push({ key: 'Pago', val: filterMetodoPago });
 
   const displayedPedidos = pedidos.filter(p => {
+    // Ocultar pedidos Entregados a menos que el filtro de estado sea exactamente 'Entregado'
+    if (!filterEstado && p.estado === 'Entregado') return false;
+    if (filterEstado && filterEstado !== 'Entregado' && p.estado === 'Entregado') return false;
     if (filterId && !String(p.idPedido).includes(filterId)) return false;
     if (filterProducto) {
       const found = (p.productos || []).some(prod => (prod.nombre || '').toLowerCase().includes(filterProducto.toLowerCase()));
@@ -101,30 +115,23 @@ function Pedidos() {
       to.setHours(23,59,59,999);
       if (new Date(p.fecha) > to) return false;
     }
+    if (filterMetodoPago) {
+      const metodo = (p.metodoPago || 'No especificado').toLowerCase();
+      if (!metodo.includes(filterMetodoPago.toLowerCase())) return false;
+    }
     if (filterTotalMin && Number(p.total) < Number(filterTotalMin)) return false;
     if (filterTotalMax && Number(p.total) > Number(filterTotalMax)) return false;
     if (filterEstado && ((p.estado || '') !== filterEstado)) return false;
     return true;
   });
 
-  const renderStatusValue = (value) => {
-    const info = getStatusInfo(value);
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
-        <Box component="span" sx={{ color: info.color, fontWeight: 600, fontSize: '0.95rem' }}>{info.label || value}</Box>
-      </Box>
-    );
-  };
+  const renderStatusValue = (value) => <StatusPill value={value} variant="inline" />;
 
   const renderStatusMenuItem = (value, label) => {
     const info = getStatusInfo(value);
     return (
-      <MenuItem value={value} key={value}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: info.bg, border: `2px solid ${info.color}` }} />
-          <Box component="span" sx={{ color: info.color }}>{label}</Box>
-        </Box>
+      <MenuItem value={value} key={value} sx={{ my: 0.25 }}>
+        <StatusPill value={value} label={label} />
       </MenuItem>
     );
   };
@@ -134,7 +141,7 @@ function Pedidos() {
     try {
       // Optimistic update
       setPedidos(prev => prev.map(p => p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p));
-      await api.put(`/admin/pedidos/${pedido.idPedido}`, { ...pedido, estado: nuevoEstado }).catch(() => null);
+      await ordersService.update(pedido.idPedido, { ...pedido, estado: nuevoEstado }).catch(() => null);
       setSuccess('Estado actualizado');
       setOpenSnackbar(true);
     } catch (e) {
@@ -150,7 +157,7 @@ function Pedidos() {
   const confirmDelete = async () => {
     if (!deletePedido) return;
     try {
-      await api.delete(`/admin/pedidos/${deletePedido.idPedido}`).catch(() => null);
+      await ordersService.remove(deletePedido.idPedido).catch(() => null);
       setPedidos(prev => prev.filter(p => p.idPedido !== deletePedido.idPedido));
       setDeletePedido(null);
       setSuccess('Pedido eliminado');
@@ -192,11 +199,11 @@ function Pedidos() {
       };
 
       // Enviar al backend y refrescar la lista real desde el servidor
-      const postRes = await api.post('/admin/pedidos', payload);
-      if (postRes && (postRes.status === 200 || postRes.status === 201)) {
+      const postRes = await ordersService.create(payload);
+      if (postRes) {
         try {
-          const resPedidos = await api.get('/admin/pedidos');
-          setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
+          const refreshed = await ordersService.list();
+          setPedidos(Array.isArray(refreshed) ? refreshed : []);
         } catch (e) {
           // no bloquear si falla el refresh
           console.error('Error refrescando pedidos después de crear:', e);
@@ -260,6 +267,7 @@ function Pedidos() {
                 if (f.key === 'Fecha') { setFilterFechaFrom(''); setFilterFechaTo(''); }
                 if (f.key === 'Total') { setFilterTotalMin(''); setFilterTotalMax(''); }
                 if (f.key === 'Estado') setFilterEstado('');
+                if (f.key === 'Pago') setFilterMetodoPago('');
               }} />
             ))}
           </Stack>
@@ -269,16 +277,18 @@ function Pedidos() {
       {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
       </Snackbar>}
-      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100vw', overflowX: 'auto', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
-        <Table sx={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
-          <TableHead>
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', overflow: 'hidden', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' } }}>
+        <Box sx={{ overflow: 'auto', flex: 1 }}>
+        <Table stickyHeader sx={{ width: '100%', minWidth: 960, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
+          <TableHead sx={{ position: 'sticky', top: 0, zIndex: 5 }}>
         <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }} className="tnum num-right">ID</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Productos</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Usuario</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Cantidades</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Total</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Forma de Pago</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }} className="tnum num-right">Total</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
             </TableRow>
@@ -287,7 +297,7 @@ function Pedidos() {
           <TableBody>
             {displayedPedidos.map((p, idx) => (
               <TableRow key={p.idPedido} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{p.idPedido}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{p.idPedido}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{p.productos.map((prod, i) => (<div key={i}>{prod.nombre} <span style={{ color: '#6b7280' }}>(x{prod.cantidad})</span></div>))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
@@ -298,13 +308,42 @@ function Pedidos() {
                   </Box>
                 </TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{formatCurrency(Number(p.total || 0))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {p.metodoPago || 'No especificado'}
+                    </Typography>
+                    {p.cuotas && Number(p.cuotas) > 1 && (
+                      <Typography variant="caption" color="text.secondary">
+                        {p.cuotas} cuotas {p.interes > 0 && `(${p.interes}% int.)`}
+                      </Typography>
+                    )}
+                    {p.descuento && Number(p.descuento) > 0 && (
+                      <Typography variant="caption" color="success.main" display="block">
+                        {p.descuento}% desc.
+                      </Typography>
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
+                <TableCell sx={{ py: 1.2, px: 2 }}>
+                  <FormControl size="small" sx={{ minWidth: 170 }}>
                     <Select
                       value={p.estado || 'Pendiente'}
                       onChange={e => handleEstado(p, e.target.value)}
                       renderValue={renderStatusValue}
+                      MenuProps={{
+                        disableScrollLock: true,
+                        MenuListProps: { dense: true },
+                        PaperProps: { sx: { borderRadius: 2, boxShadow: '0 14px 34px rgba(15,23,42,0.18)', px: 1, py: 1 } }
+                      }}
+                      sx={{
+                        '.MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '.MuiSelect-select': { py: 0.6, display: 'flex', alignItems: 'center' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                        '.MuiSelect-icon': { color: '#6b7280' }
+                      }}
                     >
                       {renderStatusMenuItem('Pendiente', 'Pendiente')}
                       {renderStatusMenuItem('En Proceso', 'En Proceso')}
@@ -315,17 +354,20 @@ function Pedidos() {
                   </FormControl>
                 </TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <Button variant="contained" color="error" size="small" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2, py: 0.7, fontSize: '0.97rem' }} onClick={() => handleDelete(p)}>
-                    Eliminar
-                  </Button>
+                  <Tooltip title="Eliminar pedido">
+                    <IconButton color="error" size="small" onClick={() => handleDelete(p)}>
+                      <DeleteOutlineIcon />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </Box>
       </TableContainer>
 
-      <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+      <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableScrollLock>
         <Box sx={{ p: 2, width: 420 }}>
           <Typography sx={{ fontWeight: 600, mb: 1 }}>Filtros</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
@@ -334,13 +376,23 @@ function Pedidos() {
             <TextField size="small" label="Usuario" value={filterUsuario} onChange={e => setFilterUsuario(e.target.value)} />
             <FormControl size="small">
               <InputLabel>Estado</InputLabel>
-              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')}>
+              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')} MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">(todos)</MenuItem>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
                 {renderStatusMenuItem('Enviado', 'Enviado')}
                 {renderStatusMenuItem('Entregado', 'Entregado')}
                 {renderStatusMenuItem('Cancelado', 'Cancelado')}
+              </Select>
+            </FormControl>
+            <FormControl size="small">
+              <InputLabel>Método de pago</InputLabel>
+              <Select value={filterMetodoPago} onChange={e => setFilterMetodoPago(e.target.value)} label="Método de pago" MenuProps={{ disableScrollLock: true }}>
+                <MenuItem value="">(todos)</MenuItem>
+                <MenuItem value="Efectivo">Efectivo</MenuItem>
+                <MenuItem value="Tarjeta de crédito">Tarjeta de crédito</MenuItem>
+                <MenuItem value="Tarjeta de débito">Tarjeta de débito</MenuItem>
+                <MenuItem value="Transferencia">Transferencia</MenuItem>
               </Select>
             </FormControl>
             <TextField size="small" label="Cant. min" value={filterCantidadMin} onChange={e => setFilterCantidadMin(e.target.value)} />
@@ -358,14 +410,14 @@ function Pedidos() {
       </Popover>
 
       {/* Modal Alta */}
-      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth disableScrollLock>
         <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Registrar Pedido</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Usuario</InputLabel>
-              <Select name="usuario" value={addForm.usuario} onChange={handleAddChange} required label="Usuario">
+              <Select name="usuario" value={addForm.usuario} onChange={handleAddChange} required label="Usuario" MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">Selecciona usuario (solo clientes)</MenuItem>
                 {usuarios.filter(u => u.nombreRol && u.nombreRol.toLowerCase() === 'cliente').map(u => (
                   <MenuItem key={u.idUsuario} value={u.idUsuario}>{u.nombre} {u.apellido} ({u.email})</MenuItem>
@@ -374,7 +426,7 @@ function Pedidos() {
             </FormControl>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Sucursal</InputLabel>
-              <Select name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required label="Sucursal">
+              <Select name="sucursal" value={addForm.sucursal} onChange={handleAddChange} required label="Sucursal" MenuProps={{ disableScrollLock: true }}>
                 <MenuItem value="">Selecciona sucursal</MenuItem>
                 {sucursales.map(s => (
                   <MenuItem key={s.idSucursal} value={s.idSucursal}>{s.nombre} ({s.direccion})</MenuItem>
@@ -387,7 +439,7 @@ function Pedidos() {
                 <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                   <FormControl sx={{ minWidth: 180 }} size="small">
                     <InputLabel>Producto</InputLabel>
-                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto">
+                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto" MenuProps={{ disableScrollLock: true }}>
                       <MenuItem value="">Producto</MenuItem>
                       {productosList.map(pr => (
                         <MenuItem key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</MenuItem>
@@ -406,7 +458,7 @@ function Pedidos() {
             </Box>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Estado</InputLabel>
-              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado" renderValue={renderStatusValue}>
+              <Select name="estado" value={addForm.estado} onChange={handleAddChange} required label="Estado" renderValue={renderStatusValue} MenuProps={{ disableScrollLock: true }}>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
                 {renderStatusMenuItem('Enviado', 'Enviado')}
@@ -423,7 +475,7 @@ function Pedidos() {
       </Dialog>
 
       {/* Modal Borrado */}
-      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth>
+      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth disableScrollLock>
         <DialogTitle sx={{ fontWeight: 600 }}>¿Eliminar pedido?</DialogTitle>
         <DialogContent>
           {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}

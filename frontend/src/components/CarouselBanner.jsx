@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, IconButton, Fade, Button } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import api from '../api/axios';
+import { CarouselService } from '../services/CarouselService';
 
 export default function CarouselBanner() {
+  const carouselService = useMemo(() => new CarouselService(), []);
   const [banners, setBanners] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     fetchBanners();
@@ -14,8 +16,8 @@ export default function CarouselBanner() {
 
   const fetchBanners = async () => {
     try {
-      const response = await api.get('/carousel/public');
-      setBanners(response.data || []);
+      const data = await carouselService.listPublic();
+      setBanners(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error cargando banners:', error);
     } finally {
@@ -23,18 +25,18 @@ export default function CarouselBanner() {
     }
   };
 
-  // Auto-advance carousel every 5 seconds
+  // Auto-advance carousel every 5 seconds (pausado en hover)
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || paused) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => 
+      setCurrentIndex((prevIndex) =>
         prevIndex === banners.length - 1 ? 0 : prevIndex + 1
       );
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners.length, paused]);
 
   const goToPrevious = () => {
     setCurrentIndex(currentIndex === 0 ? banners.length - 1 : currentIndex - 1);
@@ -59,18 +61,14 @@ export default function CarouselBanner() {
   };
 
   if (loading) {
+    // Evitar texto visible: usar placeholder silencioso, quedará cubierto por el overlay global
     return (
       <Box sx={{ 
         width: '100%', 
         height: 300, 
         bgcolor: '#f5f5f5', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
         mb: 4 
-      }}>
-        <Typography color="text.secondary">Cargando...</Typography>
-      </Box>
+      }} />
     );
   }
 
@@ -81,35 +79,28 @@ export default function CarouselBanner() {
   const currentBanner = banners[currentIndex];
 
   return (
-    <Box sx={{ 
-      position: 'relative', 
-      width: '100vw', 
-      height: { xs: 340, md: 420 }, 
+    <Box sx={{
+      position: 'relative',
+      width: '100vw',
+      height: {
+        xs: 'clamp(220px, 36vh, 380px)',
+        md: 'clamp(320px, 50vh, 520px)'
+      },
       mb: 0,
-      mt: 0, // Sin margen superior
+      mt: 0,
       overflow: 'hidden',
-      bgcolor: '#f5f5f5',
-      // Técnica para forzar el ancho completo desde cualquier contenedor
+      bgcolor: '#101820',
       marginLeft: 'calc(-50vw + 50%)',
       marginRight: 'calc(-50vw + 50%)',
       maxWidth: 'none',
-      boxSizing: 'border-box',
-      '&::after': {
-        content: '""',
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '30%',
-        background: 'linear-gradient(to bottom, transparent 0%, rgba(248,249,250,0.3) 50%, rgba(248,249,250,0.8) 100%)',
-        pointerEvents: 'none',
-        zIndex: 10
-      }
+      boxSizing: 'border-box'
     }}>
       {/* Banner principal */}
       <Fade in={true} timeout={500} key={currentIndex}>
         <Box
           onClick={() => handleBannerClick(currentBanner.enlace)}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
           sx={{
             position: 'relative',
             width: '100%',
@@ -120,13 +111,13 @@ export default function CarouselBanner() {
                 : `http://localhost:3000/uploads/${currentBanner.imagen}`})` :
               'linear-gradient(135deg, #FFE600 0%, #FF6B35 25%, #4ECDC4 50%, #45B7D1 75%, #96CEB4 100%)',
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundPosition: { xs: 'center', md: 'center 35%' },
             backgroundRepeat: 'no-repeat',
             cursor: currentBanner.enlace ? 'pointer' : 'default',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            px: { xs: 3, md: 6 },
+            justifyContent: 'center',
+            px: { xs: 2, md: 4 },
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -134,35 +125,26 @@ export default function CarouselBanner() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: currentBanner.imagen ? 
-                'linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.6) 100%)' :
-                `linear-gradient(to bottom, 
-                  rgba(255,230,0,0.9) 0%, 
-                  rgba(255,107,53,0.8) 20%, 
-                  rgba(78,205,196,0.7) 40%, 
-                  rgba(69,183,209,0.5) 60%, 
-                  rgba(150,206,180,0.3) 80%, 
-                  rgba(150,206,180,0.1) 90%,
-                  transparent 100%
-                )`,
+              background: 'rgba(0,0,0,0.46)',
               pointerEvents: 'none',
-              zIndex: 1
+              zIndex: 0
             },
+            // Degradado inferior para fundir con el contenido de la página
             '&::after': {
               content: '""',
               position: 'absolute',
-              bottom: 0,
               left: 0,
               right: 0,
-              height: '40%',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0.2) 60%, rgba(255,255,255,0.3) 100%)',
+              bottom: 0,
+              height: { xs: '32%', md: '40%' },
+              background: 'linear-gradient(180deg, rgba(16,24,32,0) 0%, rgba(255,255,255,0.58) 64%, #ffffff 100%)',
               pointerEvents: 'none',
-              zIndex: 2
+              zIndex: 1
             }
           }}
         >
           {/* Contenido del banner - Estilo MercadoLibre */}
-          <Box sx={{
+            <Box sx={{
             position: 'relative',
             zIndex: 2,
             display: 'flex',
@@ -178,33 +160,29 @@ export default function CarouselBanner() {
               color: 'white',
               px: { xs: 2, md: 4 }
             }}>
-              <Typography 
-                variant="h2" 
-                sx={{ 
-                  fontWeight: 800, 
-                  mb: 2,
-                  textShadow: '3px 3px 6px rgba(0,0,0,0.3)',
-                  fontSize: { xs: '2.5rem', md: '4rem' },
-                  lineHeight: 1.1,
-                  background: 'linear-gradient(45deg, #FFFFFF 0%, #F0F8FF 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))'
+              <Typography
+                variant="h3"
+                sx={{
+                  fontWeight: 700,
+                  mb: 1.5,
+                  color: '#fff',
+                  fontSize: { xs: 'clamp(1.6rem, 4.5vw, 2.2rem)', md: 'clamp(2.4rem, 4.2vw, 3.2rem)' },
+                  lineHeight: 1.15,
+                  letterSpacing: '-0.5px'
                 }}
               >
                 {currentBanner.titulo}
               </Typography>
               
               {currentBanner.descripcion && (
-                <Typography 
-                  variant="h5" 
-                  sx={{ 
-                    mb: 4,
-                    textShadow: '2px 2px 4px rgba(0,0,0,0.4)',
-                    fontSize: { xs: '1.2rem', md: '1.8rem' },
-                    fontWeight: 500,
-                    color: 'rgba(255,255,255,0.95)'
+                <Typography
+                  variant="h6"
+                  sx={{
+                    mb: 3,
+                    color: 'rgba(255,255,255,0.9)',
+                    fontSize: { xs: 'clamp(0.95rem, 2.6vw, 1.05rem)', md: 'clamp(1.1rem, 1.8vw, 1.3rem)' },
+                    fontWeight: 400,
+                    letterSpacing: '-0.25px'
                   }}
                 >
                   {currentBanner.descripcion}
@@ -214,23 +192,19 @@ export default function CarouselBanner() {
               {currentBanner.enlace && (
                 <Button
                   variant="contained"
-                  size="large"
+                  size="medium"
                   sx={{
-                    bgcolor: '#FFFFFF',
-                    color: '#0066CC',
-                    fontWeight: 700,
-                    fontSize: '1.1rem',
-                    px: 5,
-                    py: 2,
-                    borderRadius: 3,
+                    bgcolor: '#ffffff',
+                    color: '#0d47a1',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    px: 3,
+                    py: 1,
+                    borderRadius: 2,
                     textTransform: 'none',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                    '&:hover': {
-                      bgcolor: '#F0F8FF',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 25px rgba(0,0,0,0.3)'
-                    },
-                    transition: 'all 0.3s ease'
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                    '&:hover': { bgcolor: '#e3f2fd' },
+                    transition: 'all 0.25s ease'
                   }}
                 >
                   Ver ofertas
@@ -253,8 +227,8 @@ export default function CarouselBanner() {
               left: { xs: 8, md: 16 },
               top: '50%',
               transform: 'translateY(-50%)',
-              bgcolor: 'rgba(255,255,255,0.95)',
-              color: '#0066CC',
+              bgcolor: 'rgba(255,255,255,0.8)',
+              color: '#0d47a1',
               zIndex: 3,
               width: { xs: 44, md: 52 },
               height: { xs: 44, md: 52 },
@@ -277,8 +251,8 @@ export default function CarouselBanner() {
               right: { xs: 8, md: 16 },
               top: '50%',
               transform: 'translateY(-50%)',
-              bgcolor: 'rgba(255,255,255,0.95)',
-              color: '#0066CC',
+              bgcolor: 'rgba(255,255,255,0.8)',
+              color: '#0d47a1',
               zIndex: 3,
               width: { xs: 44, md: 52 },
               height: { xs: 44, md: 52 },
@@ -300,33 +274,27 @@ export default function CarouselBanner() {
       {banners.length > 1 && (
         <Box sx={{
           position: 'absolute',
-          bottom: { xs: 16, md: 20 },
-          left: '50%',
-          transform: 'translateX(-50%)',
+          bottom: 12,
+          left: 0,
+          right: 0,
           display: 'flex',
-          gap: { xs: 0.8, md: 1 },
-          zIndex: 3,
-          bgcolor: 'rgba(255,255,255,0.9)',
-          borderRadius: 15,
-          px: 2,
-          py: 1,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          justifyContent: 'center',
+          gap: 8,
+          zIndex: 3
         }}>
           {banners.map((_, index) => (
             <Box
               key={index}
               onClick={() => goToSlide(index)}
               sx={{
-                width: { xs: 10, md: 12 },
-                height: { xs: 10, md: 12 },
+                width: 8,
+                height: 8,
                 borderRadius: '50%',
-                bgcolor: index === currentIndex ? '#0066CC' : 'rgba(0,102,204,0.3)',
+                bgcolor: index === currentIndex ? '#ffffff' : 'rgba(255,255,255,0.4)',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  bgcolor: '#0066CC',
-                  transform: 'scale(1.3)'
-                }
+                transition: 'background .25s, transform .25s',
+                boxShadow: index === currentIndex ? '0 0 0 4px rgba(255,255,255,0.15)' : 'none',
+                '&:hover': { bgcolor: '#fff' }
               }}
             />
           ))}

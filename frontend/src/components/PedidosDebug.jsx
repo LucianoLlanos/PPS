@@ -1,26 +1,22 @@
 // Test component para debug de totales
 import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import { OrdersAdminService } from '../services/OrdersAdminService';
 import { formatCurrency } from '../utils/format';
 import { Box, Typography, Paper, Button } from '@mui/material';
 
 function PedidosDebug() {
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const service = React.useMemo(() => new OrdersAdminService(), []);
   const [error, setError] = useState(null);
   const [rawData, setRawData] = useState(null);
 
   const loadPedidos = async () => {
     try {
       setLoading(true);
-      console.log('Cargando pedidos desde API...');
-      
-      const response = await api.get('/admin/pedidos');
-      console.log('Response status:', response.status);
-      console.log('Response data (raw):', response.data);
-      
-      setRawData(JSON.stringify(response.data, null, 2));
-      setPedidos(Array.isArray(response.data) ? response.data : []);
+      const data = await service.list();
+      setRawData(JSON.stringify(data, null, 2));
+      setPedidos(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       console.error('Error loading pedidos:', err);

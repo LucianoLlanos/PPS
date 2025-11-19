@@ -1,11 +1,19 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
+import { StockService } from '../services/StockService';
+import { SucursalesService } from '../services/SucursalesService';
 import '../stylos/admin/Admin.css';
 import '../stylos/admin/Productos.css';
-import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment } from '@mui/material';
+import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment, Tooltip } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import { formatCurrency } from '../utils/format';
 
 function Productos() {
+  const productsService = useMemo(() => new ProductsService(), []);
+  const stockService = useMemo(() => new StockService(), []);
+  const sucursalesService = useMemo(() => new SucursalesService(), []);
   const [productos, setProductos] = useState([]);
   const [stockSucursal, setStockSucursal] = useState([]);
   const [error, setError] = useState(null);
@@ -33,6 +41,8 @@ function Productos() {
   const [selectedProductForReconcile, setSelectedProductForReconcile] = useState(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef(null);
+  // Modal para ver descripción completa
+  const [viewDescProd, setViewDescProd] = useState(null);
   // refs for edit/delete modals not needed currently (kept inline overlays)
   
   // Estados para filtros de la tabla
@@ -48,8 +58,8 @@ function Productos() {
   // Cerrar menú de herramientas al hacer clic fuera o presionar Escape
   useEffect(() => {
     if (addProd) {
-      // Scroll hacia arriba cuando se abre el modal de agregar producto
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll instantáneo para evitar barra de scroll transitoria al abrir modal
+      window.scrollTo(0, 0);
     }
   }, [addProd]);
 
@@ -94,18 +104,16 @@ function Productos() {
   }, []);
 
   useEffect(() => {
-    api.get('/admin/productos')
-      .then(res => setProductos(res.data))
+    productsService.listAdmin()
+      .then(setProductos)
       .catch(() => setError('Error al obtener productos'));
-    // Obtener stock por sucursal
-    api.get('/admin/stock_sucursal')
-      .then(res => setStockSucursal(res.data))
+    stockService.listStockSucursal()
+      .then(setStockSucursal)
       .catch(() => {});
-    // Obtener lista de sucursales
-    api.get('/admin/sucursales')
-      .then(res => setSucursales(res.data))
+    sucursalesService.list()
+      .then(setSucursales)
       .catch(() => {});
-  }, [success]);
+  }, [productsService, stockService, sucursalesService, success]);
 
   const handleEdit = (prod) => {
     setEditProd(prod);
@@ -128,13 +136,12 @@ function Productos() {
     // consultamos el endpoint público /productos (que ya sabemos que incluye todas) y actualizamos las previews.
     // Esto evita depender de un full reload si el backend cambió.
     try {
-      api.get('/productos').then(res => {
-        if (res && Array.isArray(res.data)) {
-          const full = res.data.find(p => Number(p.idProducto) === Number(prod.idProducto));
+      productsService.listPublic().then(list => {
+        if (Array.isArray(list)) {
+          const full = list.find(p => Number(p.idProducto) === Number(prod.idProducto));
           if (full && Array.isArray(full.imagenes) && full.imagenes.length > 0) {
             console.log('[DEBUG handleEdit] Imagenes desde /productos:', full.imagenes);
             setImagePreviews(prev => {
-              // Si ya había previews (fallback) y son distintas, las reemplazamos por el set completo del endpoint público
               const hadOnlyLegacy = prev.length <= 1;
               return hadOnlyLegacy ? [...full.imagenes] : prev;
             });
@@ -254,7 +261,7 @@ function Productos() {
       if (imagesToRemove && imagesToRemove.length > 0) {
         formData.append('removeImages', JSON.stringify(imagesToRemove));
       }
-      api.put(`/admin/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      productsService.updateAdmin(editProd.idProducto, formData, true)
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -273,7 +280,7 @@ function Productos() {
         });
     } else {
       // Camino sin cambios de imágenes: permitir también enviar lista vacía explícita si se quisiera ampliar en futuro
-      api.put(`/admin/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
+      productsService.updateAdmin(editProd.idProducto, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -292,7 +299,7 @@ function Productos() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/admin/productos/${deleteProd.idProducto}`);
+      await productsService.deleteAdmin(deleteProd.idProducto);
       setSuccess('Producto eliminado correctamente');
       setDeleteProd(null);
       setDeleteError(null);
@@ -355,11 +362,7 @@ function Productos() {
     }
     
     try {
-      await api.post('/admin/productos', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await productsService.createAdmin(formData);
       setSuccess('Producto creado correctamente');
       setAddProd(false);
       setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
@@ -383,8 +386,7 @@ function Productos() {
 
   const runBackfill = async () => {
     try {
-      // Debe ir bajo el prefijo /admin según adminRoutes.js
-      await api.post('/admin/stock_sucursal/backfill');
+      await stockService.backfill();
       setSuccess('Backfill ejecutado: filas faltantes creadas');
     } catch {
       setError('Error al ejecutar backfill');
@@ -578,30 +580,31 @@ function Productos() {
   }
 
   return (
-    <div className="productos-page root-apple">
-      <div className="productos-header-container">
-        <h2 className="productos-title">Productos</h2>
-  <div ref={toolsRef} className="productos-tools-container">
-          <button className="btn btn-success" onClick={() => setAddProd(true)}>
-            <i className="bi bi-plus-circle me-1"></i> Agregar producto
-          </button>
-          <button className="btn btn-secondary ms-2" onClick={() => setToolsOpen(!toolsOpen)} title="Herramientas">Herramientas <i className="bi bi-caret-down-fill ms-1"></i></button>
+    <>
+    <Box sx={{ width: '100%', py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Productos</Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }} ref={toolsRef}>
+          <Button variant="contained" color="success" onClick={() => setAddProd(true)} sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Agregar producto</Button>
+          <Button variant="outlined" onClick={() => setToolsOpen(!toolsOpen)} sx={{ borderRadius: 999, textTransform: 'none' }}>Herramientas</Button>
           {toolsOpen && (
-            <div className="productos-tools-dropdown card shadow-sm">
-              <div className="list-group list-group-flush">
-                <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
-                  <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
-                  <span className="small text-muted d-block">Crea filas faltantes por sucursal (stock=0) y actualiza la estructura.</span>
-                </button>
-                <button className="list-group-item list-group-item-action" title="Ajusta los stocks de cada sucursal para que la suma coincida con el stock total del producto" aria-label="Alinear stock por producto" onClick={() => { setToolsOpen(false); setShowSelectReconcileModal(true); setSelectedProductForReconcile(productos.length ? productos[0].idProducto : null); }}>
-                  <i className="bi bi-sliders me-2"></i> Alinear stock por producto
-                  <span className="small text-muted d-block">Ajusta cantidades en sucursales para que sumen al stock total del producto.</span>
-                </button>
+            <Box sx={{ position: 'relative' }}>
+              <div className="productos-tools-dropdown card shadow-sm">
+                <div className="list-group list-group-flush">
+                  <button className="list-group-item list-group-item-action" title="Crea o actualiza filas/columnas faltantes en el inventario" aria-label="Actualizar filas y columnas faltantes" onClick={() => { setToolsOpen(false); setShowBackfillModal(true); }}>
+                    <i className="bi bi-kanban me-2"></i> Actualizar filas y columnas faltantes
+                    <span className="small text-muted d-block">Crea filas faltantes por sucursal (stock=0) y actualiza la estructura.</span>
+                  </button>
+                  <button className="list-group-item list-group-item-action" title="Ajusta los stocks de cada sucursal para que la suma coincida con el stock total del producto" aria-label="Alinear stock por producto" onClick={() => { setToolsOpen(false); setShowSelectReconcileModal(true); setSelectedProductForReconcile(productos.length ? productos[0].idProducto : null); }}>
+                    <i className="bi bi-sliders me-2"></i> Alinear stock por producto
+                    <span className="small text-muted d-block">Ajusta cantidades en sucursales para que sumen al stock total del producto.</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
       {/* Modal Agregar Producto - migrado a MUI Dialog */}
       {addProd && (
         <Box>
@@ -754,36 +757,55 @@ function Productos() {
       </div>
 
       <Box sx={{ mt: 3 }}>
-        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 2 }}>
-          <Table stickyHeader>
-            <TableHead>
+        <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
+          <Table stickyHeader className="admin-table" sx={{ background: 'transparent', '& .MuiTableCell-head': { backgroundColor: '#ffffff', zIndex: 3 } }}>
+            <TableHead sx={{ position: 'sticky', top: 0, zIndex: 3 }}>
               <TableRow>
-                <TableCell>ID</TableCell>
+                <TableCell className="tnum num-right nowrap">ID</TableCell>
                 <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('nombre')}>Nombre {sortField === 'nombre' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
                 <TableCell>Descripción</TableCell>
-                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
-                <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell className="tnum num-right nowrap" sx={{ cursor: 'pointer' }} onClick={() => toggleSort('precio')}>Precio {sortField === 'precio' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
+                <TableCell className="tnum num-right nowrap" sx={{ cursor: 'pointer' }} onClick={() => toggleSort('stock')}>Stock {sortField === 'stock' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
                 <TableCell>Acciones</TableCell>
                 {sucursalesList.map(s => (
-                  <TableCell key={s.idSucursal} align="center">{s.nombreSucursal}</TableCell>
+                  <TableCell key={s.idSucursal} className="tnum num-center nowrap">{s.nombreSucursal}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {productosFiltradosPaged.map(p => (
-                <TableRow key={p.idProducto} hover>
-                  <TableCell>{p.idProducto}</TableCell>
+              {productosFiltradosPaged.map((p, idx) => (
+                <TableRow key={p.idProducto} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
+                  <TableCell className="tnum num-right nowrap">{p.idProducto}</TableCell>
                   <TableCell>{p.nombre}</TableCell>
-                  <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</TableCell>
-                  <TableCell>{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
-                  <TableCell>{p.stock}</TableCell>
-                  <TableCell>
-                    <Button size="small" variant="contained" sx={{ mr: 1 }} onClick={() => handleEdit(p)}>Editar</Button>
-                    <Button size="small" color="error" variant="outlined" onClick={() => handleDelete(p)}>Eliminar</Button>
+                  <TableCell sx={{ maxWidth: 340 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: 340 }}>
+                      <Box sx={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</Box>
+                      {p.descripcion && p.descripcion.length > 40 && (
+                        <Tooltip title="Ver completa">
+                          <IconButton size="small" onClick={() => setViewDescProd(p)} aria-label="Ver descripción" sx={{ ml: 0.5 }}>
+                            <RemoveRedEyeIcon fontSize="inherit" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell className="tnum num-right nowrap">{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
+                  <TableCell className="tnum num-right nowrap">{p.stock}</TableCell>
+                  <TableCell className="nowrap">
+                    <Tooltip title="Editar">
+                      <IconButton size="small" color="primary" onClick={() => handleEdit(p)} aria-label="Editar">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Eliminar">
+                      <IconButton size="small" color="error" onClick={() => handleDelete(p)} aria-label="Eliminar">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                   {sucursalesList.map(s => {
                     const stockRow = stockSucursal.find(ss => ss.idProducto === p.idProducto && ss.idSucursal === s.idSucursal);
-                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} align="center">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
+                    return <TableCell key={`${p.idProducto}-${s.idSucursal}`} className="tnum num-center nowrap">{stockRow ? stockRow.stockDisponible : 0}</TableCell>;
                   })}
                 </TableRow>
               ))}
@@ -946,8 +968,7 @@ function Productos() {
             <Button variant="outlined" onClick={() => setEditSucursal(null)}>Cancelar</Button>
             <Button variant="contained" onClick={async () => {
               try {
-                const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                await api.put(`/admin/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                await stockService.updateStockSucursal(editSucursal.idSucursal, editSucursal.idProducto, Number(editSucursal.stockDisponible));
                 setSuccess('Stock actualizado correctamente');
                 setEditSucursal(null);
                 setError(null);
@@ -1011,8 +1032,7 @@ function Productos() {
           <Button variant="contained" onClick={async () => {
             if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
             try {
-              // Endpoint correcto con prefijo /admin
-              await api.post(`/admin/productos/${selectedProductForReconcile}/reconcile`);
+              await stockService.reconcileProducto(selectedProductForReconcile);
               setSuccess('Alineación ejecutada');
             } catch {
               setError('Error al alinear stock');
@@ -1023,7 +1043,19 @@ function Productos() {
         </DialogActions>
       </Dialog>
     )}
-    </div>
+    </Box>
+    {viewDescProd && (
+      <Dialog open={!!viewDescProd} onClose={() => setViewDescProd(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Descripción de {viewDescProd.nombre}</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{viewDescProd.descripcion}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setViewDescProd(null)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+    )}
+    </>
   );
 }
 

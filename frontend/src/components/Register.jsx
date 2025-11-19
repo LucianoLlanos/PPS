@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
+import { AuthService } from '../services/AuthService';
 import useAuthStore from '../store/useAuthStore';
 import { migrateGuestCart, migrateOldCart } from '../utils/cart';
 import { Box, Card, CardContent, Typography, TextField, Button, Stack, Avatar, Snackbar, Alert } from '@mui/material';
 
 export default function Register() {
+  const authService = useMemo(() => new AuthService(), []);
   const [formData, setFormData] = useState({ nombre: '', apellido: '', email: '', password: '', telefono: '' });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -45,9 +46,8 @@ export default function Register() {
         telefono: formData.telefono.trim() || null,
         idRol: 1
       };
-      await api.post('/auth/register', payload);
-      const loginRes = await api.post('/auth/login', { email: payload.email, password: payload.password });
-      const { token, user } = loginRes.data;
+      await authService.register(payload);
+      const { token, user } = await authService.login(payload.email, payload.password);
       setAuth(user, token);
       migrateGuestCart(user);
       migrateOldCart();

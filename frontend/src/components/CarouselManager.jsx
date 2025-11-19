@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import React, { useEffect, useState, useMemo } from 'react';
+import { CarouselService } from '../services/CarouselService';
 
 export default function CarouselManager() {
+  const carouselService = useMemo(() => new CarouselService(), []);
   const [slides, setSlides] = useState([]);
   const [form, setForm] = useState({ title: '', caption: '', link: '' });
   const [file, setFile] = useState(null);
 
   const fetch = async () => {
     try {
-      const res = await api.get('/seller/carousel');
-      setSlides(res.data);
+      const data = await carouselService.listAdmin();
+      setSlides(Array.isArray(data) ? data : []);
   } catch { /* Error silencioso */ }
   };
 
@@ -23,8 +24,8 @@ export default function CarouselManager() {
       fd.append('caption', form.caption);
       fd.append('link', form.link);
       if (file) fd.append('image', file);
-      const res = await api.post('/seller/carousel', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setSlides([...slides, res.data]);
+      const created = await carouselService.uploadAdmin(fd);
+      setSlides([...slides, created]);
       setForm({ title: '', caption: '', link: '' });
       setFile(null);
   } catch { /* Error silencioso */ }
@@ -33,7 +34,7 @@ export default function CarouselManager() {
   const handleDelete = async (id) => {
     if (!confirm('Eliminar slide?')) return;
     try {
-      await api.delete('/seller/carousel/' + id);
+      await carouselService.removeAdmin(id);
       setSlides(slides.filter(s => s.id !== id));
   } catch { /* Error silencioso */ }
   };
@@ -54,7 +55,7 @@ export default function CarouselManager() {
           <div key={s.id} style={{ border: '1px solid #ddd', padding: 8, marginBottom: 8 }}>
             <div><strong>{s.title}</strong></div>
             <div>{s.caption}</div>
-            {s.image && <img src={api.defaults.baseURL + '/uploads/' + s.image} width={200} alt="slide" />}
+            {s.image && <img src={(process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000') + '/uploads/' + s.image} width={200} alt="slide" />}
             <div><button onClick={() => handleDelete(s.id)}>Eliminar</button></div>
           </div>
         ))}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import api from '../api/axios';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ServiciosService } from '../services/ServiciosService';
 import {
   Container,
   Grid,
@@ -31,6 +31,7 @@ import { STATUSES, getStatusInfo } from '../utils/statusColors';
 import StatusPill from './StatusPill';
 
 function ServiciosAdmin() {
+  const serviciosService = useMemo(() => new ServiciosService(), []);
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -58,8 +59,8 @@ function ServiciosAdmin() {
   const cargarServicios = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/servicios/admin/todas');
-      setServicios(response.data || []);
+      const data = await serviciosService.listAdmin();
+      setServicios(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       setError('Error al cargar los servicios');
@@ -148,7 +149,7 @@ function ServiciosAdmin() {
   const handleCambiarEstado = async () => {
     if (!editandoServicio || !nuevoEstado) return;
     try {
-      await api.put(`/servicios/admin/solicitud/${editandoServicio.idSolicitud}`, { estado: nuevoEstado, observacionesAdmin: observaciones });
+      await serviciosService.updateAdmin(editandoServicio.idSolicitud, { estado: nuevoEstado, observacionesAdmin: observaciones });
       setSuccess('Estado actualizado correctamente');
       setEditandoServicio(null); setNuevoEstado(''); setObservaciones('');
       cargarServicios();

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
+import { ServiciosService } from '../services/ServiciosService';
 import useAuthStore from '../store/useAuthStore';
 import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
@@ -82,6 +83,9 @@ export default function Header() {
     };
   };
 
+  const productsService = React.useMemo(() => new ProductsService(), []);
+  const serviciosService = React.useMemo(() => new ServiciosService(), []);
+
   useEffect(() => {
     setCartCount(getCount());
     const handleCartUpdate = (e) => setCartCount(e.detail.count);
@@ -97,8 +101,7 @@ export default function Header() {
         return;
       }
       try {
-        const res = await api.get('/servicios/admin/todas');
-        const all = res.data || [];
+        const all = await serviciosService.listAdmin();
         const pendientes = all.filter(s => s.estado === 'pendiente').length;
         if (mounted) setPendingServicios(pendientes);
       } catch {
@@ -136,8 +139,8 @@ export default function Header() {
       return;
     }
     try {
-      const res = await api.get('/productos');
-      const items = (res.data || []).map(p => p.nombre || p.name || '');
+      const products = await productsService.listPublic();
+      const items = (products || []).map(p => p.nombre || p.name || '');
       const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 6);
       setSuggestions(filtered);
       setShowSug(true);

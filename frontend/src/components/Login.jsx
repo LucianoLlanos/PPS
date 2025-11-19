@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
+import { AuthService } from '../services/AuthService';
 import useAuthStore from '../store/useAuthStore';
 import { migrateGuestCart, migrateOldCart } from '../utils/cart';
 import { Box, Card, CardContent, Typography, TextField, Button, Stack, Avatar, Snackbar, Alert } from '@mui/material';
 
 export default function Login() {
+  const authService = useMemo(() => new AuthService(), []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,8 +33,7 @@ export default function Login() {
     setLoading(true);
     try {
       const payload = overrideCreds ? overrideCreds : { email, password };
-      const res = await api.post('/auth/login', payload);
-      const { token, user } = res.data;
+      const { token, user } = await authService.login(payload.email, payload.password);
       setAuth(user, token);
       migrateGuestCart(user);
       migrateOldCart();

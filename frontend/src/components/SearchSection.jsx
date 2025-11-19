@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
 import {
   Box,
   Container,
@@ -17,6 +17,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 
 export default function SearchSection({ initialQuery = '' }) {
+  const productsService = useMemo(() => new ProductsService(), []);
   const [q, setQ] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
@@ -31,8 +32,8 @@ export default function SearchSection({ initialQuery = '' }) {
       return;
     }
     try {
-      const res = await api.get('/productos');
-      const items = (res.data || []).map(p => p.nombre || p.name || '');
+      const list = await productsService.listPublic();
+      const items = (list || []).map(p => p.nombre || p.name || '');
       const filtered = items.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 8);
       setSuggestions(filtered);
       setShowSug(true);

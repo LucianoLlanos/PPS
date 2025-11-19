@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import React, { useEffect, useState, useMemo } from 'react';
+import { OrdersAdminService } from '../services/OrdersAdminService';
+import { SucursalesService } from '../services/SucursalesService';
+import { UsersAdminService } from '../services/UsersAdminService';
+import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack
@@ -11,6 +14,10 @@ import { getStatusInfo } from '../utils/statusColors';
 import StatusPill from './StatusPill';
 
 function Pedidos() {
+  const ordersService = useMemo(() => new OrdersAdminService(), []);
+  const sucursalesService = useMemo(() => new SucursalesService(), []);
+  const usersService = useMemo(() => new UsersAdminService(), []);
+  const productsService = useMemo(() => new ProductsService(), []);
   const [pedidos, setPedidos] = useState([]);
   // filtros por columna
   const [filterId, setFilterId] = useState('');
@@ -41,17 +48,17 @@ function Pedidos() {
     let mounted = true;
     const load = async () => {
       try {
-        const [resPedidos, resSucursales, resUsuarios, resProductos] = await Promise.all([
-          api.get('/admin/pedidos').catch(() => ({ data: [] })),
-          api.get('/admin/sucursales').catch(() => ({ data: [] })),
-          api.get('/admin/usuarios').catch(() => ({ data: [] })),
-          api.get('/admin/productos').catch(() => ({ data: [] })),
+        const [listPedidos, listSucursales, listUsuarios, listProductos] = await Promise.all([
+          ordersService.list().catch(() => []),
+          sucursalesService.list().catch(() => []),
+          usersService.list().catch(() => []),
+          productsService.listAdmin().catch(() => []),
         ]);
         if (!mounted) return;
-        setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
-        setSucursales(Array.isArray(resSucursales.data) ? resSucursales.data : []);
-        setUsuarios(Array.isArray(resUsuarios.data) ? resUsuarios.data : []);
-        setProductosList(Array.isArray(resProductos.data) ? resProductos.data : []);
+        setPedidos(Array.isArray(listPedidos) ? listPedidos : []);
+        setSucursales(Array.isArray(listSucursales) ? listSucursales : []);
+        setUsuarios(Array.isArray(listUsuarios) ? listUsuarios : []);
+        setProductosList(Array.isArray(listProductos) ? listProductos : []);
       } catch (e) {
         console.error(e);
         setError('No se pudieron cargar los datos');
@@ -59,7 +66,7 @@ function Pedidos() {
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [ordersService, sucursalesService, usersService, productsService]);
 
   const clearFilters = () => {
     setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(''); setFilterMetodoPago('');
@@ -134,7 +141,7 @@ function Pedidos() {
     try {
       // Optimistic update
       setPedidos(prev => prev.map(p => p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p));
-      await api.put(`/admin/pedidos/${pedido.idPedido}`, { ...pedido, estado: nuevoEstado }).catch(() => null);
+      await ordersService.update(pedido.idPedido, { ...pedido, estado: nuevoEstado }).catch(() => null);
       setSuccess('Estado actualizado');
       setOpenSnackbar(true);
     } catch (e) {
@@ -150,7 +157,7 @@ function Pedidos() {
   const confirmDelete = async () => {
     if (!deletePedido) return;
     try {
-      await api.delete(`/admin/pedidos/${deletePedido.idPedido}`).catch(() => null);
+      await ordersService.remove(deletePedido.idPedido).catch(() => null);
       setPedidos(prev => prev.filter(p => p.idPedido !== deletePedido.idPedido));
       setDeletePedido(null);
       setSuccess('Pedido eliminado');
@@ -192,11 +199,11 @@ function Pedidos() {
       };
 
       // Enviar al backend y refrescar la lista real desde el servidor
-      const postRes = await api.post('/admin/pedidos', payload);
-      if (postRes && (postRes.status === 200 || postRes.status === 201)) {
+      const postRes = await ordersService.create(payload);
+      if (postRes) {
         try {
-          const resPedidos = await api.get('/admin/pedidos');
-          setPedidos(Array.isArray(resPedidos.data) ? resPedidos.data : []);
+          const refreshed = await ordersService.list();
+          setPedidos(Array.isArray(refreshed) ? refreshed : []);
         } catch (e) {
           // no bloquear si falla el refresh
           console.error('Error refrescando pedidos después de crear:', e);

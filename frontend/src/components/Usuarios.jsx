@@ -1,11 +1,12 @@
 
-import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import { useEffect, useState, useMemo } from 'react';
+import { UsersAdminService } from '../services/UsersAdminService';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 function Usuarios() {
+  const usersService = useMemo(() => new UsersAdminService(), []);
   const [usuarios, setUsuarios] = useState([]);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -17,8 +18,8 @@ function Usuarios() {
   const [addForm, setAddForm] = useState({ nombre: '', apellido: '', email: '', password: '', idRol: '', direccion: '', telefono: '' });
 
   const loadUsuarios = () => {
-    api.get('/admin/usuarios')
-      .then(res => setUsuarios(res.data))
+    usersService.list()
+      .then(setUsuarios)
       .catch(() => setError('Error al obtener usuarios'));
   };
 
@@ -39,7 +40,7 @@ function Usuarios() {
   const submitEdit = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/admin/usuarios/${editUser.idUsuario}`, { ...form });
+      await usersService.update(editUser.idUsuario, { ...form });
       setSuccess('Usuario actualizado correctamente');
       setOpenSnackbar(true);
       setEditUser(null);
@@ -52,7 +53,7 @@ function Usuarios() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/admin/usuarios/${deleteUser.idUsuario}`);
+      await usersService.remove(deleteUser.idUsuario);
       setSuccess('Usuario eliminado correctamente');
       setOpenSnackbar(true);
       setDeleteUser(null);
@@ -66,7 +67,7 @@ function Usuarios() {
   const submitAdd = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/admin/usuarios', { ...addForm });
+      await usersService.create({ ...addForm });
       setSuccess('Usuario creado correctamente');
       setOpenSnackbar(true);
       setAddUser(false);
@@ -91,9 +92,9 @@ function Usuarios() {
         <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
       </Snackbar>}
       <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', height: { xs: '76vh', md: '72vh' } }}>
-        <Table stickyHeader sx={{ minWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
-          <TableHead>
-            <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
+        <Table stickyHeader sx={{ minWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent', '& .MuiTableCell-head': { backgroundColor: '#ffffff', zIndex: 4 } }}>
+          <TableHead sx={{ position: 'sticky', top: 0, zIndex: 4 }}>
+            <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', position: 'sticky', top: 0, zIndex: 4 }}>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }} className="tnum num-right">ID</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Nombre</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Apellido</TableCell>

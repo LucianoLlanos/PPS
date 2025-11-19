@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { getCart, updateQuantity, removeFromCart, clearCart, getTotal, getSubtotal } from '../utils/cart';
 import { formatCurrency, formatNumber } from '../utils/format';
 import useAuthStore from '../store/useAuthStore';
-import api from '../api/axios';
+import { OrdersAdminService } from '../services/OrdersAdminService';
+import { OrdersClientService } from '../services/OrdersClientService';
+import { CustomersService } from '../services/CustomersService';
+import { SucursalesService } from '../services/SucursalesService';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, Card, CardContent, Grid, Avatar, Stack, Alert, Divider, FormControl, InputLabel, Select, MenuItem, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -39,6 +42,11 @@ export default function Cart() {
   const [openPagoVendedor, setOpenPagoVendedor] = useState(false);
   const [openCuotasVendedor, setOpenCuotasVendedor] = useState(false);
 
+  const ordersAdminService = React.useMemo(() => new OrdersAdminService(), []);
+  const ordersClientService = React.useMemo(() => new OrdersClientService(), []);
+  const customersService = React.useMemo(() => new CustomersService(), []);
+  const sucursalesService = React.useMemo(() => new SucursalesService(), []);
+
   useEffect(() => {
     loadCart();
     const handleCartUpdate = () => loadCart();
@@ -52,15 +60,14 @@ export default function Cart() {
     if (!isSeller) return;
     (async () => {
       try {
-        const [resCli, resSuc] = await Promise.all([
-          api.get('/admin/clientes').catch(() => ({ data: [] })),
-          api.get('/admin/sucursales').catch(() => ({ data: [] }))
+        const [cli, sucs] = await Promise.all([
+          customersService.list().catch(() => []),
+          sucursalesService.list().catch(() => [])
         ]);
         if (!mounted) return;
-        setClientes(resCli.data || []);
-        const sucs = resSuc.data || [];
-        setSucursales(sucs);
-        if (sucs.length > 0) setSucursalId(String(sucs[0].idSucursal));
+        setClientes(cli || []);
+        setSucursales(sucs || []);
+        if (sucs && sucs.length > 0) setSucursalId(String(sucs[0].idSucursal));
       } catch {
         if (mounted) {
           setClientes([]);
@@ -174,27 +181,15 @@ export default function Cart() {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3000/orders/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token || localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ 
-          productos, 
-          observaciones: '',
-          metodoPago: clienteMetodoPago,
-          cuotas: cuotas,
-          interes: interes,
-          descuento: descuento,
-          totalConInteres: totalConAjustes
-        })
+      const result = await ordersClientService.create({
+        productos,
+        observaciones: '',
+        metodoPago: clienteMetodoPago,
+        cuotas: cuotas,
+        interes: interes,
+        descuento: descuento,
+        totalConInteres: totalConAjustes
       });
-      if (!response.ok) {
-        const errPayload = await response.json().catch(() => ({}));
-        throw new Error(errPayload.error || 'Error al crear el pedido');
-      }
-      const result = await response.json();
       const pedidoId = result.idPedido;
       clearCart();
       loadCart();
@@ -238,7 +233,7 @@ export default function Cart() {
     const obs = `Pago: ${metodoPago}${observaciones ? ' | ' + observaciones : ''}`;
     try {
       setLoading(true);
-      const res = await api.post('/admin/pedidos', {
+      const res = await ordersAdminService.create({
         idCliente: Number(clienteIdUsuario),
         estado,
         idSucursalOrigen: Number(sucursalId || 1),
@@ -250,7 +245,7 @@ export default function Cart() {
         descuento: descuentoV,
         totalConInteres: totalConAjustesV
       });
-      const pedidoId = res.data?.idPedido || '';
+      const pedidoId = res.idPedido || '';
       clearCart();
       loadCart();
       setOrderModal({ open: true, id: pedidoId, modo: 'vendedor', extra: { sucursal: sucursales.find(s => String(s.idSucursal) === String(sucursalId))?.nombre || '' } });

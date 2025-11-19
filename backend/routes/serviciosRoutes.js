@@ -15,6 +15,6 @@ router.get('/mis-solicitudes', authMiddleware, serviciosController.getSolicitude
 
 // Rutas de administrador (requieren rol admin)
 router.get('/admin/todas', authMiddleware, requireRoleId(3), serviciosController.getSolicitudesServicio);
-router.put('/admin/solicitud/:idSolicitud', authMiddleware, requireRoleId(3), serviciosController.actualizarEstadoSolicitud);
+router.put('/admin/solicitud/:idSolicitud(\\d+)', authMiddleware, requireRoleId(3), serviciosController.actualizarEstadoSolicitud);
 
 module.exports = router;

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
 import { Box, Typography, Chip, Button, Divider, Skeleton, IconButton, Tooltip } from '@mui/material';
 import ProductImageCarousel from './ProductImageCarousel';
 import { formatCurrency } from '../utils/format';
@@ -13,6 +13,7 @@ import useFavoritesStore from '../store/useFavoritesStore';
 import useSnackbarStore from '../store/useSnackbarStore';
 
 export default function ProductDetail() {
+  const productsService = useMemo(() => new ProductsService(), []);
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,8 +42,8 @@ export default function ProductDetail() {
     const load = async () => {
       try {
         if (preloaded) return; // ya lo tenemos
-        const res = await api.get(`/productos/${id}`);
-        if (mounted) setProducto(res.data);
+        const data = await productsService.getPublicById(id);
+        if (mounted) setProducto(data);
       } catch (e) {
         if (mounted) setError('No se encontró el producto');
       } finally {

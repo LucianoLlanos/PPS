@@ -1,13 +1,19 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import api from '../api/axios';
+import { ProductsService } from '../services/ProductsService';
+import { StockService } from '../services/StockService';
+import { SucursalesService } from '../services/SucursalesService';
 import '../stylos/admin/Admin.css';
 import '../stylos/admin/Productos.css';
 import { Box, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid, IconButton, RadioGroup, FormControlLabel, Radio, InputAdornment, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import { formatCurrency } from '../utils/format';
 
 function Productos() {
+  const productsService = useMemo(() => new ProductsService(), []);
+  const stockService = useMemo(() => new StockService(), []);
+  const sucursalesService = useMemo(() => new SucursalesService(), []);
   const [productos, setProductos] = useState([]);
   const [stockSucursal, setStockSucursal] = useState([]);
   const [error, setError] = useState(null);
@@ -35,6 +41,8 @@ function Productos() {
   const [selectedProductForReconcile, setSelectedProductForReconcile] = useState(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef(null);
+  // Modal para ver descripción completa
+  const [viewDescProd, setViewDescProd] = useState(null);
   // refs for edit/delete modals not needed currently (kept inline overlays)
   
   // Estados para filtros de la tabla
@@ -96,18 +104,16 @@ function Productos() {
   }, []);
 
   useEffect(() => {
-    api.get('/admin/productos')
-      .then(res => setProductos(res.data))
+    productsService.listAdmin()
+      .then(setProductos)
       .catch(() => setError('Error al obtener productos'));
-    // Obtener stock por sucursal
-    api.get('/admin/stock_sucursal')
-      .then(res => setStockSucursal(res.data))
+    stockService.listStockSucursal()
+      .then(setStockSucursal)
       .catch(() => {});
-    // Obtener lista de sucursales
-    api.get('/admin/sucursales')
-      .then(res => setSucursales(res.data))
+    sucursalesService.list()
+      .then(setSucursales)
       .catch(() => {});
-  }, [success]);
+  }, [productsService, stockService, sucursalesService, success]);
 
   const handleEdit = (prod) => {
     setEditProd(prod);
@@ -130,13 +136,12 @@ function Productos() {
     // consultamos el endpoint público /productos (que ya sabemos que incluye todas) y actualizamos las previews.
     // Esto evita depender de un full reload si el backend cambió.
     try {
-      api.get('/productos').then(res => {
-        if (res && Array.isArray(res.data)) {
-          const full = res.data.find(p => Number(p.idProducto) === Number(prod.idProducto));
+      productsService.listPublic().then(list => {
+        if (Array.isArray(list)) {
+          const full = list.find(p => Number(p.idProducto) === Number(prod.idProducto));
           if (full && Array.isArray(full.imagenes) && full.imagenes.length > 0) {
             console.log('[DEBUG handleEdit] Imagenes desde /productos:', full.imagenes);
             setImagePreviews(prev => {
-              // Si ya había previews (fallback) y son distintas, las reemplazamos por el set completo del endpoint público
               const hadOnlyLegacy = prev.length <= 1;
               return hadOnlyLegacy ? [...full.imagenes] : prev;
             });
@@ -256,7 +261,7 @@ function Productos() {
       if (imagesToRemove && imagesToRemove.length > 0) {
         formData.append('removeImages', JSON.stringify(imagesToRemove));
       }
-      api.put(`/admin/productos/${editProd.idProducto}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      productsService.updateAdmin(editProd.idProducto, formData, true)
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -275,7 +280,7 @@ function Productos() {
         });
     } else {
       // Camino sin cambios de imágenes: permitir también enviar lista vacía explícita si se quisiera ampliar en futuro
-      api.put(`/admin/productos/${editProd.idProducto}`, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
+      productsService.updateAdmin(editProd.idProducto, { ...form, nombre, descripcion, stockTotal: form.stockTotal })
         .then(() => {
           setSuccess('Producto actualizado correctamente');
           setEditProd(null);
@@ -294,7 +299,7 @@ function Productos() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/admin/productos/${deleteProd.idProducto}`);
+      await productsService.deleteAdmin(deleteProd.idProducto);
       setSuccess('Producto eliminado correctamente');
       setDeleteProd(null);
       setDeleteError(null);
@@ -357,11 +362,7 @@ function Productos() {
     }
     
     try {
-      await api.post('/admin/productos', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await productsService.createAdmin(formData);
       setSuccess('Producto creado correctamente');
       setAddProd(false);
       setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
@@ -385,7 +386,7 @@ function Productos() {
 
   const runBackfill = async () => {
     try {
-      await api.post('/stock_sucursal/backfill');
+      await stockService.backfill();
       setSuccess('Backfill ejecutado: filas faltantes creadas');
     } catch {
       setError('Error al ejecutar backfill');
@@ -579,6 +580,7 @@ function Productos() {
   }
 
   return (
+    <>
     <Box sx={{ width: '100%', py: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Productos</Typography>
@@ -756,8 +758,8 @@ function Productos() {
 
       <Box sx={{ mt: 3 }}>
         <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)' }}>
-          <Table stickyHeader className="admin-table" sx={{ background: 'transparent' }}>
-            <TableHead>
+          <Table stickyHeader className="admin-table" sx={{ background: 'transparent', '& .MuiTableCell-head': { backgroundColor: '#ffffff', zIndex: 3 } }}>
+            <TableHead sx={{ position: 'sticky', top: 0, zIndex: 3 }}>
               <TableRow>
                 <TableCell className="tnum num-right nowrap">ID</TableCell>
                 <TableCell sx={{ cursor: 'pointer' }} onClick={() => toggleSort('nombre')}>Nombre {sortField === 'nombre' ? (sortOrder === 'desc' ? '▴' : '▾') : ''}</TableCell>
@@ -775,7 +777,18 @@ function Productos() {
                 <TableRow key={p.idProducto} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
                   <TableCell className="tnum num-right nowrap">{p.idProducto}</TableCell>
                   <TableCell>{p.nombre}</TableCell>
-                  <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</TableCell>
+                  <TableCell sx={{ maxWidth: 340 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: 340 }}>
+                      <Box sx={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.descripcion}>{p.descripcion}</Box>
+                      {p.descripcion && p.descripcion.length > 40 && (
+                        <Tooltip title="Ver completa">
+                          <IconButton size="small" onClick={() => setViewDescProd(p)} aria-label="Ver descripción" sx={{ ml: 0.5 }}>
+                            <RemoveRedEyeIcon fontSize="inherit" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell className="tnum num-right nowrap">{formatCurrency(Number(p.precio || p.price || 0))}</TableCell>
                   <TableCell className="tnum num-right nowrap">{p.stock}</TableCell>
                   <TableCell className="nowrap">
@@ -955,8 +968,7 @@ function Productos() {
             <Button variant="outlined" onClick={() => setEditSucursal(null)}>Cancelar</Button>
             <Button variant="contained" onClick={async () => {
               try {
-                const payload = { stockDisponible: Number(editSucursal.stockDisponible) };
-                await api.put(`/admin/stock_sucursal/${editSucursal.idSucursal}/${editSucursal.idProducto}`, payload);
+                await stockService.updateStockSucursal(editSucursal.idSucursal, editSucursal.idProducto, Number(editSucursal.stockDisponible));
                 setSuccess('Stock actualizado correctamente');
                 setEditSucursal(null);
                 setError(null);
@@ -1020,7 +1032,7 @@ function Productos() {
           <Button variant="contained" onClick={async () => {
             if (!selectedProductForReconcile) return setError('Selecciona un producto para alinear');
             try {
-              await api.post(`/productos/${selectedProductForReconcile}/reconcile`);
+              await stockService.reconcileProducto(selectedProductForReconcile);
               setSuccess('Alineación ejecutada');
             } catch {
               setError('Error al alinear stock');
@@ -1032,6 +1044,18 @@ function Productos() {
       </Dialog>
     )}
     </Box>
+    {viewDescProd && (
+      <Dialog open={!!viewDescProd} onClose={() => setViewDescProd(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Descripción de {viewDescProd.nombre}</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{viewDescProd.descripcion}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setViewDescProd(null)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+    )}
+    </>
   );
 }
 

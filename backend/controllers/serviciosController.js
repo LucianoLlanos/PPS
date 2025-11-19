@@ -1,149 +1,50 @@
-const { connection } = require('../db/DB');
+const { ServicioService } = require('../services/servicioService');
+const { AppError } = require('../core/errors');
 
-// Obtener todas las solicitudes de servicio (para admin)
-const getSolicitudesServicio = (req, res) => {
-  const query = `
-    SELECT 
-      s.*,
-      u.nombre,
-      u.apellido,
-      u.email
-    FROM solicitudes_servicio_postventa s
-    JOIN usuarios u ON s.idUsuario = u.idUsuario
-    ORDER BY s.fechaCreacion DESC
-  `;
-
-  connection.query(query, (err, results) => {
-    if (err) {
-      console.error('Error al obtener solicitudes de servicio:', err);
-      return res.status(500).json({ error: 'Error interno del servidor' });
-    }
-    res.json(results);
-  });
-};
-
-// Obtener solicitudes de servicio de un usuario específico
-const getSolicitudesUsuario = (req, res) => {
-  const idUsuario = req.user.idUsuario; // Obtener del token JWT
-
-  const query = `
-    SELECT * FROM solicitudes_servicio_postventa 
-    WHERE idUsuario = ?
-    ORDER BY fechaCreacion DESC
-  `;  connection.query(query, [idUsuario], (err, results) => {
-    if (err) {
-      console.error('Error al obtener solicitudes del usuario:', err);
-      return res.status(500).json({ error: 'Error interno del servidor' });
-    }
-    res.json(results);
-  });
-};
-
-// Crear nueva solicitud de servicio
-const crearSolicitudServicio = (req, res) => {
-  const idUsuario = req.user.idUsuario; // Obtener del token JWT
-  const { tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida } = req.body;
-
-  // Validaciones
-  if (!tipoServicio || !descripcion || !direccion) {
-    return res.status(400).json({ 
-      error: 'Faltan campos obligatorios: tipoServicio, descripcion, direccion' 
-    });
+class ServiciosController {
+  constructor(service = new ServicioService()) {
+    this.service = service;
+    this.getSolicitudesServicio = this.getSolicitudesServicio.bind(this);
+    this.getSolicitudesUsuario = this.getSolicitudesUsuario.bind(this);
+    this.crearSolicitudServicio = this.crearSolicitudServicio.bind(this);
+    this.actualizarEstadoSolicitud = this.actualizarEstadoSolicitud.bind(this);
+    this.getTiposServicio = this.getTiposServicio.bind(this);
   }
 
-  if (descripcion.length > 500) {
-    return res.status(400).json({ 
-      error: 'La descripción no puede exceder 500 caracteres' 
-    });
+  async getSolicitudesServicio(req, res) {
+    try { res.json(await this.service.listAll()); }
+    catch (err) { if (err instanceof AppError) return res.status(err.status).json({ error: err.message }); console.error('Error al obtener solicitudes de servicio:', err); res.status(500).json({ error: 'Error interno del servidor' }); }
   }
 
-  const tiposValidos = ['instalacion', 'mantenimiento', 'garantia'];
-  if (!tiposValidos.includes(tipoServicio)) {
-    return res.status(400).json({ 
-      error: 'Tipo de servicio no válido' 
-    });
+  async getSolicitudesUsuario(req, res) {
+    try { res.json(await this.service.listMine(req.user)); }
+    catch (err) { if (err instanceof AppError) return res.status(err.status).json({ error: err.message }); console.error('Error al obtener solicitudes del usuario:', err); res.status(500).json({ error: 'Error interno del servidor' }); }
   }
 
-  const query = `
-    INSERT INTO solicitudes_servicio_postventa 
-    (idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const values = [idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida];
-
-  connection.query(query, values, (err, result) => {
-    if (err) {
+  async crearSolicitudServicio(req, res) {
+    try {
+      const { idSolicitud } = await this.service.create(req.user, req.body);
+      res.status(201).json({ message: 'Solicitud de servicio creada exitosamente', idSolicitud });
+    } catch (err) {
+      if (err instanceof AppError) return res.status(err.status).json({ error: err.message });
       console.error('Error al crear solicitud de servicio:', err);
-      return res.status(500).json({ error: 'Error interno del servidor' });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
-
-    res.status(201).json({
-      message: 'Solicitud de servicio creada exitosamente',
-      idSolicitud: result.insertId
-    });
-  });
-};
-
-// Actualizar estado de solicitud (para admin)
-const actualizarEstadoSolicitud = (req, res) => {
-  const { idSolicitud } = req.params;
-  const { estado, observacionesAdmin } = req.body;
-
-  const estadosValidos = ['pendiente', 'confirmado', 'en_proceso', 'completado', 'cancelado'];
-  if (!estadosValidos.includes(estado)) {
-    return res.status(400).json({ 
-      error: 'Estado no válido' 
-    });
   }
 
-  const query = `
-    UPDATE solicitudes_servicio_postventa 
-    SET estado = ?, observacionesAdmin = ?, fechaActualizacion = NOW()
-    WHERE idSolicitud = ?
-  `;
-
-  connection.query(query, [estado, observacionesAdmin, idSolicitud], (err, result) => {
-    if (err) {
+  async actualizarEstadoSolicitud(req, res) {
+    try {
+      const { idSolicitud } = req.params;
+      await this.service.updateEstado(idSolicitud, req.body);
+      res.json({ message: 'Solicitud actualizada exitosamente' });
+    } catch (err) {
+      if (err instanceof AppError) return res.status(err.status).json({ error: err.message });
       console.error('Error al actualizar solicitud:', err);
-      return res.status(500).json({ error: 'Error interno del servidor' });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
+  }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Solicitud no encontrada' });
-    }
+  getTiposServicio(req, res) { res.json(this.service.tipos()); }
+}
 
-    res.json({ message: 'Solicitud actualizada exitosamente' });
-  });
-};
-
-// Obtener tipos de servicios disponibles
-const getTiposServicio = (req, res) => {
-  const tipos = [
-    { 
-      value: 'instalacion', 
-      label: 'Instalación de producto', 
-      descripcion: 'Instalación profesional de productos adquiridos' 
-    },
-    { 
-      value: 'mantenimiento', 
-      label: 'Mantenimiento', 
-      descripcion: 'Mantenimiento preventivo y revisión técnica' 
-    },
-    { 
-      value: 'garantia', 
-      label: 'Arreglo de un producto por garantía', 
-      descripcion: 'Reparación de productos bajo garantía' 
-    }
-  ];
-
-  res.json(tipos);
-};
-
-module.exports = {
-  getSolicitudesServicio,
-  getSolicitudesUsuario,
-  crearSolicitudServicio,
-  actualizarEstadoSolicitud,
-  getTiposServicio
-};
+module.exports = new ServiciosController();

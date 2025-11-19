@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import { CustomersService } from '../services/CustomersService';
 import '../stylos/admin/Admin.css';
 
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, IconButton, Tooltip } from '@mui/material';
@@ -13,10 +13,15 @@ function Clientes() {
   const [success, setSuccess] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
-  const load = () => {
-    api.get('/admin/clientes')
-      .then(res => setClientes(res.data))
-      .catch(() => setError('Error al obtener clientes'));
+  const service = useState(() => new CustomersService())[0];
+  const load = async () => {
+    try {
+      const data = await service.list();
+      setClientes(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch {
+      setError('Error al obtener clientes');
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -31,7 +36,7 @@ function Clientes() {
   const submitEdit = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/admin/clientes/${editCliente.idCliente}`, { direccion: form.direccion || null, telefono: form.telefono || null });
+      await service.update(editCliente.idCliente, { direccion: form.direccion || null, telefono: form.telefono || null });
       setSuccess('Cliente actualizado');
       setOpenSnackbar(true);
       setEditCliente(null);

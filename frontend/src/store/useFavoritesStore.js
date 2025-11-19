@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import api from '../api/axios';
+import { FavoritesService } from '../services/FavoritesService';
 import useSnackbarStore from './useSnackbarStore';
 
 const useFavoritesStore = create(
@@ -11,14 +11,14 @@ const useFavoritesStore = create(
       error: null,
 
       // Agregar producto a favoritos
+      favoritesService: new FavoritesService(),
+
       addFavorite: async (product) => {
         try {
           set({ loading: true, error: null });
           
-          // Llamar al backend para agregar a favoritos
-          await api.post('/favorites', {
-            idProducto: product.idProducto || product.id
-          });
+          const svc = get().favoritesService;
+          await svc.add(product.idProducto || product.id);
 
           // Actualizar estado local
           const currentFavorites = get().favorites;
@@ -48,8 +48,8 @@ const useFavoritesStore = create(
         try {
           set({ loading: true, error: null });
           
-          // Llamar al backend para quitar de favoritos
-          await api.delete(`/favorites/${productId}`);
+          const svc = get().favoritesService;
+          await svc.remove(productId);
 
           // Actualizar estado local
           set(state => ({
@@ -85,10 +85,11 @@ const useFavoritesStore = create(
         const isFav = get().favorites.some((fav) => (fav.idProducto || fav.id) === productId);
 
         // Optimista: aplicar cambio local inmediato
+        const svc = get().favoritesService;
         if (!isFav) {
           set((state) => ({ favorites: [...state.favorites, product] }));
           try {
-            await api.post('/favorites', { idProducto: productId });
+            await svc.add(productId);
             show('Añadido a favoritos', 'success');
           } catch (err) {
             // revertir
@@ -102,7 +103,7 @@ const useFavoritesStore = create(
           const prev = get().favorites;
           set({ favorites: prev.filter((fav) => (fav.idProducto || fav.id) !== productId) });
           try {
-            await api.delete(`/favorites/${productId}`);
+            await svc.remove(productId);
             show('Quitado de favoritos', 'success');
           } catch (err) {
             // revertir
@@ -129,12 +130,9 @@ const useFavoritesStore = create(
           // si no hay token, no intentes y deja vacío en silencio
           let token = null; try { token = localStorage.getItem('token'); } catch {}
           if (!token) { set({ favorites: [], loading: false, error: null }); return; }
-
-          const response = await api.get('/favorites');
-          set({ 
-            favorites: response.data || [],
-            loading: false 
-          });
+          const svc = get().favoritesService;
+          const data = await svc.list();
+          set({ favorites: data || [], loading: false });
         } catch (error) {
           // Si es error 401, no mostrar error (usuario no autenticado)
           if (error.response?.status !== 401) {

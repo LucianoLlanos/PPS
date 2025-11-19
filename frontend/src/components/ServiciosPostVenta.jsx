@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import { ServiciosService } from '../services/ServiciosService';
 import ExpandableText from './ExpandableText';
 import useAuthStore from '../store/useAuthStore';
 import '../stylos/ServiciosPostVenta.css';
@@ -10,6 +10,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import SendIcon from '@mui/icons-material/Send';
 
 export default function ServiciosPostVenta() {
+	const serviciosService = useMemo(() => new ServiciosService(), []);
 	const [formData, setFormData] = useState({
 		tipoServicio: '', descripcion: '', direccion: '', telefono: '', fechaPreferida: '', horaPreferida: ''
 	});
@@ -41,22 +42,23 @@ export default function ServiciosPostVenta() {
 
 	const cargarTiposServicio = useCallback(async () => {
 		try {
-			const res = await api.get('/servicios/tipos');
-			setTiposServicio(res.data || []);
+			const res = await serviciosService.getTipos();
+			const tipos = Array.isArray(res) ? res : [];
+			setTiposServicio(tipos);
 		} catch (err) {
 			// keep silent; UI will still work
 			console.error('cargarTiposServicio', err);
 		}
-	}, []);
+	}, [serviciosService]);
 
 	const cargarMisSolicitudes = useCallback(async () => {
 		try {
-			const res = await api.get('/servicios/mis-solicitudes');
-			setMisSolicitudes(res.data || []);
+			const res = await serviciosService.misSolicitudes();
+			setMisSolicitudes(Array.isArray(res) ? res : []);
 		} catch (err) {
 			console.error('cargarMisSolicitudes', err);
 		}
-	}, []);
+	}, [serviciosService]);
 
 	useEffect(() => {
 		if (!user) { navigate('/login'); return; }
@@ -91,7 +93,7 @@ export default function ServiciosPostVenta() {
 		if (!validate()) return;
 		setLoading(true);
 		try {
-			await api.post('/servicios/solicitar', formData);
+			await serviciosService.createSolicitud(formData);
 			alert('Solicitud enviada correctamente');
 			setFormData({ tipoServicio: '', descripcion: '', direccion: '', telefono: '', fechaPreferida: '', horaPreferida: '' });
 			setErrors({});

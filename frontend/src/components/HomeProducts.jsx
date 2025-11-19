@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import React, { useEffect, useState, useMemo } from 'react';
+import { ProductsService } from '../services/ProductsService';
 import ProductModal from './ProductModal';
 import ProductImageCarousel from './ProductImageCarousel';
 import ExpandableText from './ExpandableText';
@@ -18,6 +18,7 @@ import useSnackbarStore from '../store/useSnackbarStore';
 import ProductCardModern from './ProductCardModern';
 
 export default function HomeProducts() {
+  const productsService = useMemo(() => new ProductsService(), []);
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -48,8 +49,8 @@ export default function HomeProducts() {
   // debug counter removed
     setLoading(true);
     try {
-      const res = await api.get('/productos');
-      setProductos(res.data || []);
+      const list = await productsService.listPublic();
+      setProductos(Array.isArray(list) ? list : []);
     } catch (_err) {
       console.error(_err);
       setError('No se pudieron cargar los productos');

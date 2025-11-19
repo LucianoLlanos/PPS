@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api/axios';
+import { SellerProductsService } from '../services/SellerProductsService';
 
 export default function ProductForm({ onSaved, editingProduct, clearEditing }) {
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: '' });
+  const service = useState(() => new SellerProductsService())[0];
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,14 +37,10 @@ export default function ProductForm({ onSaved, editingProduct, clearEditing }) {
 
       let res;
       if (editingProduct && editingProduct.id) {
-        res = await api.put('/seller/products/' + editingProduct.id, fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        res = await service.update(editingProduct.id, fd);
         alert('Producto actualizado');
       } else {
-        res = await api.post('/seller/products', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        res = await service.create(fd);
         alert('Producto creado');
       }
       setForm({ name: '', description: '', price: '', stock: '' });

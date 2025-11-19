@@ -1,3 +1,5 @@
 @echo off
-cd /d "C:\Users\Luciano\Desktop\luciano-facultad\PPS\backend"
+REM Ir al directorio de este script (carpeta backend)
+cd /d "%~dp0"
+echo Iniciando backend en puerto 3000...
 node index.js

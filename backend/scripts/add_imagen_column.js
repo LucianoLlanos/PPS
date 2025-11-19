@@ -1,25 +1,22 @@
-const { connection } = require('../db/DB');
+const { pool } = require('../db/pool');
+const connection = pool;
 
 // Verificar si existe la columna imagen
-connection.query('SHOW COLUMNS FROM productos LIKE "imagen"', (err, results) => {
-  if (err) {
+async function run() {
+  try {
+    const [results] = await connection.query('SHOW COLUMNS FROM productos LIKE "imagen"');
+    if (results.length === 0) {
+      console.log('Columna imagen no existe, agregándola...');
+      await connection.query('ALTER TABLE productos ADD COLUMN imagen VARCHAR(255) DEFAULT NULL');
+      console.log('✅ Columna imagen agregada exitosamente');
+    } else {
+      console.log('✅ Columna imagen ya existe');
+    }
+  } catch (err) {
     console.error('Error:', err);
-    connection.end();
-    return;
+  } finally {
+    pool.end && pool.end();
   }
-  
-  if (results.length === 0) {
-    console.log('Columna imagen no existe, agregándola...');
-    connection.query('ALTER TABLE productos ADD COLUMN imagen VARCHAR(255) DEFAULT NULL', (err2) => {
-      if (err2) {
-        console.error('Error al agregar columna imagen:', err2);
-      } else {
-        console.log('✅ Columna imagen agregada exitosamente');
-      }
-      connection.end();
-    });
-  } else {
-    console.log('✅ Columna imagen ya existe');
-    connection.end();
-  }
-});
+}
+
+run();

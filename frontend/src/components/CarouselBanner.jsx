@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, IconButton, Fade, Button } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import api from '../api/axios';
+import { CarouselService } from '../services/CarouselService';
 
 export default function CarouselBanner() {
+  const carouselService = useMemo(() => new CarouselService(), []);
   const [banners, setBanners] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -15,8 +16,8 @@ export default function CarouselBanner() {
 
   const fetchBanners = async () => {
     try {
-      const response = await api.get('/carousel/public');
-      setBanners(response.data || []);
+      const data = await carouselService.listPublic();
+      setBanners(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error cargando banners:', error);
     } finally {

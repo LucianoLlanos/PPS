@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -39,10 +39,11 @@ import {
 } from '@mui/icons-material';
 import PiramideOrganizacional from '../PiramideOrganizacional';
 import useAuthStore from '../../store/useAuthStore';
-import axios from '../../api/axios';
+import { EmpresaService } from '../../services/EmpresaService';
 
 export default function EmpresaAdmin() {
   const { user } = useAuthStore();
+  const empresaService = useMemo(() => new EmpresaService(), []);
   const [empresaInfo, setEmpresaInfo] = useState({
     vision: '',
     mision: '',
@@ -75,8 +76,8 @@ export default function EmpresaAdmin() {
   const cargarInfoEmpresa = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/empresa');
-      setEmpresaInfo(response.data);
+      const data = await empresaService.getInfo();
+      setEmpresaInfo(data);
       setError('');
     } catch (err) {
       console.error('Error al cargar información de la empresa:', err);
@@ -128,7 +129,6 @@ export default function EmpresaAdmin() {
       setSaving(true);
       setError('');
       
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('vision', empresaInfo.vision);
       formData.append('mision', empresaInfo.mision);
@@ -138,12 +138,7 @@ export default function EmpresaAdmin() {
         formData.append('archivoPdf', selectedFile);
       }
 
-      const response = await axios.put('/empresa', formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      await empresaService.updateInfo(formData);
 
       setSuccess('Información de la empresa actualizada exitosamente');
       setSelectedFile(null);
@@ -166,11 +161,9 @@ export default function EmpresaAdmin() {
 
   const descargarPdf = async () => {
     try {
-      const response = await axios.get('/empresa/pdf', {
-        responseType: 'blob'
-      });
+      const blob = await empresaService.downloadPdf();
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'informacion-empresa.pdf');
@@ -186,12 +179,7 @@ export default function EmpresaAdmin() {
 
   const eliminarPdf = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete('/empresa/pdf', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await empresaService.deletePdf();
       
       setSuccess('Archivo PDF eliminado exitosamente');
       setConfirmDelete(false);
@@ -279,7 +267,6 @@ export default function EmpresaAdmin() {
       setSavingCargo(true);
       setError('');
       
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('nombre_cargo', nuevoCargo.nombre_cargo);
       formData.append('descripcion', nuevoCargo.descripcion);
@@ -292,19 +279,9 @@ export default function EmpresaAdmin() {
 
       let response;
       if (cargoEditando) {
-        response = await axios.put(`/empresa/cargo/${cargoEditando.id}`, formData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        response = await empresaService.actualizarCargo(cargoEditando.id, formData);
       } else {
-        response = await axios.post('/empresa/cargo', formData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        response = await empresaService.crearCargo(formData);
       }
 
       setSuccess(cargoEditando ? 'Cargo actualizado exitosamente' : 'Cargo creado exitosamente');
@@ -329,12 +306,7 @@ export default function EmpresaAdmin() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`/empresa/cargo/${cargoId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await empresaService.eliminarCargo(cargoId);
       
       setSuccess('Cargo eliminado exitosamente');
       

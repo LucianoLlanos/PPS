@@ -4,7 +4,7 @@ class ProductRepository extends BaseRepository {
   async findAll() {
     const sql = `
       SELECT 
-        p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+        p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
         GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p 
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id 
@@ -16,7 +16,7 @@ class ProductRepository extends BaseRepository {
   async findById(id) {
     const sql = `
       SELECT 
-        p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+        p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
         GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p 
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id 

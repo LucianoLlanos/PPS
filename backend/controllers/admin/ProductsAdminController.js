@@ -38,6 +38,7 @@ class ProductsAdminController {
     try {
       const schema = z.object({
         nombre: z.string().min(1),
+        tipo: z.string().max(100).optional().nullable(),
         descripcion: z.string().max(1000).optional().nullable(),
         precio: z.coerce.number().positive(),
         stockTotal: z.coerce.number().int().nonnegative().default(0),
@@ -47,9 +48,9 @@ class ProductsAdminController {
         }, z.array(z.coerce.number().int().positive()).optional().default([])),
       });
       const parsed = schema.parse(req.body);
-      const { nombre, descripcion, precio, stockTotal, sucursales: sucursalesSelected } = parsed;
+      const { nombre, tipo, descripcion, precio, stockTotal, sucursales: sucursalesSelected } = parsed;
       const imagenes = Array.isArray(req.files) ? req.files.map(f => f.filename) : [];
-      const id = await this.service.crearProducto({ nombre, descripcion, precio, stockTotal, imagenes, sucursalesSelected });
+      const id = await this.service.crearProducto({ nombre, tipo, descripcion, precio, stockTotal, imagenes, sucursalesSelected });
       res.json({ mensaje: `Producto creado con ${imagenes.length} imagen(es) y stock por sucursal inicializado`, id });
     } catch (e) {
       if (e?.issues) return res.status(400).json({ error: 'Validación fallida', issues: e.issues });
@@ -62,6 +63,7 @@ class ProductsAdminController {
       const id = z.coerce.number().int().positive().parse(req.params.id);
       const schema = z.object({
         nombre: z.string().min(1),
+        tipo: z.string().max(100).optional().nullable(),
         descripcion: z.string().max(1000).optional().nullable(),
         precio: z.coerce.number().positive(),
         stockTotal: z.coerce.number().int().nonnegative().default(0),
@@ -71,7 +73,7 @@ class ProductsAdminController {
           return v;
         }, z.array(z.string()).optional().default([])),
       });
-      const { nombre, descripcion, precio, stockTotal, removeImages } = schema.parse(req.body);
+      const { nombre, tipo, descripcion, precio, stockTotal, removeImages } = schema.parse(req.body);
       const nuevasImagenes = Array.isArray(req.files) ? req.files.map(f => f.filename) : [];
       // Intentar borrar del disco las imágenes removidas (best-effort)
       if (Array.isArray(removeImages)) {
@@ -80,7 +82,7 @@ class ProductsAdminController {
           fs.unlink(imgPath, () => {});
         }
       }
-      await this.service.actualizarProducto(id, { nombre, descripcion, precio, stockTotal, nuevasImagenes, removeImages });
+      await this.service.actualizarProducto(id, { nombre, tipo, descripcion, precio, stockTotal, nuevasImagenes, removeImages });
       res.json({ mensaje: nuevasImagenes.length ? 'Producto actualizado con nuevas imágenes' : 'Producto actualizado' });
     } catch {
       res.status(500).json({ error: 'Error al actualizar producto' });

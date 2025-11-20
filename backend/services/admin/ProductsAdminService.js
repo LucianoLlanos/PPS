@@ -28,10 +28,10 @@ class ProductsAdminService {
     return { ...r, imagenes: finalImgs };
   }
 
-  async crearProducto({ nombre, descripcion, precio, stockTotal, imagenes, sucursalesSelected }) {
+  async crearProducto({ nombre, tipo, descripcion, precio, stockTotal, imagenes, sucursalesSelected }) {
     return this.db.withTransaction(async (conn) => {
       const imagenPrincipal = imagenes && imagenes.length ? imagenes[0] : null;
-      const idProducto = await this.productRepo.insertProduct({ nombre, descripcion, precio, stockTotal, imagenPrincipal }, conn);
+      const idProducto = await this.productRepo.insertProduct({ nombre, tipo, descripcion, precio, stockTotal, imagenPrincipal }, conn);
       if (imagenes && imagenes.length) {
         for (let i = 0; i < imagenes.length; i++) {
           await this.productRepo.insertProductImage(idProducto, imagenes[i], i, conn);
@@ -57,9 +57,9 @@ class ProductsAdminService {
     });
   }
 
-  async actualizarProducto(id, { nombre, descripcion, precio, stockTotal, nuevasImagenes, removeImages }) {
+  async actualizarProducto(id, { nombre, tipo, descripcion, precio, stockTotal, nuevasImagenes, removeImages }) {
     return this.db.withTransaction(async (conn) => {
-      await this.productRepo.updateProductCore(id, { nombre, descripcion, precio, stockTotal }, conn);
+      await this.productRepo.updateProductCore(id, { nombre, tipo, descripcion, precio, stockTotal }, conn);
       if (Array.isArray(removeImages) && removeImages.length) {
         await this.productRepo.deleteImagesByFilenames(id, removeImages, conn);
         const nuevaPrincipal = await this.productRepo.selectFirstImage(id, conn);

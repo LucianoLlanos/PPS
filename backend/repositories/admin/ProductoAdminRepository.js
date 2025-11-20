@@ -3,7 +3,7 @@ const { BaseRepository } = require('../BaseRepository');
 class ProductoAdminRepository extends BaseRepository {
   async selectAllWithImages() {
     const sql = `
-      SELECT p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      SELECT p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
              GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
@@ -13,7 +13,7 @@ class ProductoAdminRepository extends BaseRepository {
 
   async selectByIdWithImages(id) {
     const sql = `
-      SELECT p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      SELECT p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
              GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
@@ -23,10 +23,10 @@ class ProductoAdminRepository extends BaseRepository {
     return rows && rows[0] ? rows[0] : null;
   }
 
-  async insertProduct({ nombre, descripcion, precio, stockTotal, imagenPrincipal }, conn) {
+  async insertProduct({ nombre, tipo, descripcion, precio, stockTotal, imagenPrincipal }, conn) {
     const [result] = await conn.query(
-      'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)',
-      [nombre, descripcion, precio, stockTotal, imagenPrincipal]
+      'INSERT INTO productos (nombre, tipo, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?, ?)',
+      [nombre, tipo || null, descripcion, precio, stockTotal, imagenPrincipal]
     );
     return result.insertId;
   }
@@ -35,8 +35,8 @@ class ProductoAdminRepository extends BaseRepository {
     await conn.query('INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [productoId, imagen, orden]);
   }
 
-  async updateProductCore(id, { nombre, descripcion, precio, stockTotal }, conn) {
-    await conn.query('UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, descripcion, precio, stockTotal, id]);
+  async updateProductCore(id, { nombre, tipo, descripcion, precio, stockTotal }, conn) {
+    await conn.query('UPDATE productos SET nombre=?, tipo=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, tipo || null, descripcion, precio, stockTotal, id]);
   }
 
   async deleteImagesByFilenames(id, filenames, conn) {

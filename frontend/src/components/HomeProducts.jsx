@@ -82,8 +82,10 @@ export default function HomeProducts() {
   }, []);
 
   const normalizeCategory = (p) => {
-    const raw = (p.categoria || p.category || '').toString().trim();
-    if (raw) return raw;
+    // Usar tipo explícito si existe
+    const explicit = (p.tipo || p.categoria || p.category || '').toString().trim();
+    if (explicit) return explicit;
+    // Heurística secundaria
     const text = `${p.nombre || ''} ${p.descripcion || ''}`.toLowerCase();
     if (text.includes('bomba')) return 'Bombas de agua';
     if (text.includes('tanque')) return 'Tanques de agua';
@@ -137,9 +139,15 @@ export default function HomeProducts() {
       return;
     }
     
-    cart.addToCart(p, 1);
-    // Mostrar notificación de éxito
-    showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
+    console.log('[HomeProducts] Agregando producto al carrito:', p);
+    const res = cart.addToCart(p, 1);
+    
+    if (res && Array.isArray(res)) {
+      showToastNotification(`✅ ${p.nombre} agregado al carrito`, 'success');
+    } else {
+      console.error('[HomeProducts] Error en addToCart, retornó:', res);
+      showToastNotification(`⚠️ No se pudo agregar ${p.nombre}. Refresca la página.`, 'warning');
+    }
   };
 
   const itemsToRender = visible;

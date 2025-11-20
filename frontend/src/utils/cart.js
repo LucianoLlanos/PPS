@@ -86,20 +86,59 @@ export function addToCart(product, qty = 1) {
       return null;
     }
   } catch { /* ignore */ }
-  // Normalizar el producto para asegurar que el precio sea un número
+  
+  if (!product) {
+    console.warn('[cart.js] addToCart: producto nulo');
+    return null;
+  }
+  
+  // Convertir instancia de clase a objeto plano si es necesario (POO support)
+  // Si viene una instancia de Product (POO), usar su método toPlain si existe
+  let productData;
+  if (product && typeof product.toPlain === 'function') {
+    productData = { ...product.toPlain(), ...product };
+  } else {
+    productData = {
+      idProducto: product.idProducto ?? product.id ?? product.producto_id ?? product.productoId ?? null,
+      id: product.id ?? product.idProducto ?? null,
+      nombre: product.nombre || product.name || '',
+      descripcion: product.descripcion || product.description || '',
+      precio: product.precio ?? product.price,
+      price: product.price ?? product.precio,
+      stock: product.stock ?? product.stockTotal ?? 0,
+      imagen: product.imagen,
+      imagenes: product.imagenes,
+      ...product
+    };
+  }
+  
   const normalizedProduct = {
-    ...product,
-    precio: parseFloat(product.precio || product.price || 0),
-    price: parseFloat(product.price || product.precio || 0)
+    ...productData,
+    precio: parseFloat(productData.precio || productData.price || 0),
+    price: parseFloat(productData.price || productData.precio || 0)
   };
   
   const arr = read();
-  const id = normalizedProduct.idProducto || normalizedProduct.id;
+  let id = normalizedProduct.idProducto || normalizedProduct.id;
+  if (!id && normalizedProduct.nombre) {
+    // Fallback ID sintético (persistente mientras el nombre+precio+stock sean iguales)
+    id = 'synthetic_' + [normalizedProduct.nombre, normalizedProduct.precio, normalizedProduct.stock]
+      .map(v => String(v).replace(/\s+/g,'_'))
+      .join('_');
+  }
+  
+  if (!id) {
+    console.warn('[cart.js] addToCart: producto sin id ni fallback', { productData, normalizedProduct });
+    return null;
+  }
+  
   const idx = arr.findIndex(i => i.id === id);
   if (idx >= 0) {
     arr[idx].quantity = (arr[idx].quantity || 1) + parseInt(qty, 10);
+    console.log('[cart.js] Producto aumentado. Nuevo carrito:', arr);
   } else {
     arr.push({ id, product: normalizedProduct, quantity: parseInt(qty, 10) });
+    console.log('[cart.js] Producto agregado. Nuevo carrito:', arr);
   }
   write(arr);
   // dispatch event so UI can react

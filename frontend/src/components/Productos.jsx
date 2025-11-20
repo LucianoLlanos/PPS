@@ -25,7 +25,7 @@ function Productos() {
   const [form, setForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
   const [success, setSuccess] = useState(null);
   const [addProd, setAddProd] = useState(false);
-  const [addForm, setAddForm] = useState({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
+  const [addForm, setAddForm] = useState({ nombre: '', tipo: '', descripcion: '', precio: '', stockTotal: '' });
   const [addLoading, setAddLoading] = useState(false);
   // single image legacy removed (usamos multiple images)
   const [selectedImages, setSelectedImages] = useState([]);
@@ -329,10 +329,12 @@ function Productos() {
     // Validación y limpieza
     const errors = {};
     const nombre = addForm.nombre.trim();
+    const tipo = addForm.tipo.trim();
     const descripcion = addForm.descripcion.trim();
     if (!nombre) errors.nombre = 'El nombre es obligatorio';
     if (!descripcion) errors.descripcion = 'La descripción es obligatoria';
     if (!addForm.precio || isNaN(addForm.precio) || Number(addForm.precio) <= 0) errors.precio = 'El precio debe ser mayor a 0';
+    if (tipo.length > 100) errors.tipo = 'Máximo 100 caracteres';
     if (!addForm.stockTotal || isNaN(addForm.stockTotal) || Number(addForm.stockTotal) < 0) errors.stockTotal = 'El stock debe ser 0 o mayor';
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -353,6 +355,7 @@ function Productos() {
     formData.append('nombre', nombre);
     formData.append('descripcion', descripcion);
     formData.append('precio', Number(addForm.precio));
+    if (tipo) formData.append('tipo', tipo);
     formData.append('stockTotal', Number(addForm.stockTotal));
     formData.append('sucursales', JSON.stringify(sucursalesIds));
     
@@ -365,7 +368,7 @@ function Productos() {
       await productsService.createAdmin(formData);
       setSuccess('Producto creado correctamente');
       setAddProd(false);
-      setAddForm({ nombre: '', descripcion: '', precio: '', stockTotal: '' });
+      setAddForm({ nombre: '', tipo: '', descripcion: '', precio: '', stockTotal: '' });
       setFieldErrors({});
       setSucursalAssignment('ALL');
       setSelectedImages([]);
@@ -623,6 +626,7 @@ function Productos() {
                 <Grid container spacing={2} alignItems="flex-start">
                   <Grid item xs={12} md={3}>
                     <TextField fullWidth size="small" variant="outlined" name="nombre" label="Nombre del producto *" value={addForm.nombre} onChange={handleAddChange} error={!!fieldErrors.nombre} helperText={fieldErrors.nombre || ''} />
+                    <TextField fullWidth size="small" variant="outlined" name="tipo" label="Tipo / Categoría" sx={{ mt: 2 }} value={addForm.tipo} onChange={handleAddChange} error={!!fieldErrors.tipo} helperText={fieldErrors.tipo || 'Opcional. Usado para filtrado público.'} />
                   </Grid>
                   <Grid item xs={12} md={3}>
                     <TextField

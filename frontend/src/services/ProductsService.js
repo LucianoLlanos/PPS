@@ -19,6 +19,7 @@ export class ProductsService {
     return Array.isArray(data) ? data.map(d => new Product({
       idProducto: d.idProducto,
       nombre: d.nombre,
+      tipo: d.tipo,
       descripcion: d.descripcion,
       precio: d.precio,
       stock: d.stock,

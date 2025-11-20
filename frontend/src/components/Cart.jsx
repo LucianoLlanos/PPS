@@ -7,6 +7,7 @@ import { OrdersAdminService } from '../services/OrdersAdminService';
 import { OrdersClientService } from '../services/OrdersClientService';
 import { CustomersService } from '../services/CustomersService';
 import { SucursalesService } from '../services/SucursalesService';
+import { ProductsService } from '../services/ProductsService';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, Card, CardContent, Grid, Avatar, Stack, Alert, Divider, FormControl, InputLabel, Select, MenuItem, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -47,10 +48,14 @@ export default function Cart() {
   const ordersClientService = React.useMemo(() => new OrdersClientService(), []);
   const customersService = React.useMemo(() => new CustomersService(), []);
   const sucursalesService = React.useMemo(() => new SucursalesService(), []);
+  const productsService = React.useMemo(() => new ProductsService(), []);
 
   useEffect(() => {
     loadCart();
-    const handleCartUpdate = () => loadCart();
+    const handleCartUpdate = () => {
+      console.log('[Cart] Event cart:updated recibido, recargando carrito...');
+      loadCart();
+    };
     window.addEventListener('cart:updated', handleCartUpdate);
     return () => window.removeEventListener('cart:updated', handleCartUpdate);
   }, []);
@@ -60,10 +65,9 @@ export default function Cart() {
     const fetchStock = async () => {
       if (cartItems.length === 0) return;
       try {
-        const res = await api.get('/productos');
-        const productos = res.data || [];
+        const productos = await productsService.listPublic();
         const stockMap = {};
-        productos.forEach(p => {
+        (Array.isArray(productos) ? productos : []).forEach(p => {
           stockMap[p.idProducto] = Number(p.stock || 0);
         });
         setProductosStock(stockMap);
@@ -72,7 +76,7 @@ export default function Cart() {
       }
     };
     fetchStock();
-  }, [cartItems.length]);
+  }, [cartItems.length, productsService]);
 
   // Cargar datos auxiliares para vendedor
   useEffect(() => {
@@ -114,8 +118,10 @@ export default function Cart() {
   const loadCart = () => {
     try {
       const items = getCart();
+      console.log('[Cart] loadCart() ejecutado. Items en localStorage:', items);
       setCartItems(items || []);
-    } catch {
+    } catch (err) {
+      console.error('[Cart] Error en loadCart:', err);
       setCartItems([]);
     }
   };

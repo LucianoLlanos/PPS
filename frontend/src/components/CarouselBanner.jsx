@@ -81,7 +81,7 @@ export default function CarouselBanner() {
   return (
     <Box sx={{
       position: 'relative',
-      width: '100vw',
+      width: '100%', /* evitar 100vw para que respete anchura sin crear overflow */
       height: {
         xs: 'clamp(220px, 36vh, 380px)',
         md: 'clamp(320px, 50vh, 520px)'
@@ -90,9 +90,7 @@ export default function CarouselBanner() {
       mt: 0,
       overflow: 'hidden',
       bgcolor: '#101820',
-      marginLeft: 'calc(-50vw + 50%)',
-      marginRight: 'calc(-50vw + 50%)',
-      maxWidth: 'none',
+      maxWidth: '100%',
       boxSizing: 'border-box'
     }}>
       {/* Banner principal */}

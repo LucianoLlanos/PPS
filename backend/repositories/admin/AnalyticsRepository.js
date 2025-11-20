@@ -30,8 +30,8 @@ class AnalyticsRepository extends BaseRepository {
   }
 
   async ventasTopProducts({ start, end, limit, idSucursal }) {
-    let sql = `SELECT dp.idProducto, pr.nombre AS nombre, SUM(dp.cantidad) AS cantidad_vendida,
-                      SUM(dp.cantidad * dp.precioUnitario) AS ingresos
+    let sql = `SELECT dp.idProducto, pr.nombre AS nombre, SUM(dp.cantidad) AS cantidad,
+              SUM(dp.cantidad * dp.precioUnitario) AS ingresos
                FROM detalle_pedidos dp
                JOIN pedidos pe ON dp.idPedido = pe.idPedido
                JOIN productos pr ON dp.idProducto = pr.idProducto

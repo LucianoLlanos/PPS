@@ -54,23 +54,143 @@ export default function VentasAnalytics() {
 
   // Export CSV helper
   const exportCSV = () => {
-    const lines = [];
+    const sep = ';';
     const suc = sucursales.find(s => String(s.idSucursal) === String(selectedSucursal));
-    const sucLabel = suc ? suc.nombre.replace(/,/g, '') : 'Todas';
-    lines.push(`Sucursal: ${sucLabel}`);
-    lines.push(`Generado: ${new Date().toLocaleString()}`);
-    lines.push('Top products - Producto,Unidades,Ingresos');
-    topProducts.forEach(p => lines.push(`${p.nombre},${p.cantidad},${p.ingresos}`));
-    lines.push('\nTimeseries - Fecha,Pedidos,Ingresos');
-    timeseries.forEach(t => lines.push(`${new Date(t.fecha).toLocaleDateString('es-AR')},${t.pedidos},${t.ingresos}`));
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const sucLabel = suc ? suc.nombre : 'Todas';
+
+    const escape = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const rows = [];
+    // Metadata
+    rows.push([`Sucursal`, sucLabel]);
+    rows.push([`Generado`, new Date().toLocaleString()]);
+    rows.push([]);
+
+    // Top products section
+    rows.push([`Top productos (por ingresos)`]);
+    rows.push([`Producto`, `Unidades`, `Ingresos (ARS)`]);
+    let totalUnidades = 0;
+    let totalIngresos = 0;
+    topProducts.forEach(p => {
+      const unidades = Number(p.cantidad || 0);
+      const ingresos = Number(p.ingresos || 0);
+      totalUnidades += unidades;
+      totalIngresos += ingresos;
+      rows.push([p.nombre, unidades, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(ingresos)]);
+    });
+    // Totals for top products
+    if (topProducts.length > 0) {
+      rows.push([]);
+      rows.push([`Total`, totalUnidades, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totalIngresos)]);
+    }
+
+    rows.push([]);
+
+    // Timeseries section
+    rows.push([`Series (ingresos por día)`]);
+    rows.push([`Fecha`, `Pedidos`, `Ingresos (ARS)`]);
+    let totalPedidos = 0;
+    let totalTsIngresos = 0;
+    timeseries.forEach(t => {
+      const pedidos = Number(t.pedidos || 0);
+      const ingresos = Number(t.ingresos || 0);
+      totalPedidos += pedidos;
+      totalTsIngresos += ingresos;
+      rows.push([new Date(t.fecha).toLocaleDateString('es-AR'), pedidos, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(ingresos)]);
+    });
+    if (timeseries.length > 0) {
+      rows.push([]);
+      rows.push([`Total periodo`, totalPedidos, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totalTsIngresos)]);
+    }
+
+    // Build CSV text with BOM so Excel detects UTF-8
+    const csvLines = rows.map(r => r.map(c => escape(c)).join(sep));
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
+    const dateSuffix = new Date().toISOString().slice(0,10);
     const sucName = selectedSucursal ? `sucursal_${selectedSucursal}` : 'todas';
-    a.download = `ventas_analytics_${sucName}.csv`;
+    a.download = `ventas_analytics_${sucName}_${dateSuffix}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Export Excel (XLSX) helper - carga SheetJS dinámicamente desde CDN
+  const exportExcel = async () => {
+    try {
+      if (!window.XLSX) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const XLSX = window.XLSX;
+
+      // Top products sheet
+      const topSheetData = [];
+      topSheetData.push([`Top productos (por ingresos)`]);
+      topSheetData.push([`Producto`, `Unidades`, `Ingresos (ARS)`, `Ingresos (raw)`]);
+      let totalUn = 0;
+      let totalIng = 0;
+      topProducts.forEach(p => {
+        const unidades = Number(p.cantidad || 0);
+        const ingresos = Number(p.ingresos || 0);
+        totalUn += unidades;
+        totalIng += ingresos;
+        topSheetData.push([p.nombre, unidades, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(ingresos), ingresos]);
+      });
+      if (topProducts.length > 0) topSheetData.push([`Total`, totalUn, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totalIng), totalIng]);
+
+      // Timeseries sheet
+      const tsSheetData = [];
+      tsSheetData.push([`Series (ingresos por día)`]);
+      tsSheetData.push([`Fecha`, `Pedidos`, `Ingresos (ARS)`, `Ingresos (raw)`]);
+      let totalPedidos = 0;
+      let totalTsIngresos = 0;
+      timeseries.forEach(t => {
+        const pedidos = Number(t.pedidos || 0);
+        const ingresos = Number(t.ingresos || 0);
+        totalPedidos += pedidos;
+        totalTsIngresos += ingresos;
+        tsSheetData.push([new Date(t.fecha).toLocaleDateString('es-AR'), pedidos, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(ingresos), ingresos]);
+      });
+      if (timeseries.length > 0) tsSheetData.push([`Total periodo`, totalPedidos, new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totalTsIngresos), totalTsIngresos]);
+
+      const wb = XLSX.utils.book_new();
+      const wsTop = XLSX.utils.aoa_to_sheet(topSheetData);
+      const wsTs = XLSX.utils.aoa_to_sheet(tsSheetData);
+
+      // Set column widths for readability
+      wsTop['!cols'] = [{ wch: 40 }, { wch: 12 }, { wch: 18 }, { wch: 12 }];
+      wsTs['!cols'] = [{ wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 12 }];
+
+      XLSX.utils.book_append_sheet(wb, wsTop, 'Top productos');
+      XLSX.utils.book_append_sheet(wb, wsTs, 'Series');
+
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateSuffix = new Date().toISOString().slice(0,10);
+      const sucName = selectedSucursal ? `sucursal_${selectedSucursal}` : 'todas';
+      a.download = `ventas_analytics_${sucName}_${dateSuffix}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exportando Excel, cayendo al CSV', err);
+      exportCSV();
+    }
   };
 
   // Preparar datos para el gráfico (recharts)
@@ -155,7 +275,7 @@ export default function VentasAnalytics() {
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: panelHeight, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Typography variant="h6">Top productos (por ingresos)</Typography>
-            <Box sx={{ width: '100%', overflowX: 'auto', mt: 1, flex: '1 1 auto' }}>
+            <Box sx={{ width: '100%', overflowX: 'hidden', mt: 1, flex: '1 1 auto' }}>
               <Table size="small">
               <TableHead>
                 <TableRow>
@@ -167,7 +287,7 @@ export default function VentasAnalytics() {
               <TableBody>
                 {topProducts.map(p => (
                   <TableRow key={p.idProducto}>
-                    <TableCell sx={{ maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</TableCell>
+                    <TableCell sx={{ maxWidth: 220, whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis', wordBreak: 'break-word' }}>{p.nombre}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{p.cantidad}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(p.ingresos)}</TableCell>
                   </TableRow>
@@ -242,7 +362,8 @@ export default function VentasAnalytics() {
 
       <Box sx={{ mt: 2 }}>
         <Button variant="contained" onClick={fetchAll} disabled={loading} sx={{ mr: 2 }}>{loading ? 'Cargando...' : 'Actualizar'}</Button>
-        <Button variant="outlined" onClick={exportCSV} disabled={timeseries.length === 0 && topProducts.length === 0}>Exportar CSV</Button>
+        <Button variant="outlined" onClick={exportCSV} disabled={timeseries.length === 0 && topProducts.length === 0} sx={{ mr: 1 }}>Exportar CSV</Button>
+        <Button variant="outlined" onClick={exportExcel} disabled={timeseries.length === 0 && topProducts.length === 0}>Exportar Excel</Button>
       </Box>
     </Box>
   );

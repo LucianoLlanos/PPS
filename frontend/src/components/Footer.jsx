@@ -20,13 +20,11 @@ export default function Footer(){
   };
   return (
     <Box component="footer" sx={{
-      width: '100vw', m: 0, p: 0,
+      width: '100%', m: 0, p: 0,
       background: 'linear-gradient(180deg,#0f4fa3 0%,#0d437f 100%)',
       color: 'white', pt: { xs: 4, md: 5 }, pb: { xs: 3, md: 4 },
       position: 'relative',
-      marginLeft: 'calc(-50vw + 50%)',
-      marginRight: 'calc(-50vw + 50%)',
-      maxWidth: 'none', boxSizing: 'border-box',
+      maxWidth: '100%', boxSizing: 'border-box',
       display: 'flex', flexDirection: 'column', gap: { xs: 2.4, md: 3.2 },
       '&::before': {
         content: '""', position: 'absolute', top: 0, left: 0, right: 0,

@@ -161,7 +161,7 @@ export default function HomeProducts() {
     <Box sx={{ 
       width: '100%', 
       overflow: 'hidden',
-      maxWidth: '100vw',
+      maxWidth: '100%',
       boxSizing: 'border-box',
       mt: 0,
       pt: 0

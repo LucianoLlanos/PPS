@@ -2,8 +2,10 @@ const { BaseRepository } = require('../BaseRepository');
 
 class ProductoAdminRepository extends BaseRepository {
   async selectAllWithImages() {
+    const hasCategoria = await this.hasColumn('productos', 'categoria');
+    const tipoSelect = hasCategoria ? 'p.categoria AS tipo' : "'' AS tipo";
     const sql = `
-      SELECT p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      SELECT p.idProducto, p.nombre, ${tipoSelect}, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
              GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
@@ -12,8 +14,10 @@ class ProductoAdminRepository extends BaseRepository {
   }
 
   async selectByIdWithImages(id) {
+    const hasCategoria = await this.hasColumn('productos', 'categoria');
+    const tipoSelect = hasCategoria ? 'p.categoria AS tipo' : "'' AS tipo";
     const sql = `
-      SELECT p.idProducto, p.nombre, p.tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+      SELECT p.idProducto, p.nombre, ${tipoSelect}, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
              GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
       FROM productos p
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
@@ -24,9 +28,17 @@ class ProductoAdminRepository extends BaseRepository {
   }
 
   async insertProduct({ nombre, tipo, descripcion, precio, stockTotal, imagenPrincipal }, conn) {
+    const hasCategoria = await this.hasColumn('productos', 'categoria');
+    if (hasCategoria) {
+      const [result] = await conn.query(
+        'INSERT INTO productos (nombre, categoria, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?, ?)',
+        [nombre, tipo || null, descripcion, precio, stockTotal, imagenPrincipal]
+      );
+      return result.insertId;
+    }
     const [result] = await conn.query(
-      'INSERT INTO productos (nombre, tipo, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre, tipo || null, descripcion, precio, stockTotal, imagenPrincipal]
+      'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)',
+      [nombre, descripcion, precio, stockTotal, imagenPrincipal]
     );
     return result.insertId;
   }
@@ -36,7 +48,12 @@ class ProductoAdminRepository extends BaseRepository {
   }
 
   async updateProductCore(id, { nombre, tipo, descripcion, precio, stockTotal }, conn) {
-    await conn.query('UPDATE productos SET nombre=?, tipo=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, tipo || null, descripcion, precio, stockTotal, id]);
+    const hasCategoria = await this.hasColumn('productos', 'categoria');
+    if (hasCategoria) {
+      await conn.query('UPDATE productos SET nombre=?, categoria=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, tipo || null, descripcion, precio, stockTotal, id]);
+      return;
+    }
+    await conn.query('UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, descripcion, precio, stockTotal, id]);
   }
 
   async deleteImagesByFilenames(id, filenames, conn) {

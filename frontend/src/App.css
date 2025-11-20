@@ -6,8 +6,9 @@
 
 /* Prevenir scroll horizontal en toda la página */
 html, body {
-  overflow-x: hidden;
-  max-width: 100vw;
+  overflow-x: hidden; /* evitar scroll horizontal */
+  /* Quitamos max-width:100vw porque reduce el contenido cuando aparece el scrollbar
+     y deja una franja al costado en navegadores que no superponen la barra. */
 }
 
 /* Contenedor para páginas normales (no login) */
@@ -69,19 +70,16 @@ footer {
   margin: 0 !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-  width: 100vw !important;
-  max-width: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box;
-  /* Técnica para romper cualquier contenedor padre */
-  margin-left: calc(-50vw + 50%) !important;
-  margin-right: calc(-50vw + 50%) !important;
   position: relative;
 }
 
 /* Asegurar que el contenedor de la app no interfiera con el footer */
 .app-container footer {
-  margin-left: calc(-50vw + 50%) !important;
-  margin-right: calc(-50vw + 50%) !important;
-  width: 100vw !important;
-  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }

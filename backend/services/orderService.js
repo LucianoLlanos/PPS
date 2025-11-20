@@ -35,14 +35,19 @@ class OrderService {
 
     return this.db.withTransaction(async (conn) => {
       const fechaPedido = new Date();
+
+      const parsedCuotas = Number(cuotas) || 1;
+      const parsedInteres = Number(interes) || 0;
+      const parsedDescuento = Number(descuento) || 0;
+
       const idPedido = await this.orderRepo.insertPedido(conn, {
         idCliente,
         fechaPedido,
         observaciones,
         metodoPago,
-        cuotas,
-        interes,
-        descuento,
+        cuotas: parsedCuotas,
+        interes: parsedInteres,
+        descuento: parsedDescuento,
         totalConInteres,
       });
 
@@ -50,10 +55,17 @@ class OrderService {
       for (const p of productos) {
         const basic = await this.productRepo.getBasicById(p.idProducto, conn);
         if (!basic) throw AppError.notFound(`Producto con ID ${p.idProducto} no encontrado`);
-        const precioUnitario = Number(basic.precio);
+
         const cantidad = Number(p.cantidad);
+        if (isNaN(cantidad) || cantidad <= 0) throw AppError.badRequest(`Cantidad inválida para producto ${p.idProducto}`);
+
+        // Preferir precioUnitario enviado en el payload (admin override). Si no viene, usar precio del producto.
+        let precioUnitario = (p.precioUnitario !== undefined && p.precioUnitario !== null) ? Number(p.precioUnitario) : Number(basic.precio);
+        if (isNaN(precioUnitario) || precioUnitario < 0) throw AppError.badRequest(`Precio unitario inválido para producto ${p.idProducto}`);
+
         const subtotal = precioUnitario * cantidad;
         acumulado += subtotal;
+
         await this.orderRepo.insertDetalle(conn, {
           idPedido,
           idProducto: p.idProducto,
@@ -77,6 +89,11 @@ class OrderService {
       fechaPedido: r.fechaPedido,
       estado: r.estado,
       total: Number(r.total ?? 0),
+      totalConInteres: r.totalConInteres != null ? Number(r.totalConInteres) : null,
+      metodoPago: r.metodoPago || null,
+      cuotas: r.cuotas != null ? Number(r.cuotas) : null,
+      interes: r.interes != null ? Number(r.interes) : null,
+      descuento: r.descuento != null ? Number(r.descuento) : null,
       observaciones: r.observaciones,
       cantidadProductos: Number(r.cantidadProductos || 0),
     }));

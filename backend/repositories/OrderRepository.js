@@ -30,6 +30,11 @@ class OrderRepository extends BaseRepository {
         p.fechaPedido,
         p.estado,
         p.total,
+        p.totalConInteres,
+        p.metodoPago,
+        p.cuotas,
+        p.interes,
+        p.descuento,
         p.observaciones,
         COUNT(dp.idProducto) as cantidadProductos
       FROM pedidos p

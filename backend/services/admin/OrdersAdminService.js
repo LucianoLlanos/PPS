@@ -79,8 +79,8 @@ class OrdersAdminService {
         idCliente = ins.insertId;
       }
 
-      const withPaymentCols = await this.pedidoRepo.hasPaymentColumns();
-      const idPedido = await this.pedidoRepo.insertPedidoCore({ idCliente, estado, idSucursalOrigen, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres }, conn, withPaymentCols);
+      // Force use of payment columns insertion when creating from admin/seller flows
+      const idPedido = await this.pedidoRepo.insertPedidoCore({ idCliente, estado, idSucursalOrigen, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres }, conn, true);
 
       let totalPedido = 0;
       let cantidadTotal = 0;

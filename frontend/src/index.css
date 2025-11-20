@@ -12,7 +12,6 @@ html {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   overflow-x: hidden; /* Elimina scroll horizontal global */
-  max-width: 100vw;
 }
 
 /* Utilidades numéricas para tablas/admin */
@@ -26,8 +25,7 @@ html {
    when pages become scrollable. If you prefer the scrollbar to be always visible, use
    `html { overflow-y: scroll; }` — currently we keep the default but request a stable gutter. */
 html {
-  /* Reservar siempre el gutter del scrollbar para evitar saltos horizontales al abrir diálogos/menús */
-  scrollbar-gutter: stable both-edges;
+  /* Quitamos scrollbar-gutter para evitar reserva fija que generaba franja derecha */
 }
 
 body {
@@ -38,8 +36,22 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   overflow-x: hidden; /* Elimina scroll horizontal en el body */
-  max-width: 100vw;
+  /* Revertimos overflow-y: scroll para evitar gutter forzado que mostraba franja derecha */
+  /* Evitar forzar max-width/width en body para no romper técnicas full-bleed
+     (ej. margin-left: calc(-50vw + 50%)). Mantener layout fluido. */
+}
+
+/* Asegurar que el root ocupe todo el viewport y que html/body compartan
+   el mismo color de fondo para evitar franjas causadas por el fondo
+   del elemento raíz (html) distinto al del body. */
+html, body, #root {
   width: 100%;
+  min-width: 100%;
+  height: 100%;
+  background-color: var(--bg-color, #f8f9fa);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* Cuando MUI aplica scroll lock, puede añadir padding-right al body. Lo neutralizamos
@@ -102,7 +114,8 @@ input:focus, textarea:focus, select:focus {
   width: 10px;
 }
 *::-webkit-scrollbar-track {
-  background: rgba(15,23,42,0.04);
+  /* Igualar el track al fondo para que no se perciba como franja distinta */
+  background: #f8f9fa;
   border-radius: 10px;
 }
 *::-webkit-scrollbar-thumb {
@@ -118,7 +131,8 @@ input:focus, textarea:focus, select:focus {
 /* Firefox: use scrollbar-color and scrollbar-width */
 html {
   scrollbar-width: thin;
-  scrollbar-color: rgba(15,23,42,0.18) rgba(15,23,42,0.04);
+  /* track = fondo, thumb = tono suave */
+  scrollbar-color: rgba(15,23,42,0.18) #f8f9fa;
 }
 
 /* Helper classes for small scrollable areas */

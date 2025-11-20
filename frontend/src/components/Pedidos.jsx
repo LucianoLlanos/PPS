@@ -5,13 +5,86 @@ import { UsersAdminService } from '../services/UsersAdminService';
 import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack, Divider, InputAdornment
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { getStatusInfo } from '../utils/statusColors';
 import StatusPill from './StatusPill';
+
+// Small helper: compact preview for products column
+function ProductListPreview({ productos = [] }) {
+  const [anchor, setAnchor] = useState(null);
+  const open = Boolean(anchor);
+  const visible = productos.slice(0, 2);
+  const more = productos.length - visible.length;
+  return (
+    <>
+      <Box sx={{ width: '100%', p: 0, m: 0, background: 'transparent', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: (productos || []).length > 2 ? 'flex-start' : 'center', gap: 0 }}>
+        {visible.map((prod, i) => (
+          <Box key={i} sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0, minWidth: 0, width: '100%', p: 0, lineHeight: 1.15 }} title={`${prod.nombre} (x${prod.cantidad})`}>
+            <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', display: '-webkit-box', fontWeight: 600, fontSize: '0.88rem', flex: 1, minWidth: 0, pr: 1 }}>{prod.nombre}</Typography>
+            <Box component="span" sx={{ ml: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f3f4f6', color: '#111827', border: '1px solid #e5e7eb', px: 0.4, py: '2px', borderRadius: 10, fontWeight: 700, fontSize: '0.72rem', flex: '0 0 auto' }}>x{prod.cantidad}</Box>
+          </Box>
+        ))}
+        {more > 0 && (
+          <Button size="small" onClick={(e) => setAnchor(e.currentTarget)} sx={{ mt: 0.25, textTransform: 'none', fontSize: '0.78rem', p: 0, minWidth: 0, alignSelf: 'flex-start' }}>+{more} más</Button>
+        )}
+      </Box>
+      <Popover
+        open={open}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        disableScrollLock
+        PaperProps={{ sx: { p: 1.5, minWidth: 240, borderRadius: 2, boxShadow: '0 14px 34px rgba(15,23,42,0.12)' } }}
+      >
+        <Box sx={{ maxWidth: 420 }}>
+          {productos.slice(visible.length).map((pr, i) => (
+            <Box key={i} sx={{ py: 0.5, display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+              <Typography variant="body1" sx={{ pr: 2, flex: 1, fontSize: '0.92rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>{pr.nombre}</Typography>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f3f4f6', color: '#111827', border: '1px solid #e5e7eb', px: 0.6, py: '4px', borderRadius: 14, fontWeight: 700, fontSize: '0.78rem', ml: 1 }}>x{pr.cantidad}</Box>
+            </Box>
+          ))}
+        </Box>
+      </Popover>
+    </>
+  );
+}
+
+function QuantitySummary({ productos = [] }) {
+  const [anchor, setAnchor] = useState(null);
+  const open = Boolean(anchor);
+  const total = (productos || []).reduce((s, p) => s + Number(p.cantidad || 0), 0);
+  const distinct = (productos || []).length;
+  const label = `${total} unidad${total !== 1 ? 'es' : ''} · ${distinct} producto${distinct !== 1 ? 's' : ''}`;
+  return (
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button onClick={(e) => setAnchor(e.currentTarget)} sx={{ textTransform: 'none', p: 0, minWidth: 0 }} aria-label={`Ver detalle de ${distinct} productos`}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>{total}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{`${distinct} producto${distinct !== 1 ? 's' : ''}`}</Typography>
+          </Box>
+        </Button>
+      </Box>
+      <Popover open={open} anchorEl={anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: 'top', horizontal: 'left' }} disableScrollLock>
+        <Box sx={{ p: 2, minWidth: 300 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Detalle de cantidades</Typography>
+          {(productos || []).map((pr, i) => (
+            <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75 }}>
+              <Typography variant="body1" sx={{ color: 'text.primary' }}>{pr.nombre}</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>x{pr.cantidad}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </Popover>
+    </>
+  );
+}
 
 function Pedidos() {
   const ordersService = useMemo(() => new OrdersAdminService(), []);
@@ -29,7 +102,9 @@ function Pedidos() {
   const [filterFechaTo, setFilterFechaTo] = useState('');
   const [filterTotalMin, setFilterTotalMin] = useState('');
   const [filterTotalMax, setFilterTotalMax] = useState('');
-  const [filterEstado, setFilterEstado] = useState('');
+  // Por defecto mostrar sólo pedidos pendientes en la vista
+  const DEFAULT_ESTADO = 'Pendiente';
+  const [filterEstado, setFilterEstado] = useState(DEFAULT_ESTADO);
   const [filterMetodoPago, setFilterMetodoPago] = useState('');
   const [error, setError] = useState(null);
   // fieldErrors eliminado porque no se usa actualmente
@@ -38,10 +113,23 @@ function Pedidos() {
   const [success, setSuccess] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [addPedido, setAddPedido] = useState(false);
-  const [addForm, setAddForm] = useState({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '' });
+  const [addForm, setAddForm] = useState({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '', metodoPago: 'Efectivo', cuotas: 1, interes: 0 });
+  const [addFormErrors, setAddFormErrors] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [productosList, setProductosList] = useState([]);
+
+  // Extraer método de pago desde observaciones si metodoPago no está presente
+  const extractMetodoFromObservaciones = (obs) => {
+    try {
+      if (!obs) return null;
+      const m = String(obs).match(/Pago:\s*([^|\n\r]+)/i);
+      if (m && m[1]) return m[1].trim();
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   // Carga inicial de datos (pedidos, sucursales, usuarios, productos)
   useEffect(() => {
@@ -69,7 +157,7 @@ function Pedidos() {
   }, [ordersService, sucursalesService, usersService, productsService]);
 
   const clearFilters = () => {
-    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(''); setFilterMetodoPago('');
+    setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(DEFAULT_ESTADO); setFilterMetodoPago('');
   };
 
   // Popover para filtros
@@ -77,20 +165,24 @@ function Pedidos() {
   const openFilters = (e) => setFiltersAnchor(e.currentTarget);
   const closeFilters = () => setFiltersAnchor(null);
 
+  // Active filters summary (used by the UI chips)
   const activeFilters = [];
   if (filterId) activeFilters.push({ key: 'ID', val: filterId });
   if (filterProducto) activeFilters.push({ key: 'Producto', val: filterProducto });
   if (filterUsuario) activeFilters.push({ key: 'Usuario', val: filterUsuario });
   if (filterCantidadMin || filterCantidadMax) activeFilters.push({ key: 'Cant', val: `${filterCantidadMin || '-'}..${filterCantidadMax || '-'}` });
-  if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${filterFechaFrom || '-'}..${filterFechaTo || '-'}` });
+  const formatFilterDate = (d) => { if (!d) return '-'; try { return new Date(d).toLocaleDateString('es-AR'); } catch { return d; } };
+  if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${formatFilterDate(filterFechaFrom)}..${formatFilterDate(filterFechaTo)}` });
   if (filterTotalMin || filterTotalMax) activeFilters.push({ key: 'Total', val: `${filterTotalMin || '-'}..${filterTotalMax || '-'}` });
-  if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado });
+  if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado === 'ALL' ? '(todos)' : filterEstado });
   if (filterMetodoPago) activeFilters.push({ key: 'Pago', val: filterMetodoPago });
 
-  const displayedPedidos = pedidos.filter(p => {
-    // Ocultar pedidos Entregados a menos que el filtro de estado sea exactamente 'Entregado'
-    if (!filterEstado && p.estado === 'Entregado') return false;
-    if (filterEstado && filterEstado !== 'Entregado' && p.estado === 'Entregado') return false;
+  // Lista visible después de aplicar filtros
+  const displayedPedidos = (pedidos || []).filter(p => {
+    // Estado
+    if (filterEstado && filterEstado !== 'ALL') {
+      if ((p.estado || '') !== filterEstado) return false;
+    }
     if (filterId && !String(p.idPedido).includes(filterId)) return false;
     if (filterProducto) {
       const found = (p.productos || []).some(prod => (prod.nombre || '').toLowerCase().includes(filterProducto.toLowerCase()));
@@ -111,7 +203,6 @@ function Pedidos() {
     }
     if (filterFechaTo) {
       const to = new Date(filterFechaTo);
-      // include day
       to.setHours(23,59,59,999);
       if (new Date(p.fecha) > to) return false;
     }
@@ -121,14 +212,13 @@ function Pedidos() {
     }
     if (filterTotalMin && Number(p.total) < Number(filterTotalMin)) return false;
     if (filterTotalMax && Number(p.total) > Number(filterTotalMax)) return false;
-    if (filterEstado && ((p.estado || '') !== filterEstado)) return false;
     return true;
   });
 
+  // Helpers para renderizar estados (chips / items)
   const renderStatusValue = (value) => <StatusPill value={value} variant="inline" />;
 
   const renderStatusMenuItem = (value, label) => {
-    const info = getStatusInfo(value);
     return (
       <MenuItem value={value} key={value} sx={{ my: 0.25 }}>
         <StatusPill value={value} label={label} />
@@ -136,23 +226,6 @@ function Pedidos() {
     );
   };
 
-  // Handlers mínimos para evitar errores y mantener la lógica intacta
-  const handleEstado = async (pedido, nuevoEstado) => {
-    try {
-      // Optimistic update
-      setPedidos(prev => prev.map(p => p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p));
-      await ordersService.update(pedido.idPedido, { ...pedido, estado: nuevoEstado }).catch(() => null);
-      setSuccess('Estado actualizado');
-      setOpenSnackbar(true);
-    } catch (e) {
-      console.error(e);
-      setError('No se pudo actualizar el estado');
-    }
-  };
-
-  const handleDelete = (pedido) => {
-    setDeletePedido(pedido);
-  };
 
   const confirmDelete = async () => {
     if (!deletePedido) return;
@@ -168,9 +241,34 @@ function Pedidos() {
     }
   };
 
+  // Abre el modal de confirmación para eliminar
+  const handleDelete = (pedido) => {
+    setDeletePedido(pedido);
+    setDeleteError(null);
+  };
+
+  // Cambia el estado del pedido en el backend y actualiza la lista local
+  const handleEstado = async (pedido, nuevoEstado) => {
+    try {
+      await ordersService.update(pedido.idPedido, { estado: nuevoEstado });
+      setPedidos(prev => prev.map(p => (p.idPedido === pedido.idPedido ? { ...p, estado: nuevoEstado } : p)));
+      setSuccess('Estado actualizado');
+      setOpenSnackbar(true);
+    } catch (err) {
+      console.error('Error actualizando estado:', err);
+      setError('No se pudo actualizar el estado');
+    }
+  };
+
   const submitAdd = async (e) => {
     e.preventDefault();
     try {
+      // validar filas (producto seleccionado y precio > 0)
+      const rows = addForm.productos || [];
+      const rowErrors = rows.map((r) => ({ producto: !r.idProducto, precio: !(Number(r.precioUnitario) > 0) }));
+      const hasRowErrors = rowErrors.some(re => re.producto || re.precio);
+      setAddFormErrors(rowErrors);
+      if (hasRowErrors) { setError('Corrige los productos y precios (precio debe ser mayor a 0)'); return; }
       // Validaciones mínimas
       if (!addForm.usuario) { setError('Seleccioná un usuario'); return; }
       if (!addForm.sucursal) { setError('Seleccioná una sucursal'); return; }
@@ -179,7 +277,8 @@ function Pedidos() {
       // Construir productos con precioUnitario a partir de productosList
       const productosPayload = addForm.productos.map((pr) => {
         const found = productosList.find(p => String(p.idProducto) === String(pr.idProducto));
-        const precioUnitario = Number(found?.precio ?? found?.price ?? 0) || 0;
+        const defaultPrecio = Number(found?.precio ?? found?.price ?? 0) || 0;
+        const precioUnitario = pr.precioUnitario != null && Number(pr.precioUnitario) > 0 ? Number(pr.precioUnitario) : defaultPrecio;
         return {
           idProducto: Number(pr.idProducto),
           cantidad: Number(pr.cantidad || 1),
@@ -187,7 +286,25 @@ function Pedidos() {
         };
       });
 
-      const totalCalc = productosPayload.reduce((s, it) => s + (it.cantidad * it.precioUnitario), 0);
+      const subtotal = productosPayload.reduce((s, it) => s + (it.cantidad * it.precioUnitario), 0);
+      // calcular porcentajes según método/cuotas
+      const getInteresFor = (metodo, c) => {
+        if (metodo === 'Tarjeta de crédito') {
+          if (c === 1) return 0;
+          if (c === 3) return 10;
+          if (c === 6) return 15;
+          if (c === 9) return 20;
+          if (c === 12) return 30;
+        }
+        return 0;
+      };
+      const getDescuentoFor = (metodo) => (metodo === 'Efectivo' ? 5 : 0);
+
+      const interesPercent = getInteresFor(addForm.metodoPago, Number(addForm.cuotas || 1));
+      const descuentoPercent = getDescuentoFor(addForm.metodoPago);
+      const montoInteres = subtotal * (interesPercent / 100);
+      const montoDescuento = subtotal * (descuentoPercent / 100);
+      const totalConInteres = subtotal + montoInteres - montoDescuento;
 
       const payload = {
         idCliente: Number(addForm.usuario),
@@ -195,7 +312,12 @@ function Pedidos() {
         idSucursalOrigen: Number(addForm.sucursal),
         productos: productosPayload,
         fecha: addForm.fecha || new Date().toISOString(),
-        total: totalCalc
+        total: subtotal,
+        metodoPago: addForm.metodoPago,
+        cuotas: Number(addForm.cuotas || 1),
+        interes: interesPercent,
+        descuento: descuentoPercent,
+        totalConInteres: totalConInteres
       };
 
       // Enviar al backend y refrescar la lista real desde el servidor
@@ -209,7 +331,7 @@ function Pedidos() {
           console.error('Error refrescando pedidos después de crear:', e);
         }
         setAddPedido(false);
-        setAddForm({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '' });
+        setAddForm({ usuario: '', productos: [], estado: 'Pendiente', sucursal: '', fecha: '', total: '', metodoPago: 'Efectivo', cuotas: 1, interes: 0 });
         setError(null);
         setSuccess('Pedido creado');
         setOpenSnackbar(true);
@@ -225,6 +347,19 @@ function Pedidos() {
 
   const handleAddChange = (e) => {
     const { name, value } = e.target;
+    // si cambia el metodo de pago y no es tarjeta, forzar cuotas a 1
+    if (name === 'metodoPago') {
+      const metodo = value;
+      if (metodo !== 'Tarjeta de crédito') {
+        setAddForm(prev => ({ ...prev, [name]: value, cuotas: 1, interes: 0 }));
+        return;
+      }
+    }
+    // convertir cuotas a número
+    if (name === 'cuotas') {
+      setAddForm(prev => ({ ...prev, [name]: Number(value) }));
+      return;
+    }
     setAddForm(prev => ({ ...prev, [name]: value }));
   };
 
@@ -232,6 +367,16 @@ function Pedidos() {
     setAddForm(prev => {
       const productos = Array.isArray(prev.productos) ? [...prev.productos] : [];
       productos[index] = { ...productos[index], [field]: value };
+      // si se cambió el producto, prefill precioUnitario con el precio del producto seleccionado
+      if (field === 'idProducto') {
+        const found = productosList.find(p => String(p.idProducto) === String(value));
+        const precio = found ? (Number(found?.precio ?? found?.price ?? 0) || 0) : '';
+        productos[index].precioUnitario = precio;
+      }
+      // si se cambió el precioUnitario manualmente, convertir a número
+      if (field === 'precioUnitario') {
+        productos[index].precioUnitario = value === '' ? '' : Number(value);
+      }
       return { ...prev, productos };
     });
   };
@@ -241,7 +386,7 @@ function Pedidos() {
   };
 
   const addProductoRow = () => {
-    setAddForm(prev => ({ ...prev, productos: [...(prev.productos || []), { idProducto: '', cantidad: 1 }] }));
+    setAddForm(prev => ({ ...prev, productos: [...(prev.productos || []), { idProducto: '', cantidad: 1, precioUnitario: '' }] }));
   };
 
   return (
@@ -266,7 +411,7 @@ function Pedidos() {
                 if (f.key === 'Cant') { setFilterCantidadMin(''); setFilterCantidadMax(''); }
                 if (f.key === 'Fecha') { setFilterFechaFrom(''); setFilterFechaTo(''); }
                 if (f.key === 'Total') { setFilterTotalMin(''); setFilterTotalMax(''); }
-                if (f.key === 'Estado') setFilterEstado('');
+                if (f.key === 'Estado') setFilterEstado(DEFAULT_ESTADO);
                 if (f.key === 'Pago') setFilterMetodoPago('');
               }} />
             ))}
@@ -277,57 +422,86 @@ function Pedidos() {
       {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
       </Snackbar>}
-      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', overflow: 'hidden', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' } }}>
-        <Box sx={{ overflow: 'auto', flex: 1 }}>
-        <Table stickyHeader sx={{ width: '100%', minWidth: 960, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' } }}>
+        <Box sx={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
+        <Table stickyHeader sx={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent',
+            // Header: keep compact
+            '& .MuiTableHead-root .MuiTableCell-root': { py: 0.75, px: 1.25, boxSizing: 'border-box', height: 'auto', minHeight: 'auto' },
+            // Body: force fixed height so rows don't jump (adjusted to leave space for '+N más')
+            '& .MuiTableBody-root .MuiTableRow-root': { boxSizing: 'border-box', height: 88, maxHeight: 88 },
+            '& .MuiTableBody-root .MuiTableCell-root': { py: 1, px: 1, boxSizing: 'border-box', height: 88, minHeight: 88, maxHeight: 88, overflow: 'hidden', verticalAlign: 'middle', display: 'table-cell' },
+            '& td, & th': { boxSizing: 'border-box' }
+          }}>
           <TableHead sx={{ position: 'sticky', top: 0, zIndex: 5 }}>
         <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopLeftRadius: 14 }} className="tnum num-right">ID</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Productos</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Usuario</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Cantidades</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Forma de Pago</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }} className="tnum num-right">Total</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2 }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.97rem', letterSpacing: 0.7, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 2, px: 2, borderTopRightRadius: 14 }}>Acciones</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, borderTopLeftRadius: 14, width: 64, textAlign: 'center' }} className="tnum num-right">ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.95rem', letterSpacing: 0.6, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 0.9, px: 1.25, width: '38%', minWidth: 240, textAlign: 'left', verticalAlign: 'middle' }}>Productos</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: '18%', minWidth: 120, textAlign: 'center' }}>Usuario</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 64, textAlign: 'center' }}>Unidades</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 120, textAlign: 'center' }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 140, textAlign: 'center' }}>Forma de Pago</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 120, textAlign: 'right' }} className="tnum num-right">Total</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 120, textAlign: 'center' }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 90, borderTopRightRadius: 14, textAlign: 'center' }}>Acciones</TableCell>
             </TableRow>
             {/* filtros ahora en popover */}
           </TableHead>
           <TableBody>
             {displayedPedidos.map((p, idx) => (
-              <TableRow key={p.idPedido} hover sx={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' } }}>
-                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{p.idPedido}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{p.productos.map((prod, i) => (<div key={i}>{prod.nombre} <span style={{ color: '#6b7280' }}>(x{prod.cantidad})</span></div>))}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    {p.productos.map((prod, i) => (
-                      <div key={i} style={{ textAlign: 'center', minWidth: 24 }}>{prod.cantidad}</div>
-                    ))}
+              <TableRow key={p.idPedido} hover sx={{ height: 88, boxSizing: 'border-box', backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' }, borderBottom: '1px solid #e6e9ec' }}>
+                {/* si hay >1 producto alineamos arriba para evitar que la lista quede centrada y desplace el ID */}
+                <TableCell sx={{ py: 1, px: 1, width: 64, textAlign: 'center', boxSizing: 'border-box', display: 'flex', justifyContent: 'center', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center' }} className="tnum num-right">{p.idPedido}</TableCell>
+                <TableCell sx={{ py: 1.25, px: 1, minWidth: 220, width: '36%', position: 'relative', boxSizing: 'border-box', overflow: 'hidden', verticalAlign: 'middle', background: 'transparent !important' }}>
+                  <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center', justifyContent: 'flex-start', p: 0, m: 0, background: 'transparent' }}>
+                    <ProductListPreview productos={p.productos || []} />
                   </Box>
                 </TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>{new Date(p.fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {p.metodoPago || 'No especificado'}
-                    </Typography>
-                    {p.cuotas && Number(p.cuotas) > 1 && (
-                      <Typography variant="caption" color="text.secondary">
-                        {p.cuotas} cuotas {p.interes > 0 && `(${p.interes}% int.)`}
-                      </Typography>
-                    )}
-                    {p.descuento && Number(p.descuento) > 0 && (
-                      <Typography variant="caption" color="success.main" display="block">
-                        {p.descuento}% desc.
-                      </Typography>
-                    )}
+                <TableCell sx={{ py: 1, px: 1, width: '20%', minWidth: 120, textAlign: 'center', boxSizing: 'border-box' }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
+                <TableCell sx={{ py: 1, px: 1, textAlign: 'center', width: 64 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{(p.productos || []).reduce((s, it) => s + Number(it.cantidad || 0), 0)}</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>unidades</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
+                  {(() => {
+                    const d = p.fecha ? new Date(p.fecha) : null;
+                    const dateStr = d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                    const timeStr = d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+                    return (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{dateStr}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{timeStr}</Typography>
+                      </Box>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {(() => {
+                      const metodoFromObs = extractMetodoFromObservaciones(p.observaciones);
+                      const metodoRaw = p.metodoPago && String(p.metodoPago).trim() ? String(p.metodoPago).trim() : metodoFromObs;
+                      const cuotasN = p.cuotas != null ? Number(p.cuotas) : null;
+                      const interesN = p.interes != null ? Number(p.interes) : null;
+                      const descuentoN = p.descuento != null ? Number(p.descuento) : null;
+                      if (!metodoRaw && !cuotasN && !descuentoN) return <Typography variant="body2" sx={{ fontWeight: 600 }}>No especificado</Typography>;
+                      return (
+                        <>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{metodoRaw}</Typography>
+                          {cuotasN && cuotasN > 1 ? (
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{`${cuotasN} cuotas${interesN && interesN > 0 ? ` (${interesN}% int.)` : ''}`}</Typography>
+                          ) : null}
+                          {descuentoN && descuentoN > 0 ? (
+                            <Typography variant="caption" sx={{ color: 'success.main' }}>{`${descuentoN}% desc.`}</Typography>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
                 <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <FormControl size="small" sx={{ minWidth: 170 }}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
                     <Select
                       value={p.estado || 'Pendiente'}
                       onChange={e => handleEstado(p, e.target.value)}
@@ -353,9 +527,9 @@ function Pedidos() {
                     </Select>
                   </FormControl>
                 </TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>
+                <TableCell sx={{ py: 1, px: 1, width: 110 }}>
                   <Tooltip title="Eliminar pedido">
-                    <IconButton color="error" size="small" onClick={() => handleDelete(p)}>
+                    <IconButton color="error" size="small" onClick={() => handleDelete(p)} sx={{ ml: 1 }} edge="end">
                       <DeleteOutlineIcon />
                     </IconButton>
                   </Tooltip>
@@ -376,8 +550,14 @@ function Pedidos() {
             <TextField size="small" label="Usuario" value={filterUsuario} onChange={e => setFilterUsuario(e.target.value)} />
             <FormControl size="small">
               <InputLabel>Estado</InputLabel>
-              <Select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} label="Estado" renderValue={(v) => (v ? renderStatusValue(v) : '(todos)')} MenuProps={{ disableScrollLock: true }}>
-                <MenuItem value="">(todos)</MenuItem>
+              <Select
+                value={filterEstado}
+                onChange={e => setFilterEstado(e.target.value)}
+                label="Estado"
+                renderValue={(v) => (v && v !== 'ALL' ? renderStatusValue(v) : '(todos)')}
+                MenuProps={{ disableScrollLock: true }}
+              >
+                <MenuItem value="ALL">(todos)</MenuItem>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
                 {renderStatusMenuItem('Enviado', 'Enviado')}
@@ -397,8 +577,8 @@ function Pedidos() {
             </FormControl>
             <TextField size="small" label="Cant. min" value={filterCantidadMin} onChange={e => setFilterCantidadMin(e.target.value)} />
             <TextField size="small" label="Cant. max" value={filterCantidadMax} onChange={e => setFilterCantidadMax(e.target.value)} />
-            <TextField type="date" size="small" label="Fecha desde" InputLabelProps={{ shrink: true }} value={filterFechaFrom} onChange={e => setFilterFechaFrom(e.target.value)} />
-            <TextField type="date" size="small" label="Fecha hasta" InputLabelProps={{ shrink: true }} value={filterFechaTo} onChange={e => setFilterFechaTo(e.target.value)} />
+            <TextField type="date" size="small" label="Fecha desde" InputLabelProps={{ shrink: true }} value={filterFechaFrom} onChange={e => setFilterFechaFrom(e.target.value)} helperText={filterFechaFrom ? new Date(filterFechaFrom).toLocaleDateString('es-AR') : ''} />
+            <TextField type="date" size="small" label="Fecha hasta" InputLabelProps={{ shrink: true }} value={filterFechaTo} onChange={e => setFilterFechaTo(e.target.value)} helperText={filterFechaTo ? new Date(filterFechaTo).toLocaleDateString('es-AR') : ''} />
             <TextField size="small" label="Total min" value={filterTotalMin} onChange={e => setFilterTotalMin(e.target.value)} />
             <TextField size="small" label="Total max" value={filterTotalMax} onChange={e => setFilterTotalMax(e.target.value)} />
           </Box>
@@ -410,9 +590,9 @@ function Pedidos() {
       </Popover>
 
       {/* Modal Alta */}
-      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth disableScrollLock>
+      <Dialog open={addPedido} onClose={() => setAddPedido(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Registrar Pedido</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ overflowX: 'hidden', overflowY: 'auto', maxHeight: '72vh', boxSizing: 'border-box', scrollbarGutter: 'stable' }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Box component="form" onSubmit={submitAdd} noValidate sx={{ mt: 1 }}>
             <FormControl fullWidth sx={{ mb: 2 }}>
@@ -433,28 +613,186 @@ function Pedidos() {
                 ))}
               </Select>
             </FormControl>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Forma de pago</InputLabel>
+              <Select name="metodoPago" value={addForm.metodoPago} onChange={handleAddChange} required label="Forma de pago" MenuProps={{ disableScrollLock: true }}>
+                <MenuItem value="Efectivo">Efectivo</MenuItem>
+                <MenuItem value="Tarjeta de crédito">Tarjeta de crédito</MenuItem>
+                <MenuItem value="Tarjeta de débito">Tarjeta de débito</MenuItem>
+                <MenuItem value="Transferencia">Transferencia</MenuItem>
+              </Select>
+            </FormControl>
+
+            {addForm.metodoPago === 'Tarjeta de crédito' && (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Cuotas</InputLabel>
+                <Select name="cuotas" value={addForm.cuotas} onChange={handleAddChange} label="Cuotas" MenuProps={{ disableScrollLock: true }}>
+                  <MenuItem value={1}>1 cuota (0% interés)</MenuItem>
+                  <MenuItem value={3}>3 cuotas (10% interés)</MenuItem>
+                  <MenuItem value={6}>6 cuotas (15% interés)</MenuItem>
+                  <MenuItem value={9}>9 cuotas (20% interés)</MenuItem>
+                  <MenuItem value={12}>12 cuotas (30% interés)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Productos</Typography>
-              {addForm.productos.map((prod, idx) => (
-                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <FormControl sx={{ minWidth: 180 }} size="small">
-                    <InputLabel>Producto</InputLabel>
-                    <Select value={prod.idProducto} onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)} required label="Producto" MenuProps={{ disableScrollLock: true }}>
-                      <MenuItem value="">Producto</MenuItem>
-                      {productosList.map(pr => (
-                        <MenuItem key={pr.idProducto} value={pr.idProducto}>{pr.nombre}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <TextField type="number" size="small" label="Cantidad" value={prod.cantidad} inputProps={{ min: 1 }} onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required sx={{ width: 100 }} />
-                  <Button variant="outlined" color="error" size="small" sx={{ borderRadius: 999, minWidth: 36, px: 1.2 }} onClick={() => removeProductoRow(idx)}>
-                    ✖
-                  </Button>
-                </Box>
-              ))}
+              {addForm.productos.map((prod, idx) => {
+                const found = productosList.find(p => String(p.idProducto) === String(prod.idProducto));
+                const catalogPrice = Number(found?.precio ?? found?.price ?? 0);
+                const effectivePrice = (prod.precioUnitario != null && prod.precioUnitario > 0) ? prod.precioUnitario : (catalogPrice || 0);
+                const isModified = prod.precioUnitario != null && prod.precioUnitario > 0 && prod.precioUnitario !== catalogPrice;
+                const lineTotal = effectivePrice * Number(prod.cantidad || 0);
+                return (
+                  <Box key={idx} sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '16px minmax(120px, 1fr) 72px 1fr 100px 44px',
+                    gridTemplateRows: 'auto auto',
+                    gap: '6px 8px',
+                    alignItems: 'start',
+                    minHeight: 56,
+                    mb: 1.2,
+                    p: 0,
+                    borderLeft: isModified ? '3px solid rgba(245,158,11,0.22)' : '1px solid transparent',
+                    backgroundColor: isModified ? 'rgba(255,248,230,0.45)' : 'transparent',
+                    transition: 'background-color 200ms, border-left-color 200ms'
+                  }}>
+                    {/* indicador pequeño en columna fija */}
+                    <Box sx={{ width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gridRow: 1 }}>
+                      {isModified ? <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'rgba(245,158,11,0.95)', boxShadow: '0 0 0 6px rgba(245,158,11,0.06)' }} /> : null}
+                    </Box>
+                    {/* Select en la fila superior */}
+                    <FormControl sx={{ minWidth: 120, gridRow: 1 }} size="small" error={!!(addFormErrors[idx] && addFormErrors[idx].producto)}>
+                      <InputLabel>Producto</InputLabel>
+                      <Select
+                        value={prod.idProducto}
+                        onChange={e => handleProductoChange(idx, 'idProducto', e.target.value)}
+                        required
+                        label="Producto"
+                        MenuProps={{ disableScrollLock: true }}
+                        renderValue={(v) => {
+                          const sel = productosList.find(pr => String(pr.idProducto) === String(v));
+                          const text = sel ? sel.nombre : 'Producto';
+                          return (
+                            <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={text}>{text}</span>
+                          );
+                        }}
+                        sx={{ '.MuiSelect-select': { py: 0, display: 'flex', alignItems: 'center', height: 40, pr: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, '.MuiSelect-icon': { right: 8 } }}
+                      >
+                        <MenuItem value="">Producto</MenuItem>
+                        {productosList.map(pr => (
+                          <MenuItem key={pr.idProducto} value={pr.idProducto} title={pr.nombre} sx={{ whiteSpace: 'normal' }}>{pr.nombre}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField type="number" size="small" label="Cant." value={prod.cantidad} inputProps={{ min: 1 }} onChange={e => handleProductoChange(idx, 'cantidad', Number(e.target.value))} required sx={{ width: 72, gridRow: 1, '& .MuiInputBase-root': { height: 40, display: 'flex', alignItems: 'center' } }} />
+                    {/* Precio editable (fila superior) */}
+                    <Box sx={{ width: '100%', maxWidth: 140, gridRow: 1 }}>
+                      <TextField
+                        type="number"
+                        size="small"
+                        label={isModified ? 'Precio (mod.)' : 'Precio'}
+                        value={prod.precioUnitario === '' || prod.precioUnitario == null ? '' : prod.precioUnitario}
+                        inputProps={{ min: 0, step: '0.01' }}
+                        onChange={e => handleProductoChange(idx, 'precioUnitario', e.target.value)}
+                        sx={{ width: '100%', borderRadius: 1, backgroundColor: isModified ? 'rgba(255,243,205,0.45)' : 'transparent', '& .MuiInputBase-root': { height: 40, display: 'flex', alignItems: 'center' }, '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 }, '& input[type=number]': { MozAppearance: 'textfield' } }}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          endAdornment: isModified ? (
+                            <InputAdornment position="end">
+                              <Tooltip title={`Catálogo: ${formatCurrency(catalogPrice)}`} arrow>
+                                <IconButton size="small" sx={{ p: 0.3 }} aria-label="catálogo">
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </InputAdornment>
+                          ) : null
+                        }}
+                        error={!!(addFormErrors[idx] && addFormErrors[idx].precio)}
+                      />
+                    </Box>
+                    {/* Total por producto (fila superior) */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gridRow: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Total</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(lineTotal || 0)}</Typography>
+                    </Box>
+                    <Button variant="outlined" color="error" size="small" sx={{ borderRadius: 999, minWidth: 36, px: 0.8, alignSelf: 'center', ml: 3, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', gridRow: 1 }} onClick={() => removeProductoRow(idx)}>
+                      ✖
+                    </Button>
+
+                    {/* Segunda fila: nombre completo y tooltip de catálogo */}
+                    <Box sx={{ gridColumn: '2 / 6', gridRow: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0 }}>{found?.nombre || '\u00A0'}</Typography>
+                      {isModified ? (
+                        <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600, ml: 0.5 }}>Modificado</Typography>
+                      ) : null}
+                    </Box>
+                    {/* catalog icon moved into the price field endAdornment; second-row icon removed */}
+                  </Box>
+                );
+              })}
               <Button variant="outlined" color="primary" size="small" sx={{ borderRadius: 999, mt: 1, px: 2 }} onClick={addProductoRow}>
                 ＋ Agregar producto
               </Button>
+            
+              {/* Resumen simple (usar overrides de precio) */}
+              <Box sx={{ mt: 1.5, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2, bg: 'background.paper' }}>
+                {(() => {
+                  const productosCalc = (addForm.productos || []).map(pr => {
+                    const found = productosList.find(p => String(p.idProducto) === String(pr.idProducto));
+                    const catalogPrice = Number(found?.precio ?? found?.price ?? 0);
+                    const precio = (pr.precioUnitario != null && pr.precioUnitario > 0) ? Number(pr.precioUnitario) : catalogPrice;
+                    const cantidad = Number(pr.cantidad || 0);
+                    return { precio, cantidad, subtotal: precio * cantidad, nombre: found?.nombre || '' };
+                  });
+                  const subtotal = productosCalc.reduce((s, it) => s + it.subtotal, 0);
+                  const getInteresFor = (metodo, c) => {
+                    if (metodo === 'Tarjeta de crédito') {
+                      if (c === 1) return 0;
+                      if (c === 3) return 10;
+                      if (c === 6) return 15;
+                      if (c === 9) return 20;
+                      if (c === 12) return 30;
+                    }
+                    return 0;
+                  };
+                  const getDescuentoFor = (metodo) => (metodo === 'Efectivo' ? 5 : 0);
+                  const interesPercent = getInteresFor(addForm.metodoPago, Number(addForm.cuotas || 1));
+                  const descuentoPercent = getDescuentoFor(addForm.metodoPago);
+                  const montoInteres = subtotal * (interesPercent / 100);
+                  const montoDescuento = subtotal * (descuentoPercent / 100);
+                  const totalConInteres = subtotal + montoInteres - montoDescuento;
+                  const valorPorCuota = (addForm.metodoPago === 'Tarjeta de crédito' && Number(addForm.cuotas || 1) > 1) ? (totalConInteres / Number(addForm.cuotas || 1)) : 0;
+                  return (
+                    <Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="body2">Subtotal</Typography>
+                        <Typography variant="body2">{formatCurrency(subtotal)}</Typography>
+                      </Box>
+                      {descuentoPercent > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'success.main', mb: 0.5 }}>
+                          <Typography variant="body2">Descuento ({descuentoPercent}%)</Typography>
+                          <Typography variant="body2">-{formatCurrency(montoDescuento)}</Typography>
+                        </Box>
+                      )}
+                      {interesPercent > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'warning.main', mb: 0.5 }}>
+                          <Typography variant="body2">Interés ({interesPercent}%)</Typography>
+                          <Typography variant="body2">+{formatCurrency(montoInteres)}</Typography>
+                        </Box>
+                      )}
+                      <Divider sx={{ my: 1 }} />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">Total</Typography>
+                        <Typography variant="h6">{formatCurrency(totalConInteres)}</Typography>
+                      </Box>
+                      {valorPorCuota > 0 && (
+                        <Typography variant="caption" color="text.secondary">{Number(addForm.cuotas)} cuotas de {formatCurrency(valorPorCuota)}</Typography>
+                      )}
+                    </Box>
+                  );
+                })()}
+              </Box>
             </Box>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Estado</InputLabel>
@@ -468,14 +806,30 @@ function Pedidos() {
             </FormControl>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
               <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 999, px: 3, fontWeight: 600 }}>Registrar pedido</Button>
-              <Button type="button" variant="outlined" color="secondary" sx={{ borderRadius: 999, px: 3 }} onClick={() => setAddPedido(false)}>Cancelar</Button>
+              <Button
+                type="button"
+                variant="outlined"
+                startIcon={<ClearIcon sx={{ color: 'error.main' }} />}
+                sx={{
+                  borderRadius: 2,
+                  px: 2.5,
+                  py: 0.6,
+                  textTransform: 'none',
+                  color: 'error.main',
+                  borderColor: 'error.main',
+                  '&:hover': { backgroundColor: 'rgba(244,67,54,0.06)', borderColor: 'error.dark' }
+                }}
+                onClick={() => setAddPedido(false)}
+              >
+                Cancelar
+              </Button>
             </Box>
           </Box>
         </DialogContent>
       </Dialog>
 
       {/* Modal Borrado */}
-      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth disableScrollLock>
+      <Dialog open={!!deletePedido} onClose={() => { setDeletePedido(null); setDeleteError(null); }} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 600 }}>¿Eliminar pedido?</DialogTitle>
         <DialogContent>
           {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}

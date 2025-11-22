@@ -333,6 +333,24 @@ function ServiciosAdmin() {
                         <Box sx={{ display: 'inline-block' }}>
                           <StatusPill value="tipo" label={tiposServicio[servicio.tipoServicio] || servicio.tipoServicio} />
                         </Box>
+                        {(servicio.productoTipo || servicio.distanciaKm != null || servicio.tipoServicio === 'garantia') && (
+                          <>
+                            <Divider className="divider-compact" />
+                            <Typography variant="subtitle2">Detalles</Typography>
+                            {servicio.productoTipo && (
+                              <Typography variant="body2">Producto: {({bombas:'Bombas',tanques:'Tanques',filtros_industriales:'Filtros industriales',articulos_solares:'Artículos solares',motores:'Motores'})[servicio.productoTipo] || servicio.productoTipo}</Typography>
+                            )}
+                            {(servicio.distanciaKm != null && servicio.distanciaKm !== '') && (
+                              <Typography variant="body2">Distancia: {servicio.distanciaKm} km</Typography>
+                            )}
+                            {servicio.provincia && (
+                              <Typography variant="body2">Provincia: {({tucuman:'Tucumán',catamarca:'Catamarca',santiago_del_estero:'Santiago del Estero',salta:'Salta'})[servicio.provincia] || servicio.provincia}</Typography>
+                            )}
+                            {servicio.tipoServicio === 'garantia' && (
+                              <Typography variant="body2" color="success.main">Sin costo por garantía</Typography>
+                            )}
+                          </>
+                        )}
                         <Typography variant="subtitle2">Descripción</Typography>
                         <ExpandableText text={servicio.descripcion || ''} lines={3} className="servicios-history-description" />
                         {(servicio.fechaPreferida || servicio.horaPreferida) && (

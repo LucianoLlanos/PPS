@@ -25,11 +25,28 @@ class ServicioService {
   }
 
   async create(user, payload) {
-    const { tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida } = payload;
+    const { tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida, productoTipo, distanciaKm, provincia } = payload;
     if (!tipoServicio || !descripcion || !direccion) throw AppError.badRequest('Faltan campos obligatorios: tipoServicio, descripcion, direccion');
     if (descripcion.length > 500) throw AppError.badRequest('La descripción no puede exceder 500 caracteres');
     if (!TIPOS_VALIDOS.includes(tipoServicio)) throw AppError.badRequest('Tipo de servicio no válido');
-    const idSolicitud = await this.repo.createSolicitud({ idUsuario: user.idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida });
+    // Validación: no permitir domingos si se envía fechaPreferida
+    if (fechaPreferida) {
+      const d = new Date(`${fechaPreferida}T00:00:00`);
+      if (!isNaN(d.getTime()) && d.getDay() === 0) {
+        throw AppError.badRequest('No se realizan servicios los domingos');
+      }
+    }
+    // Validación opcional de provincia
+    const PROVINCIAS = ['tucuman', 'catamarca', 'santiago_del_estero', 'salta'];
+    let provinciaVal = provincia;
+    if (provinciaVal != null && provinciaVal !== '') {
+      if (!PROVINCIAS.includes(provinciaVal)) throw AppError.badRequest('Provincia no válida');
+    } else {
+      provinciaVal = null;
+    }
+
+    const parsedDist = distanciaKm !== undefined && distanciaKm !== null && String(distanciaKm).trim() !== '' ? Number(distanciaKm) : undefined;
+    const idSolicitud = await this.repo.createSolicitud({ idUsuario: user.idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida, productoTipo, distanciaKm: parsedDist, provincia: provinciaVal });
 
     // Si el usuario proporcionó un teléfono en la solicitud, vinculamos ese número
     // con su registro de cliente para que aparezca en su perfil y en las tarjetas de admin.

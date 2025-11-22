@@ -13,6 +13,7 @@ class SellerController {
     this.deleteProduct = this.deleteProduct.bind(this);
 
     this.createOrder = this.createOrder.bind(this);
+    this.createClientMinimal = this.createClientMinimal.bind(this);
     this.listOrders = this.listOrders.bind(this);
     this.updateOrderStatus = this.updateOrderStatus.bind(this);
 
@@ -29,9 +30,9 @@ class SellerController {
 
   async createProduct(req, res) {
     try {
-      const { name, description, price, stock } = req.body;
+      const { name, description, price, stock, tipo } = req.body;
       const image = this.saveImage(req.file);
-      const id = await this.service.createProduct({ name, description, price, stock, image });
+      const id = await this.service.createProduct({ name, description, price, stock, image, tipo });
       res.json({ id, name, description, price, stock, image });
     } catch (e) {
       res.status(500).json({ error: e.message || e });
@@ -61,10 +62,10 @@ class SellerController {
   async updateProduct(req, res) {
     try {
       const { id } = req.params;
-      const { name, description, price, stock } = req.body;
+      const { name, description, price, stock, tipo } = req.body;
       const newImage = this.saveImage(req.file);
       // fetch old image to delete if needed
-      const prev = await this.service.updateProduct({ id, name, description, price, stock, image: newImage });
+      const prev = await this.service.updateProduct({ id, name, description, price, stock, image: newImage, tipo });
       if (newImage && prev && prev.image) {
         const imgPath = path.join(__dirname, '..', 'uploads', prev.image);
         fs.unlink(imgPath, () => {});
@@ -172,14 +173,56 @@ class SellerController {
         }
       }
 
-      // Fallback: keep legacy demo behavior (orders table)
-      const { customer_name, total, status } = body;
-      const itemsStr = JSON.stringify(items || []);
-      const id = await this.service.createOrder({ customer_name, items: itemsStr, total, status });
-      res.json({ id, customer_name, items: itemsStr, total, status: status || 'pending' });
+      // No fallback to legacy `orders` table. Require cliente id to create a real pedido.
+      return res.status(400).json({ error: 'Se requiere idCliente (idUsuario) para crear un pedido.' });
     } catch (e) {
       console.error('seller.createOrder error:', e);
       res.status(500).json({ error: e.message || e });
+    }
+  }
+
+  async createClientMinimal(req, res) {
+    try {
+      const body = req.body || {};
+      const nombre = (body.nombre || '').trim();
+      const apellido = (body.apellido || '').trim();
+      const telefono = (body.telefono || '').trim() || null;
+      const direccion = (body.direccion || '').trim() || null;
+
+      if (!nombre || !apellido || !telefono) {
+        return res.status(400).json({ error: 'nombre, apellido y telefono son obligatorios' });
+      }
+
+      const { Database } = require('../core/database');
+      const db = new Database();
+
+      // Crear usuario + cliente en una transacción
+      const result = await db.withTransaction(async (conn) => {
+        // Generar email temporal para usuario (no expone)
+        const genEmail = `guest_${Date.now()}_${Math.floor(Math.random()*1000)}@local.local`;
+        const bcrypt = require('bcryptjs');
+        const pwd = Math.random().toString(36).slice(2, 10) + 'Aa1!';
+        const hash = bcrypt.hashSync(pwd, 10);
+
+        const [insUser] = await conn.query('INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)', [nombre, apellido, genEmail, hash, 1]);
+        // Some drivers return insertId in insUser.insertId, others return an array. Normalize:
+        const idUsuario = insUser && (insUser.insertId || insUser.insert_id || insUser.insert_id) ? (insUser.insertId || insUser.insert_id) : null;
+        // Fallback: try to fetch last inserted
+        const created = idUsuario ? idUsuario : (await conn.query('SELECT idUsuario FROM usuarios WHERE email = ? ORDER BY idUsuario DESC LIMIT 1', [genEmail]))?.[0]?.idUsuario;
+        const finalIdUsuario = created || idUsuario;
+        if (!finalIdUsuario) throw new Error('No se pudo crear usuario');
+
+        const [insCliente] = await conn.query('INSERT INTO clientes (idUsuario, direccion, telefono) VALUES (?, ?, ?)', [finalIdUsuario, direccion || null, telefono || null]);
+        const idCliente = insCliente && (insCliente.insertId || insCliente.insert_id) ? (insCliente.insertId || insCliente.insert_id) : null;
+        const clienteId = idCliente || (await conn.query('SELECT idCliente FROM clientes WHERE idUsuario = ? ORDER BY idCliente DESC LIMIT 1', [finalIdUsuario]))?.[0]?.idCliente;
+
+        return { idUsuario: finalIdUsuario, idCliente: clienteId, nombre, apellido, telefono, direccion };
+      });
+
+      res.json({ mensaje: 'Cliente creado', cliente: result });
+    } catch (e) {
+      console.error('seller.createClientMinimal error:', e && (e.stack || e.message) ? (e.stack || e.message) : e);
+      res.status(500).json({ error: e.message || 'Error al crear cliente' });
     }
   }
 

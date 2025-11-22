@@ -1,12 +1,14 @@
 const { Database } = require('../../core/database');
 const { StockAdminRepository } = require('../../repositories/admin/StockAdminRepository');
 const { SucursalAdminRepository } = require('../../repositories/admin/SucursalAdminRepository');
+const { StockMovementRepository } = require('../../repositories/admin/StockMovementRepository');
 
 class StockAdminService {
   constructor(db = new Database()) {
     this.db = db;
     this.stockRepo = new StockAdminRepository(db);
     this.sucursalRepo = new SucursalAdminRepository(db);
+    this.movementRepo = new StockMovementRepository(db);
   }
 
   async listarStockSucursal() { return this.stockRepo.listStock(); }
@@ -20,12 +22,79 @@ class StockAdminService {
         throw err;
       }
       const nuevoStock = Number(stockDisponible);
-      const delta = nuevoStock - Number(actual);
+      const actualNum = Number(actual);
+      const delta = nuevoStock - actualNum;
+      // Log values to help debug numeric issues
+      try { console.debug('[StockAdminService] actualizarStockSucursal values:', { idSucursal, idProducto, stockDisponible, nuevoStock, actual, actualNum, delta }); } catch (e) {}
+      if (!Number.isFinite(nuevoStock) || !Number.isFinite(actualNum) || !Number.isFinite(delta)) {
+        const err = new Error('Error numérico al calcular delta de stock (valores inválidos)');
+        err.status = 400;
+        throw err;
+      }
       await this.stockRepo.updateStockEntry(idSucursal, idProducto, nuevoStock, conn);
       if (delta !== 0) {
+        // update global total
         await this.stockRepo.incrementProductStockTotal(idProducto, delta, conn);
+        // record a movimiento of type 'ajuste' for the manual change
+        try {
+          await this.movementRepo.insertMovement({ idProducto, fromSucursal: null, toSucursal: idSucursal, cantidad: delta, tipo: 'ajuste', idUsuario: null, nota: 'Ajuste manual desde admin' }, conn);
+        } catch (e) {
+          // best-effort: do not fail the whole transaction if logging fails
+        }
       }
     });
+  }
+
+  // Transfer stock between sucursales (does not change product.stockTotal)
+  async transferStock({ idProducto, fromSucursal, toSucursal, cantidad, idUsuario = null, nota = null }) {
+    if (!idProducto || !fromSucursal || !toSucursal || !cantidad || cantidad <= 0) {
+      const err = new Error('Parámetros inválidos para transferencia'); err.status = 400; throw err;
+    }
+    return this.db.withTransaction(async (conn) => {
+      // decrement source
+      const ok = await this.stockRepo.decrementStockIfAvailable({ idSucursal: fromSucursal, idProducto, cantidad }, conn);
+      if (!ok) {
+        const err = new Error(`Stock insuficiente en sucursal ${fromSucursal}`); err.status = 400; throw err;
+      }
+      // ensure destination entry exists
+      const destActual = await this.stockRepo.getStockEntry(toSucursal, idProducto, conn);
+      if (destActual === null) {
+        await this.stockRepo.insertStockSucursal(toSucursal, idProducto, cantidad, conn);
+      } else {
+        const nuevo = Number(destActual || 0) + Number(cantidad);
+        await this.stockRepo.updateStockEntry(toSucursal, idProducto, nuevo, conn);
+      }
+      // record movement (transfer)
+      await this.movementRepo.insertMovement({ idProducto, fromSucursal, toSucursal, cantidad, tipo: 'transfer', idUsuario, nota }, conn);
+    });
+  }
+
+  // Adjust stock absolute value for a sucursal (admin correction). delta applied to product stockTotal.
+  async adjustStock({ idProducto, idSucursal, nuevoStock, idUsuario = null, nota = null }) {
+    if (!idProducto || !idSucursal || typeof nuevoStock === 'undefined' || isNaN(Number(nuevoStock))) {
+      const err = new Error('Parámetros inválidos para ajuste'); err.status = 400; throw err;
+    }
+    return this.db.withTransaction(async (conn) => {
+      const actual = await this.stockRepo.getStockEntry(idSucursal, idProducto, conn);
+      if (actual === null) {
+        // create entry
+        await this.stockRepo.insertStockSucursal(idSucursal, idProducto, Number(nuevoStock), conn);
+        const delta = Number(nuevoStock);
+        await this.stockRepo.incrementProductStockTotal(idProducto, delta, conn);
+        await this.movementRepo.insertMovement({ idProducto, fromSucursal: null, toSucursal: idSucursal, cantidad: delta, tipo: 'ajuste', idUsuario, nota }, conn);
+        return;
+      }
+      const delta = Number(nuevoStock) - Number(actual);
+      await this.stockRepo.updateStockEntry(idSucursal, idProducto, Number(nuevoStock), conn);
+      if (delta !== 0) {
+        await this.stockRepo.incrementProductStockTotal(idProducto, delta, conn);
+        await this.movementRepo.insertMovement({ idProducto, fromSucursal: null, toSucursal: idSucursal, cantidad: delta, tipo: 'ajuste', idUsuario, nota }, conn);
+      }
+    });
+  }
+
+  async listMovementsForProduct(idProducto, limit = 100) {
+    return this.movementRepo.listByProduct(idProducto, limit);
   }
 
   async backfillStockSucursales() {

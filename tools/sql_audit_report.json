@@ -1,0 +1,677 @@
+{
+  "tables": {
+    "roles": [
+      "idRol"
+    ],
+    "usuarios": [
+      "idUsuario"
+    ],
+    "clientes": [
+      "idCliente"
+    ],
+    "sucursales": [
+      "idSucursal"
+    ],
+    "categorias": [
+      "idCategoria"
+    ],
+    "productos": [
+      "idProducto"
+    ],
+    "producto_imagenes": [
+      "id"
+    ],
+    "stock_sucursal": [
+      "idStock"
+    ],
+    "pedidos": [
+      "idPedido"
+    ],
+    "detalle_pedidos": [
+      "idDetalle"
+    ],
+    "solicitudes_servicio_postventa": [
+      "idSolicitud"
+    ],
+    "historial": [
+      "idHistorial"
+    ],
+    "banners_carousel": [
+      "id"
+    ],
+    "password_resets": [
+      "id"
+    ],
+    "user_favorites": [
+      "id"
+    ],
+    "empresa_info": [
+      "id"
+    ],
+    "notificaciones": [
+      "idNotificacion"
+    ],
+    "organizacion_cargos": [
+      "id"
+    ]
+  },
+  "report": {
+    "summary": {
+      "filesScanned": 117,
+      "issues": 68
+    },
+    "files": {
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\controllers\\adminController.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1\", []);"
+          },
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1\", []);"
+          },
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1`;"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM sucursales', [], (err, results) => {\n    if (err) return res.status(500).json({ error: 'Error al obtener sucursales' });\n    res.json(results);\n  });\n};\n\n// CLIENTES\nconst listarClientes"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)', [nombre, descripcion, precio, stockTotal, imagenPrincipal]);\n      const idProducto = ins.insertId;\n\n  "
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "DELETE FROM producto_imagenes WHERE producto_id = ? AND imagen = ?', [id, filename], (errRem) => {\n          if (errRem) console.error('[ERROR] al borrar fila imagen DB:', errRem);\n          // intent"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT imagen FROM producto_imagenes WHERE producto_id = ? ORDER BY orden ASC, id ASC LIMIT 1', [id], (selErr, rowsSel) => {\n                if (selErr) {\n                  console.warn('[WARN] No se "
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT r.nombreRol FROM usuarios u JOIN roles r ON u.idRol = r.idRol WHERE u.idUsuario = ?', [idCliente]);\n        if (!rolRows || rolRows.length === 0) throw { status: 404, message: 'Cliente no encon"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idCliente FROM clientes WHERE idUsuario = ?', [idCliente]);\n        let clienteId = null;\n        if (cliRows && cliRows.length > 0) clienteId = cliRows[0].idCliente;\n        else {\n          c"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "UPDATE pedidos SET fecha_entrega = NOW() WHERE idPedido = ?', [id], (errUpd) => {\n              if (errUpd) console.error('Error al setear fecha_entrega:', errUpd);\n              // Responder igual au"
+          }
+        ],
+        "queries": [
+          "SELECT u.*, r.nombreRol, c.direccion, c.telefono FROM usuarios u JOIN roles r ON u.idRol = r.idRol LEFT JOIN clientes c ON c.idUsuario = u.idUsuario`;",
+          "SELECT * FROM sucursales', [], (err, results) => {\n    if (err) return res.status(500).json({ error: 'Error al obtener sucursales' });",
+          "SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario`;",
+          "SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario WHERE c.idCliente = ?',\n    [id],\n    (err, rows) => {\n      if (err) return res.status(500).json({ error: 'Error al obtener cliente' });",
+          "SELECT * FROM clientes WHERE idCliente = ?', [id], (err, rows) => {\n    if (err) return res.status(500).json({ error: 'Error al buscar cliente' });",
+          "UPDATE clientes SET direccion = ?, telefono = ? WHERE idCliente = ?',\n      [direccion || null, telefono || null, id],\n      (err2) => {\n        if (err2) return res.status(500).json({ error: 'Error al actualizar cliente' });",
+          "SELECT * FROM solicitudes_servicio_postventa', [], (err, results) => {\n    if (err) return res.status(500).json({ error: 'Error al obtener servicios' });",
+          "INSERT INTO historial (tabla, idRegistro, accion, usuario, descripcion) VALUES (?, ?, ?, ?, ?)';",
+          "SELECT \n      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,\n      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes\n    FROM productos p\n    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id\n    GROUP BY p.idProducto\n  `;",
+          "INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)', [nombre, descripcion, precio, stockTotal, imagenPrincipal]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\controllers\\sellerController.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idUsuario, idRol FROM usuarios WHERE email = ?', [email]);\r\n          if (users && users.length) resolvedUserId = users[0].idUsuario;\r\n        }\r\n        if (!resolvedUserId && (body.customer_n"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)', [nombre, apellido, genEmail, hash, 1]);\r\n          // db.query returns rows; after INSERT we need insertId — us"
+          }
+        ],
+        "queries": [
+          "delete if needed\r\n      const prev = await this.service.updateProduct({ id, name, description, price, stock, image: newImage, tipo });",
+          "SELECT idUsuario, idRol FROM usuarios WHERE email = ?', [email]);",
+          "INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)', [nombre, apellido, genEmail, hash, 1]);",
+          "INSERT we need insertId — use pool directly\r\n          // fallback: fetch the user we just inserted by email\r\n          const created = await db.query('SELECT idUsuario FROM usuarios WHERE email = ? ORDER BY idUsuario DESC LIMIT 1', [genEmail]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\admin\\PedidoAdminRepository.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1\");"
+          },
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1\");"
+          },
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1\");"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1"
+          }
+        ],
+        "queries": [
+          "SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) as cantidadTotal\r\n      FROM pedidos pe\r\n      JOIN clientes c ON pe.idCliente = c.idCliente\r\n      JOIN usuarios u ON c.idUsuario = u.idUsuario\r\n      ${whereSql || ''}\r\n      ORDER BY ${orderClause}`;",
+          "SELECT dp.idPedido, pr.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario\r\n                 FROM detalle_pedidos dp JOIN productos pr ON dp.idProducto = pr.idProducto\r\n                 WHERE dp.idPedido IN (${placeholders})`;",
+          "INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres) VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)', [idCliente, estado, idSucursalOrigen, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, totalConInteres || 0]);",
+          "INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)', [idCliente, estado, idSucursalOrigen, observaciones || null]);",
+          "INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES (?, ?, ?, ?, ?)', [idPedido, idProducto, cantidad, precioUnitario, subtotal]);",
+          "UPDATE pedidos SET total=?, cantidadTotal=? WHERE idPedido=?', [total, cantidadTotal, idPedido]);",
+          "UPDATE pedidos SET total=? WHERE idPedido=?', [total, idPedido]);",
+          "SELECT * FROM pedidos WHERE idPedido=?', [idPedido]);",
+          "SELECT idProducto, cantidad FROM detalle_pedidos WHERE idPedido=?', [idPedido]);",
+          "DELETE FROM detalle_pedidos WHERE idPedido=?', [idPedido]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\admin\\ProductoAdminRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);\n      if (rows && rows.length) {\n        idCategoria = rows[0].idCategoria;\n      } else {\n        const [res] = await conn.query('I"
+          }
+        ],
+        "queries": [
+          "SELECT p.idProducto, p.nombre, COALESCE(c.nombre, '') AS tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,\n             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes, p.idCategoria\n      FROM productos p\n      LEFT JOIN categorias c ON p.idCategoria = c.idCategoria\n      LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id\n      GROUP BY p.idProducto`;",
+          "SELECT p.idProducto, p.nombre, COALESCE(c.nombre, '') AS tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,\n             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes, p.idCategoria\n      FROM productos p\n      LEFT JOIN categorias c ON p.idCategoria = c.idCategoria\n      LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id\n      WHERE p.idProducto = ?\n      GROUP BY p.idProducto`;",
+          "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);",
+          "INSERT INTO categorias (nombre) VALUES (?)', [t]);",
+          "INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen, idCategoria) VALUES (?, ?, ?, ?, ?, ?)',\n      [nombre, descripcion, precio, stockTotal, imagenPrincipal, idCategoria]\n    );",
+          "INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [productoId, imagen, orden]);",
+          "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);",
+          "INSERT INTO categorias (nombre) VALUES (?)', [t]);",
+          "UPDATE productos SET nombre=?, idCategoria=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, idCategoria, descriptionOrNull(descripcion), precio, stockTotal, id]);",
+          "DELETE FROM producto_imagenes WHERE producto_id=? AND imagen=?', [id, filename]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\admin\\ServicioPostventaRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM solicitudes_servicio_postventa"
+          }
+        ],
+        "queries": [
+          "SELECT * FROM solicitudes_servicio_postventa');"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\admin\\SucursalAdminRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM sucursales"
+          }
+        ],
+        "queries": [
+          "SELECT * FROM sucursales');",
+          "SELECT idSucursal FROM sucursales');"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\BaseRepository.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS\r\n      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?\r\n      LIMIT 1\r\n    `;"
+          }
+        ],
+        "queries": [
+          "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS\r\n      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?\r\n      LIMIT 1\r\n    `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\EmpresaRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM empresa_info LIMIT 1"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT id, archivo_pdf FROM empresa_info ORDER BY fecha_actualizacion DESC LIMIT 1"
+          }
+        ],
+        "queries": [
+          "SELECT * FROM empresa_info ORDER BY fecha_actualizacion DESC LIMIT 1';",
+          "SELECT * FROM empresa_info LIMIT 1');",
+          "INSERT INTO empresa_info (vision, mision, composicion, archivo_pdf, actualizado_por) VALUES (?, ?, ?, ?, ?)`;",
+          "UPDATE empresa_info SET vision = ?, mision = ?, composicion = ?, archivo_pdf = ?, actualizado_por = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;",
+          "UPDATE empresa_info SET vision = ?, mision = ?, composicion = ?, actualizado_por = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`;",
+          "SELECT id, archivo_pdf FROM empresa_info ORDER BY fecha_actualizacion DESC LIMIT 1');",
+          "UPDATE empresa_info SET archivo_pdf = NULL, actualizado_por = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?';"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\NotificationRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM notificaciones WHERE idNotificacion = ?', [insertId]))[0] : await this.db.query('SELECT * FROM notificaciones WHERE idNotificacion = ?', [insertId]);\r\n          const row = Array.isArray"
+          }
+        ],
+        "queries": [
+          "INSERT INTO notificaciones (tipo, referenciaId, mensaje, destinatarioRol, destinatarioId, metadata) VALUES (?, ?, ?, ?, ?, ?)`;",
+          "SELECT * FROM notificaciones WHERE idNotificacion = ?', [insertId]))[0] : await this.db.query('SELECT * FROM notificaciones WHERE idNotificacion = ?', [insertId]);",
+          "SELECT COUNT(*) AS cnt FROM notificaciones WHERE destinatarioRol = ? AND estado = 'pendiente'`, [destinatarioRol]);",
+          "SELECT * FROM notificaciones WHERE destinatarioRol = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, [destinatarioRol, Number(limit), Number(offset)]);",
+          "UPDATE notificaciones SET estado = \"leida\", read_at = NOW() WHERE idNotificacion = ?', [idNotificacion]);",
+          "UPDATE notificaciones SET estado = \"leida\", read_at = NOW() WHERE idNotificacion = ?', [idNotificacion]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\OrganizacionRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM organizacion_cargos WHERE id = ?', [id]);\r\n    return rows[0] || null;\r\n  }\r\n\r\n  async insert({ nombre_cargo, descripcion, nivel_jerarquico, foto, orden_en_nivel }) {\r\n    const sql = `I"
+          }
+        ],
+        "queries": [
+          "SELECT id, nombre_cargo, descripcion, nivel_jerarquico, foto, orden_en_nivel, activo\r\n                 FROM organizacion_cargos WHERE activo = TRUE ORDER BY nivel_jerarquico ASC, orden_en_nivel ASC`;",
+          "SELECT * FROM organizacion_cargos WHERE id = ?', [id]);",
+          "insert({ nombre_cargo, descripcion, nivel_jerarquico, foto, orden_en_nivel }) {\r\n    const sql = `INSERT INTO organizacion_cargos (nombre_cargo, descripcion, nivel_jerarquico, foto, orden_en_nivel)\r\n                 VALUES (?, ?, ?, ?, ?)`;",
+          "update({ id, nombre_cargo, descripcion, nivel_jerarquico, foto, orden_en_nivel }) {\r\n    if (typeof foto !== 'undefined') {\r\n      const sql = `UPDATE organizacion_cargos SET nombre_cargo=?, descripcion=?, nivel_jerarquico=?, foto=?, orden_en_nivel=?, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id=?`;",
+          "UPDATE organizacion_cargos SET nombre_cargo=?, descripcion=?, nivel_jerarquico=?, orden_en_nivel=?, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id=?`;",
+          "DELETE FROM organizacion_cargos WHERE id = ?', [id]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\repositories\\PasswordResetRepository.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT COUNT(*) as total FROM password_resets"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT COUNT(*) as expired FROM password_resets WHERE expires_at <= NOW()"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT COUNT(*) as used FROM password_resets WHERE used = TRUE"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "DELETE FROM password_resets WHERE expires_at <= NOW() OR used = TRUE"
+          }
+        ],
+        "queries": [
+          "INSERT INTO password_resets (idUsuario, token_hash, expires_at, ip_request, user_agent) VALUES (?, ?, ?, ?, ?)';",
+          "SELECT * FROM password_resets WHERE idUsuario = ? AND token_hash = ? AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1';",
+          "SELECT COUNT(*) as cnt FROM password_resets WHERE idUsuario = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)';",
+          "SELECT COUNT(*) as total FROM password_resets');",
+          "SELECT COUNT(*) as expired FROM password_resets WHERE expires_at <= NOW()');",
+          "SELECT COUNT(*) as used FROM password_resets WHERE used = TRUE');",
+          "UPDATE password_resets SET used = TRUE WHERE id = ?', [id]);",
+          "DELETE FROM password_resets WHERE expires_at <= NOW() OR used = TRUE');"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\add_metodo_pago_to_pedidos.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "information_schema",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1`);"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1"
+          }
+        ],
+        "queries": [
+          "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1`);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\add_multiple_images.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idProducto, imagen FROM productos WHERE imagen IS NOT NULL AND imagen != \"\"', \r\n        (err, results) => {\r\n          if (err) reject(err);\r\n          else resolve(results);\r\n        }\r\n      "
+          }
+        ],
+        "queries": [
+          "DELETE CASCADE,\r\n        INDEX idx_producto_orden (producto_id, orden)\r\n      )\r\n    `;",
+          "SELECT idProducto, imagen FROM productos WHERE imagen IS NOT NULL AND imagen != \"\"', \r\n        (err, results) => {\r\n          if (err) reject(err);",
+          "INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, 0)',\r\n          [producto.idProducto, producto.imagen],\r\n          (err, result) => {\r\n            if (err) reject(err);",
+          "SELECT \r\n        p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal,\r\n        GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes\r\n      FROM productos p \r\n      LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id \r\n      GROUP BY p.idProducto\r\n    `);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\check_and_create_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP,\r\n        FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n      )\r\n    `;"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP,\r\n        FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n      )\r\n    `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\check_servicios_table.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT COUNT(*) as total FROM solicitudes_servicio_postventa"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM solicitudes_servicio_postventa LIMIT 5"
+          }
+        ],
+        "queries": [
+          "SELECT COUNT(*) as total FROM solicitudes_servicio_postventa');",
+          "SELECT * FROM solicitudes_servicio_postventa LIMIT 5');"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\create_carousel_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP\r\n      );"
+          },
+          {
+            "type": "missing_table",
+            "table": "titulo",
+            "snippet": "INSERT INTO banners_carousel (titulo, descripcion, imagen, orden, activo) VALUES \r\n      ('Bienvenido a AtilioMarola', 'Las mejores herramientas para agua y energía', 'banner1.jpg', 1, true),\r\n      ("
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP\r\n      );",
+          "INSERT INTO banners_carousel (titulo, descripcion, imagen, orden, activo) VALUES \r\n      ('Bienvenido a AtilioMarola', 'Las mejores herramientas para agua y energía', 'banner1.jpg', 1, true),\r\n      ('Ofertas Especiales', 'Descuentos de hasta 30% en productos seleccionados', 'banner2.jpg', 2, true),\r\n      ('Nuevos Productos', 'Descubre nuestra línea de productos Huargo', 'banner3.jpg', 3, true)\r\n      ON DUPLICATE KEY UPDATE titulo = VALUES(titulo);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\create_empresa_info_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP,\r\n      actualizado_por VARCHAR(100)\r\n    )\r\n  `;"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP,\r\n      actualizado_por VARCHAR(100)\r\n    )\r\n  `;",
+          "SELECT 1 FROM empresa_info LIMIT 1)\r\n  `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\create_organizacion_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP\r\n    )\r\n  `;"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP\r\n    )\r\n  `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\create_servicios_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP,\r\n        FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n      );"
+          },
+          {
+            "type": "missing_table",
+            "table": "idsolicitud",
+            "snippet": "UPDATE idSolicitud = idSolicitud;"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP,\r\n        FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n      );",
+          "UPDATE idSolicitud = idSolicitud;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\create_vendor_user.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT u.idUsuario, u.nombre, u.apellido, u.usuario FROM usuarios u WHERE u.idRol = 2"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "INSERT INTO usuarios (nombre, apellido, usuario, password, email, telefono, idRol) VALUES (?, ?, ?, ?, ?, ?, ?)',\r\n      ['Juan', 'Vendedor', 'vendedor', hashedPassword, 'vendedor@atiliomarola.com', '"
+          }
+        ],
+        "queries": [
+          "SELECT u.idUsuario, u.nombre, u.apellido, u.usuario FROM usuarios u WHERE u.idRol = 2'\r\n    );",
+          "INSERT INTO usuarios (nombre, apellido, usuario, password, email, telefono, idRol) VALUES (?, ?, ?, ?, ?, ?, ?)',\r\n      ['Juan', 'Vendedor', 'vendedor', hashedPassword, 'vendedor@atiliomarola.com', '123456789', 2]\r\n    );"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\debug_order_totals.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM pedidos WHERE idPedido = ?', \r\n    [orderId], \r\n    (err, pedidoResults) => {\r\n      if (err) {\r\n        console.error(`❌ Error obteniendo pedido ${orderId}:`, err);\r\n        return;\r\n  "
+          }
+        ],
+        "queries": [
+          "SELECT * FROM pedidos WHERE idPedido = ?', \r\n    [orderId], \r\n    (err, pedidoResults) => {\r\n      if (err) {\r\n        console.error(`❌ Error obteniendo pedido ${orderId}:`, err);",
+          "SELECT * FROM detalle_pedidos WHERE idPedido = ?', \r\n        [orderId], \r\n        (detErr, detalleResults) => {\r\n          if (detErr) {\r\n            console.error(`❌ Error obteniendo detalles del pedido ${orderId}:`, detErr);",
+          "SELECT COALESCE(SUM(dp.cantidad), 0) \r\n       FROM detalle_pedidos dp \r\n       WHERE dp.idPedido = pe.idPedido) as cantidadTotal\r\n    FROM pedidos pe\r\n    JOIN clientes c ON pe.idCliente = c.idCliente\r\n    JOIN usuarios u ON c.idUsuario = u.idUsuario\r\n    WHERE pe.idPedido IN (75, 76)\r\n    ORDER BY pe.idPedido DESC\r\n  `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\hash_passwords.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "usuario",
+            "snippet": "insert backup rows and update usuario.password with bcrypt(hash)\r\n\r\nconst isProbablyHashed = (pwd) => {\r\n  if (!pwd || typeof pwd !== 'string') return false;"
+          },
+          {
+            "type": "missing_table",
+            "table": "usuarios_passwords_backup",
+            "snippet": "insert backup then update\r\n        connection.query('INSERT INTO usuarios_passwords_backup (idUsuario, old_password) VALUES (?, ?)', [u.idUsuario, u.password], (err3) => {\r\n          if (err3) return "
+          },
+          {
+            "type": "missing_table",
+            "table": "connection",
+            "snippet": "insert backup then update\r\n        connection.query('INSERT INTO usuarios_passwords_backup (idUsuario, old_password) VALUES (?, ?)', [u.idUsuario, u.password], (err3) => {\r\n          if (err3) return "
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idUsuario, password FROM usuarios', (err2, rows) => {\r\n      if (err2) return console.error('Error leyendo usuarios', err2);\r\n      const toProcess = rows.filter(r => !isProbablyHashed(r.passwo"
+          }
+        ],
+        "queries": [
+          "insert backup rows and update usuario.password with bcrypt(hash)\r\n\r\nconst isProbablyHashed = (pwd) => {\r\n  if (!pwd || typeof pwd !== 'string') return false;",
+          "SELECT idUsuario, password FROM usuarios', (err2, rows) => {\r\n      if (err2) return console.error('Error leyendo usuarios', err2);",
+          "insert backup then update\r\n        connection.query('INSERT INTO usuarios_passwords_backup (idUsuario, old_password) VALUES (?, ?)', [u.idUsuario, u.password], (err3) => {\r\n          if (err3) return console.error('Error backup', err3);",
+          "UPDATE usuarios SET password = ? WHERE idUsuario = ?', [hashed, u.idUsuario], (err4) => {\r\n            if (err4) return console.error('Error actualizar usuario', err4);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\init_tables.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP\r\n  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+          },
+          {
+            "type": "missing_table",
+            "table": "dual",
+            "snippet": "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 1, 'Cliente' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 1);"
+          },
+          {
+            "type": "missing_table",
+            "table": "dual",
+            "snippet": "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 2, 'Vendedor' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 2);"
+          },
+          {
+            "type": "missing_table",
+            "table": "dual",
+            "snippet": "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 3, 'Admin' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 3);"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP\r\n  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+          "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 1, 'Cliente' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 1);",
+          "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 2, 'Vendedor' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 2);",
+          "INSERT INTO roles (idRol, nombreRol)\r\n    SELECT 3, 'Admin' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM roles WHERE idRol = 3);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\insert_test_users.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT * FROM usuarios WHERE email = ?', [u.email], (err, results) => {\r\n    if (err) return cb(err);\r\n    if (results && results.length > 0) {\r\n      console.log(`Usuario ya existe: ${u.email}`);\r\n  "
+          }
+        ],
+        "queries": [
+          "SELECT * FROM usuarios WHERE email = ?', [u.email], (err, results) => {\r\n    if (err) return cb(err);",
+          "INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES (?, ?, ?, ?, ?)',\r\n      [u.nombre, u.apellido, u.email, hashed, u.idRol],\r\n      (err2, result) => {\r\n        if (err2) return cb(err2);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\scripts\\update_servicios_table.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "current_timestamp",
+            "snippet": "UPDATE CURRENT_TIMESTAMP,\r\n          FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n        )\r\n      `;"
+          }
+        ],
+        "queries": [
+          "UPDATE CURRENT_TIMESTAMP,\r\n          FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE\r\n        )\r\n      `;"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\services\\admin\\OrdersAdminService.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT r.nombreRol FROM usuarios u JOIN roles r ON u.idRol = r.idRol WHERE u.idUsuario=?', [idUsuarioCliente]);\r\n      if (!rolRes || !rolRes.length || String(rolRes[0].nombreRol || '"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idCliente FROM clientes WHERE idUsuario=?', [idUsuarioCliente]);\r\n      if (cliRows && cliRows.length) idCliente = cliRows[0].idCliente;\r\n      else {\r\n        const [ins] = await conn.query('I"
+          }
+        ],
+        "queries": [
+          "SELECT 1 FROM detalle_pedidos dp JOIN productos pr ON dp.idProducto = pr.idProducto WHERE dp.idPedido = pe.idPedido AND pr.nombre LIKE ?)`);",
+          "SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) >= ?`);",
+          "SELECT COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido)) <= ?`);",
+          "SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) >= ?`);",
+          "SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) <= ?`);",
+          "SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) ASC');",
+          "SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) DESC');",
+          "SELECT r.nombreRol FROM usuarios u JOIN roles r ON u.idRol = r.idRol WHERE u.idUsuario=?', [idUsuarioCliente]);",
+          "SELECT idCliente FROM clientes WHERE idUsuario=?', [idUsuarioCliente]);",
+          "INSERT INTO clientes (idUsuario) VALUES (?)', [idUsuarioCliente]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\services\\admin\\ProductsAdminService.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT MAX(orden) AS maxOrden FROM producto_imagenes WHERE producto_id=?', [id]);\n        let startOrden = rows && rows.length && rows[0].maxOrden != null ? rows[0].maxOrden + 1 : 0;\n        for (cons"
+          }
+        ],
+        "queries": [
+          "SELECT MAX(orden) AS maxOrden FROM producto_imagenes WHERE producto_id=?', [id]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\services\\admin\\StockAdminService.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idProducto FROM productos"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idSucursal FROM sucursales"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT 1 FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [s.idSucursal, p.idProducto]);\r\n        if (!rows || rows.length === 0) {\r\n          await this.db.query('INSERT INTO stock_sucursal "
+          }
+        ],
+        "queries": [
+          "SELECT idProducto FROM productos');",
+          "SELECT idSucursal FROM sucursales');",
+          "SELECT 1 FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [s.idSucursal, p.idProducto]);",
+          "INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, 0)', [s.idSucursal, p.idProducto]);",
+          "SELECT stockTotal FROM productos WHERE idProducto=?', [idProducto]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\services\\authService.js": {
+        "issues": [
+          {
+            "type": "missing_table",
+            "table": "password",
+            "snippet": "update password\r\n    const hashed = bcrypt.hashSync(String(newPassword), 10);"
+          },
+          {
+            "type": "possible_injection_concat",
+            "detail": "SQL string built with concatenation"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "UPDATE usuarios SET password = ? WHERE idUsuario = ?', [newHash, user.idUsuario]);\r\n          } finally {\r\n            conn.release();\r\n          }\r\n          user.password = newHash;\r\n        } catch"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "INSERT INTO clientes (idUsuario, telefono) VALUES (?, ?)', [idUsuario, telefono || null]);\r\n      }\r\n      return { mensaje: 'Usuario creado correctamente', id: idUsuario };\r\n    });\r\n  }\r\n\r\n  // ----"
+          }
+        ],
+        "queries": [
+          "UPDATE usuarios SET password = ? WHERE idUsuario = ?', [newHash, user.idUsuario]);",
+          "INSERT INTO clientes (idUsuario, telefono) VALUES (?, ?)', [idUsuario, telefono || null]);",
+          "update(token).digest('hex');",
+          "update(String(token)).digest('hex');",
+          "update password\r\n    const hashed = bcrypt.hashSync(String(newPassword), 10);",
+          "UPDATE usuarios SET password = ?, tokenVersion = COALESCE(tokenVersion,0) + 1 WHERE idUsuario = ?', [hashed, idUsuario]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\services\\sellerService.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);\r\n      if (rows && rows.length) idCategoria = rows[0].idCategoria;\r\n      else {\r\n        const res = await this.db.query('INSERT IN"
+          },
+          {
+            "type": "query_without_params",
+            "snippet": "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);\r\n      if (rows && rows.length) idCategoria = rows[0].idCategoria;\r\n      else {\r\n        const res = await this.db.query('INSERT IN"
+          }
+        ],
+        "queries": [
+          "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);",
+          "INSERT INTO categorias (nombre) VALUES (?)', [t]);",
+          "INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen, idCategoria) VALUES (?, ?, ?, ?, ?, ?)';",
+          "SELECT p.idProducto AS id, p.nombre AS name, p.descripcion AS description, p.precio AS price, p.stockTotal AS stock, p.imagen AS image,\r\n             COALESCE(c.nombre, '') AS tipo\r\n      FROM productos p\r\n      LEFT JOIN categorias c ON p.idCategoria = c.idCategoria\r\n      ORDER BY p.idProducto ASC`;",
+          "SELECT p.idProducto AS id, p.nombre AS name, p.descripcion AS description, p.precio AS price, p.stockTotal AS stock, p.imagen AS image, COALESCE(c.nombre,'') AS tipo\r\n      FROM productos p LEFT JOIN categorias c ON p.idCategoria = c.idCategoria WHERE p.idProducto = ?`;",
+          "SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);",
+          "INSERT INTO categorias (nombre) VALUES (?)', [t]);",
+          "UPDATE productos SET nombre = ?, idCategoria = ?, descripcion = ?, precio = ?, stockTotal = ?, imagen = COALESCE(?, imagen) WHERE idProducto = ?';",
+          "SELECT imagen FROM productos WHERE idProducto = ?', [id]);",
+          "SELECT imagen FROM productos WHERE idProducto = ?', [id]);"
+        ]
+      },
+      "C:\\Users\\Lucas\\Desktop\\Programacion\\PPS\\backend\\test_pedidos_query.js": {
+        "issues": [
+          {
+            "type": "query_without_params",
+            "snippet": "\r\n    SELECT \r\n      pe.idPedido, \r\n      u.nombre AS nombreUsuario, \r\n      u.apellido AS apellidoUsuario, \r\n      pe.fechaPedido as fecha, \r\n      pe.estado,\r\n      COALESCE(pe.total, 0) as total,\r\n"
+          }
+        ],
+        "queries": [
+          "SELECT \r\n      pe.idPedido, \r\n      u.nombre AS nombreUsuario, \r\n      u.apellido AS apellidoUsuario, \r\n      pe.fechaPedido as fecha, \r\n      pe.estado,\r\n      COALESCE(pe.total, 0) as total,\r\n      pe.metodoPago,\r\n      pe.cuotas,\r\n      pe.interes,\r\n      pe.descuento,\r\n      pe.totalConInteres\r\n    FROM pedidos pe\r\n    JOIN clientes c ON pe.idCliente = c.idCliente\r\n    JOIN usuarios u ON c.idUsuario = u.idUsuario\r\n    ORDER BY pe.idPedido DESC LIMIT 2\r\n  `);"
+        ]
+      }
+    }
+  }
+}

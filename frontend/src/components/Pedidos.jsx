@@ -1,16 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { OrdersAdminService } from '../services/OrdersAdminService';
 import { SucursalesService } from '../services/SucursalesService';
 import { UsersAdminService } from '../services/UsersAdminService';
 import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack, Divider, InputAdornment
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack, Divider, InputAdornment, Skeleton
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AddIcon from '@mui/icons-material/Add';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { getStatusInfo } from '../utils/statusColors';
 import StatusPill from './StatusPill';
 
@@ -87,11 +91,13 @@ function QuantitySummary({ productos = [] }) {
 }
 
 function Pedidos() {
+  const navigate = useNavigate();
   const ordersService = useMemo(() => new OrdersAdminService(), []);
   const sucursalesService = useMemo(() => new SucursalesService(), []);
   const usersService = useMemo(() => new UsersAdminService(), []);
   const productsService = useMemo(() => new ProductsService(), []);
   const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(false);
   // filtros por columna
   const [filterId, setFilterId] = useState('');
   const [filterProducto, setFilterProducto] = useState('');
@@ -119,6 +125,45 @@ function Pedidos() {
   const [usuarios, setUsuarios] = useState([]);
   const [productosList, setProductosList] = useState([]);
 
+  const loadingStartRef = useRef(0);
+  const tableRef = useRef(null);
+  const scrollBoxRef = useRef(null);
+  const _colgroupTimer = useRef(null);
+  const MIN_LOADING_MS = 300; // ms minimal visible time for skeletons to avoid flicker
+  const finishLoading = () => {
+    try {
+      const elapsed = Date.now() - (loadingStartRef.current || 0);
+      const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
+      if (remaining > 0) {
+        setTimeout(() => setLoading(false), remaining);
+      } else {
+        setLoading(false);
+      }
+    } catch {
+      setLoading(false);
+    }
+  };
+
+  // Colgroup locking disabled: allow browser to distribute column widths automatically
+  // This avoids forcing narrow column widths that produced the vertical letter-wrapping.
+
+  // Normalize estado values coming from backend (various casings/keys) into UI labels
+  function normalizeEstado(v) {
+    if (v == null) return v;
+    const ESTADO_MAP = {
+      pendiente: 'Pendiente',
+      confirmado: 'Confirmado',
+      preparando: 'En Proceso',
+      'en_proceso': 'En Proceso',
+      'en proceso': 'En Proceso',
+      enviado: 'Enviado',
+      entregado: 'Entregado',
+      cancelado: 'Cancelado'
+    };
+    const key = String(v).trim().toLowerCase();
+    return ESTADO_MAP[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+  }
+
   // Extraer método de pago desde observaciones si metodoPago no está presente
   const extractMetodoFromObservaciones = (obs) => {
     try {
@@ -132,10 +177,14 @@ function Pedidos() {
   };
 
   // Carga inicial de datos (pedidos, sucursales, usuarios, productos)
-  useEffect(() => {
+  // scroll syncing external scrollbar removed — use native scrollbar in the scroll box
+
+    useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
+        loadingStartRef.current = Date.now();
+        setLoading(true);
         const [listPedidos, listSucursales, listUsuarios, listProductos] = await Promise.all([
           ordersService.list().catch(() => []),
           sucursalesService.list().catch(() => []),
@@ -143,22 +192,79 @@ function Pedidos() {
           productsService.listAdmin().catch(() => []),
         ]);
         if (!mounted) return;
-        setPedidos(Array.isArray(listPedidos) ? listPedidos : []);
+        const normalized = Array.isArray(listPedidos) ? (listPedidos || []).map(p => ({ ...p, estado: normalizeEstado(p.estado) })) : [];
+        setPedidos(normalized);
         setSucursales(Array.isArray(listSucursales) ? listSucursales : []);
         setUsuarios(Array.isArray(listUsuarios) ? listUsuarios : []);
         setProductosList(Array.isArray(listProductos) ? listProductos : []);
       } catch (e) {
         console.error(e);
         setError('No se pudieron cargar los datos');
+      } finally {
+        finishLoading();
       }
     };
     load();
     return () => { mounted = false; };
-  }, [ordersService, sucursalesService, usersService, productsService]);
+    }, [ordersService, sucursalesService, usersService, productsService]);
 
   const clearFilters = () => {
     setFilterId(''); setFilterProducto(''); setFilterUsuario(''); setFilterCantidadMin(''); setFilterCantidadMax(''); setFilterFechaFrom(''); setFilterFechaTo(''); setFilterTotalMin(''); setFilterTotalMax(''); setFilterEstado(DEFAULT_ESTADO); setFilterMetodoPago('');
+    // After clearing, refresh the table to the default estado (Pendiente)
+    // use override to avoid waiting for state update
+    applyFiltersToServer({ estado: DEFAULT_ESTADO });
   };
+
+  // Apply filters by requesting the server with the selected params
+  // accepts optional overrides (e.g. { estado: 'ALL' }) to allow immediate application
+  const applyFiltersToServer = async (overrides = {}) => {
+    const params = {};
+    try {
+      if (filterId) params.idPedido = filterId;
+      if (filterProducto) params.producto = filterProducto;
+      if (filterUsuario) params.usuario = filterUsuario;
+      if (filterCantidadMin) params.cantidadMin = filterCantidadMin;
+      if (filterCantidadMax) params.cantidadMax = filterCantidadMax;
+      if (filterFechaFrom) params.fechaDesde = filterFechaFrom;
+      if (filterFechaTo) params.fechaHasta = filterFechaTo;
+      if (filterTotalMin) params.totalMin = filterTotalMin;
+      if (filterTotalMax) params.totalMax = filterTotalMax;
+      if (filterMetodoPago) params.metodoPago = filterMetodoPago;
+
+      const effectiveEstado = overrides.estado !== undefined ? overrides.estado : filterEstado;
+      // Estado: map UI 'ALL' to a value the backend recognizes as request for all
+      if (effectiveEstado && effectiveEstado !== 'ALL') {
+        params.estado = effectiveEstado;
+      } else if (effectiveEstado === 'ALL') {
+        params.estado = 'all';
+      }
+
+      loadingStartRef.current = Date.now();
+      setLoading(true);
+      const refreshed = await ordersService.list(params);
+      const normalized = Array.isArray(refreshed) ? (refreshed || []).map(p => ({ ...p, estado: normalizeEstado(p.estado) })) : [];
+      setPedidos(normalized);
+      closeFilters();
+    } catch (e) {
+      console.error('Error aplicando filtros:', e);
+      setError('No se pudieron aplicar los filtros');
+    } finally {
+      finishLoading();
+    }
+  };
+
+  // When the user changes Estado in the filters popover we want to apply immediately
+  const handleFilterEstadoChange = async (e) => {
+    const v = e.target.value;
+    setFilterEstado(v);
+    // apply immediately using the provided value (avoid relying on state update timing)
+    try {
+      await applyFiltersToServer({ estado: v });
+    } catch (err) {
+      // applyFiltersToServer handles error logging
+    }
+  };
+ 
 
   // Popover para filtros
   const [filtersAnchor, setFiltersAnchor] = useState(null);
@@ -174,7 +280,7 @@ function Pedidos() {
   const formatFilterDate = (d) => { if (!d) return '-'; try { return new Date(d).toLocaleDateString('es-AR'); } catch { return d; } };
   if (filterFechaFrom || filterFechaTo) activeFilters.push({ key: 'Fecha', val: `${formatFilterDate(filterFechaFrom)}..${formatFilterDate(filterFechaTo)}` });
   if (filterTotalMin || filterTotalMax) activeFilters.push({ key: 'Total', val: `${filterTotalMin || '-'}..${filterTotalMax || '-'}` });
-  if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado === 'ALL' ? '(todos)' : filterEstado });
+  if (filterEstado) activeFilters.push({ key: 'Estado', val: filterEstado === 'ALL' ? 'Todos' : filterEstado });
   if (filterMetodoPago) activeFilters.push({ key: 'Pago', val: filterMetodoPago });
 
   // Lista visible después de aplicar filtros
@@ -183,7 +289,17 @@ function Pedidos() {
     if (filterEstado && filterEstado !== 'ALL') {
       if ((p.estado || '') !== filterEstado) return false;
     }
-    if (filterId && !String(p.idPedido).includes(filterId)) return false;
+    if (filterId) {
+      const idMatch = String(p.idPedido || '').includes(filterId);
+      // also try other common number fields that may be used as 'otro numero'
+      const retiroCodes = [];
+      if (p.retiro) {
+        retiroCodes.push(p.retiro.codigo || p.retiro.code || p.retiro.idRetiro || '');
+      }
+      const otherFields = [p.numeroPedido, p.numero, p.numeroOrden, p.codigoPedido, p.referencia, p.numeroReferencia].concat(retiroCodes);
+      const otherMatch = otherFields.some(f => f != null && String(f).includes(filterId));
+      if (!idMatch && !otherMatch) return false;
+    }
     if (filterProducto) {
       const found = (p.productos || []).some(prod => (prod.nombre || '').toLowerCase().includes(filterProducto.toLowerCase()));
       if (!found) return false;
@@ -325,7 +441,8 @@ function Pedidos() {
       if (postRes) {
         try {
           const refreshed = await ordersService.list();
-          setPedidos(Array.isArray(refreshed) ? refreshed : []);
+          const normalized = Array.isArray(refreshed) ? (refreshed || []).map(p => ({ ...p, estado: normalizeEstado(p.estado) })) : [];
+          setPedidos(normalized);
         } catch (e) {
           // no bloquear si falla el refresh
           console.error('Error refrescando pedidos después de crear:', e);
@@ -394,8 +511,58 @@ function Pedidos() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Pedidos</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button startIcon={<FilterListIcon />} variant="outlined" size="small" onClick={openFilters} sx={{ textTransform: 'none' }}>Filtros</Button>
-          <Button variant="contained" color="success" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 1, boxShadow: 1 }} onClick={() => setAddPedido(true)}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>
+            <TextField
+              size="small"
+              placeholder="Nº pedido"
+              value={filterId}
+              onChange={e => setFilterId(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') applyFiltersToServer(); }}
+              sx={{ width: 120 }}
+              InputProps={{ endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => applyFiltersToServer()}>
+                    <SearchIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) }}
+            />
+          </Box>
+          <Button
+            startIcon={<FilterListIcon />}
+            variant="outlined"
+            size="small"
+            onClick={openFilters}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 999,
+              px: 1.5,
+              py: 0.6,
+              fontWeight: 600,
+              color: '#0f172a',
+              borderColor: '#e6edf3',
+              background: 'linear-gradient(180deg,#ffffff,#fbfdff)',
+              boxShadow: '0 6px 14px rgba(2,6,23,0.06)',
+              '&:hover': { background: 'linear-gradient(180deg,#f1f5f9,#eef2ff)' }
+            }}
+          >
+            Filtros
+          </Button>
+          <Button
+            startIcon={<AddIcon />}
+            variant="contained"
+            color="success"
+            sx={{
+              borderRadius: 999,
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              py: 0.78,
+              boxShadow: '0 8px 18px rgba(16,185,129,0.16)',
+              '&:hover': { boxShadow: '0 10px 22px rgba(16,185,129,0.22)' }
+            }}
+            onClick={() => setAddPedido(true)}
+          >
             Registrar pedido
           </Button>
         </Stack>
@@ -411,7 +578,11 @@ function Pedidos() {
                 if (f.key === 'Cant') { setFilterCantidadMin(''); setFilterCantidadMax(''); }
                 if (f.key === 'Fecha') { setFilterFechaFrom(''); setFilterFechaTo(''); }
                 if (f.key === 'Total') { setFilterTotalMin(''); setFilterTotalMax(''); }
-                if (f.key === 'Estado') setFilterEstado(DEFAULT_ESTADO);
+                if (f.key === 'Estado') {
+                  setFilterEstado(DEFAULT_ESTADO);
+                  // refresh server to default estado immediately
+                  applyFiltersToServer({ estado: DEFAULT_ESTADO });
+                }
                 if (f.key === 'Pago') setFilterMetodoPago('');
               }} />
             ))}
@@ -422,123 +593,185 @@ function Pedidos() {
       {success && <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert onClose={() => setOpenSnackbar(false)} severity="success" sx={{ width: '100%' }}>{success}</Alert>
       </Snackbar>}
-      <TableContainer component={Paper} sx={{ borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' } }}>
-        <Box sx={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-        <Table stickyHeader sx={{ width: '100%', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent',
-            // Header: keep compact
-            '& .MuiTableHead-root .MuiTableCell-root': { py: 0.75, px: 1.25, boxSizing: 'border-box', height: 'auto', minHeight: 'auto' },
+      <TableContainer component={Paper} sx={{ position: 'relative', borderRadius: 4, boxShadow: '0 18px 40px rgba(15,23,42,0.08)', maxWidth: '100%', background: 'linear-gradient(180deg,#ffffff,#fbfcfd)', display: 'flex', flexDirection: 'column', height: { xs: '80vh', md: '72vh', lg: '75vh' }, pr: 0 }}>
+        {/* loading UI: render inline skeleton rows inside the table body to avoid overlays and layout shifts */}
+        <Box ref={scrollBoxRef} sx={{ overflowX: 'auto', overflowY: 'auto', flex: 1, scrollbarGutter: 'stable', pr: 0, pl: 0, width: '100%', ml: 0 }}>
+        <Table stickyHeader ref={tableRef} sx={{ width: '100%', tableLayout: 'auto', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui', background: 'transparent',
+          // allow cells to shrink to avoid forcing horizontal scroll
+          '& th, & td': { minWidth: 0 },
+          // Header: keep header labels on a single line to avoid vertical letter-wrapping
+          '& .MuiTableHead-root .MuiTableCell-root': { py: 0.75, px: 1.25, boxSizing: 'border-box', height: 'auto', minHeight: 'auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
             // Body: force fixed height so rows don't jump (adjusted to leave space for '+N más')
             '& .MuiTableBody-root .MuiTableRow-root': { boxSizing: 'border-box', height: 88, maxHeight: 88 },
-            '& .MuiTableBody-root .MuiTableCell-root': { py: 1, px: 1, boxSizing: 'border-box', height: 88, minHeight: 88, maxHeight: 88, overflow: 'hidden', verticalAlign: 'middle', display: 'table-cell' },
-            '& td, & th': { boxSizing: 'border-box' }
+            // Body cells: keep single line with ellipsis to avoid vertical accordion effect
+            '& .MuiTableBody-root .MuiTableCell-root': { py: 1, px: 1, boxSizing: 'border-box', height: 88, minHeight: 88, maxHeight: 88, overflow: 'hidden', verticalAlign: 'middle', display: 'table-cell', whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
+            // Exception: allow Productos column to wrap/multi-line if needed
+            '& .productos-cell': { whiteSpace: 'normal', wordBreak: 'break-word', overflow: 'hidden', textOverflow: 'ellipsis' },
+            // Prevent content-driven width changes: default to ellipsis and break-word as fallback
+            '& td, & th': { boxSizing: 'border-box', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', wordBreak: 'break-word' }
           }}>
           <TableHead sx={{ position: 'sticky', top: 0, zIndex: 5 }}>
         <TableRow sx={{ background: 'linear-gradient(180deg,#ffffff 0%, #f3f6f9 100%)', borderBottom: '2px solid #e5e7eb', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, borderTopLeftRadius: 14, width: 64, textAlign: 'center' }} className="tnum num-right">ID</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.95rem', letterSpacing: 0.6, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 0.9, px: 1.25, width: '38%', minWidth: 240, textAlign: 'left', verticalAlign: 'middle' }}>Productos</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: '18%', minWidth: 120, textAlign: 'center' }}>Usuario</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 64, textAlign: 'center' }}>Unidades</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 120, textAlign: 'center' }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 140, textAlign: 'center' }}>Forma de Pago</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 120, textAlign: 'right' }} className="tnum num-right">Total</TableCell>
-              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 120, textAlign: 'center' }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1.5, borderTopLeftRadius: 14, width: 84, textAlign: 'center' }} className="tnum num-right">ID</TableCell>
+              <TableCell className="productos-cell" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.95rem', letterSpacing: 0.6, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 0.9, px: 1, width: '24%', minWidth: 120, textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'normal' }}>Productos</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: '18%', minWidth: 100, textAlign: 'center' }}>Usuario</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 80, minWidth: 64, textAlign: 'center' }}>Unidades</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 100, textAlign: 'center' }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, minWidth: 110, textAlign: 'center' }}>Forma de Pago</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 140, minWidth: 100, textAlign: 'right' }} className="tnum num-right">Total</TableCell>
+              <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 140, minWidth: 120, textAlign: 'center' }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#111827', fontSize: '0.9rem', letterSpacing: 0.5, background: 'none', borderBottom: '1.5px solid #e5e7eb', py: 1, px: 1, width: 90, borderTopRightRadius: 14, textAlign: 'center' }}>Acciones</TableCell>
             </TableRow>
             {/* filtros ahora en popover */}
           </TableHead>
           <TableBody>
-            {displayedPedidos.map((p, idx) => (
-              <TableRow key={p.idPedido} hover sx={{ height: 88, boxSizing: 'border-box', backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: 'background 0.2s', '&:hover': { background: 'rgba(15,23,42,0.035)' }, borderBottom: '1px solid #e6e9ec' }}>
-                {/* si hay >1 producto alineamos arriba para evitar que la lista quede centrada y desplace el ID */}
-                <TableCell sx={{ py: 1, px: 1, width: 64, textAlign: 'center', boxSizing: 'border-box', display: 'flex', justifyContent: 'center', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center' }} className="tnum num-right">{p.idPedido}</TableCell>
-                <TableCell sx={{ py: 1.25, px: 1, minWidth: 220, width: '36%', position: 'relative', boxSizing: 'border-box', overflow: 'hidden', verticalAlign: 'middle', background: 'transparent !important' }}>
-                  <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center', justifyContent: 'flex-start', p: 0, m: 0, background: 'transparent' }}>
-                    <ProductListPreview productos={p.productos || []} />
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ py: 1, px: 1, width: '20%', minWidth: 120, textAlign: 'center', boxSizing: 'border-box' }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
-                <TableCell sx={{ py: 1, px: 1, textAlign: 'center', width: 64 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{(p.productos || []).reduce((s, it) => s + Number(it.cantidad || 0), 0)}</Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>unidades</Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
-                  {(() => {
-                    const d = p.fecha ? new Date(p.fecha) : null;
-                    const dateStr = d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-                    const timeStr = d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
-                    return (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{dateStr}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{timeStr}</Typography>
-                      </Box>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`} sx={{ height: 88, boxSizing: 'border-box', backgroundColor: i % 2 === 0 ? '#fff' : '#f7f8fa', borderBottom: '1px solid #e6e9ec' }}>
+                  <TableCell sx={{ py: 1, px: 1, width: 64, textAlign: 'center', boxSizing: 'border-box' }} className="tnum num-right"><Skeleton variant="text" width={24} /></TableCell>
+                  <TableCell sx={{ py: 1.25, px: 1, minWidth: 220, width: '36%', boxSizing: 'border-box' }}><Skeleton variant="text" width="70%" /></TableCell>
+                  <TableCell sx={{ py: 1, px: 1, width: '20%', minWidth: 120, textAlign: 'center', boxSizing: 'border-box' }}><Skeleton variant="text" width="60%" /></TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center', width: 64 }}><Skeleton variant="text" width={30} /></TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell sx={{ py: 1.2, px: 2, textAlign: 'right' }} className="tnum num-right"><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell sx={{ py: 1.2, px: 2 }}><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell sx={{ py: 1, px: 1, width: 110 }}><Skeleton variant="rectangular" width={36} height={36} /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              displayedPedidos.map((p, idx) => (
+                <TableRow key={p.idPedido} hover sx={{ height: 88, boxSizing: 'border-box', backgroundColor: idx % 2 === 0 ? '#fff' : '#f7f8fa', transition: loading ? 'none' : 'background 0.2s', '&:hover': loading ? {} : { background: 'rgba(15,23,42,0.035)' }, borderBottom: '1px solid #e6e9ec' }}>
+                  {/* si hay >1 producto alineamos arriba para evitar que la lista quede centrada y desplace el ID */}
+                  <TableCell sx={{ py: 1, px: 1, width: 64, textAlign: 'center', boxSizing: 'border-box', display: 'flex', justifyContent: 'center', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center' }} className="tnum num-right">{p.idPedido}</TableCell>
+                  <TableCell sx={{ py: 1.25, pr: 0.75, pl: 1, minWidth: 140, width: '26%', position: 'relative', boxSizing: 'border-box', overflow: 'hidden', verticalAlign: 'middle', background: 'transparent !important' }}>
+                    <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: (p.productos || []).length > 2 ? 'flex-start' : 'center', justifyContent: 'flex-start', p: 0, m: 0, background: 'transparent' }}>
+                      <ProductListPreview productos={p.productos || []} />
+                    </Box>
+                    {p.retiro ? (
+                      <Tooltip title={`Tel: ${p.retiro.telefono || '-'} • Creado: ${p.retiro.createdAt ? new Date(p.retiro.createdAt).toLocaleString('es-AR') : '-'}`}>
+                        <Chip
+                          variant="outlined"
+                          label={p.retiro.codigo || p.retiro.code || p.retiro.idRetiro || '-'}
+                          size="small"
+                          color="info"
+                          clickable
+                          onClick={() => navigate(`/pedidos/${p.idPedido}`)}
+                          aria-label={`Retiro ${p.retiro.codigo || ''}`}
+                          sx={{
+                            position: 'absolute',
+                            bottom: 2,
+                            right: '12%',
+                            transform: 'none',
+                            backgroundColor: 'transparent',
+                            boxShadow: 'none',
+                            borderColor: 'rgba(14,165,233,0.18)',
+                            color: 'info.dark',
+                            maxWidth: 110,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            fontWeight: 600,
+                            fontSize: '0.66rem',
+                            zIndex: 8,
+                            padding: '1px 6px'
+                          }}
+                        />
+                      </Tooltip>
+                    ) : null}
+                  </TableCell>
+                  <TableCell sx={{ py: 1, px: 1, width: '20%', minWidth: 120, textAlign: 'center', boxSizing: 'border-box' }}>{p.nombreUsuario} {p.apellidoUsuario}</TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center', width: 64 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{(p.productos || []).reduce((s, it) => s + Number(it.cantidad || 0), 0)}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>unidades</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
                     {(() => {
-                      const metodoFromObs = extractMetodoFromObservaciones(p.observaciones);
-                      const metodoRaw = p.metodoPago && String(p.metodoPago).trim() ? String(p.metodoPago).trim() : metodoFromObs;
-                      const cuotasN = p.cuotas != null ? Number(p.cuotas) : null;
-                      const interesN = p.interes != null ? Number(p.interes) : null;
-                      const descuentoN = p.descuento != null ? Number(p.descuento) : null;
-                      if (!metodoRaw && !cuotasN && !descuentoN) return <Typography variant="body2" sx={{ fontWeight: 600 }}>No especificado</Typography>;
+                      const d = p.fecha ? new Date(p.fecha) : null;
+                      const dateStr = d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                      const timeStr = d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
                       return (
-                        <>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{metodoRaw}</Typography>
-                          {cuotasN && cuotasN > 1 ? (
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{`${cuotasN} cuotas${interesN && interesN > 0 ? ` (${interesN}% int.)` : ''}`}</Typography>
-                          ) : null}
-                          {descuentoN && descuentoN > 0 ? (
-                            <Typography variant="caption" sx={{ color: 'success.main' }}>{`${descuentoN}% desc.`}</Typography>
-                          ) : null}
-                        </>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{dateStr}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>{timeStr}</Typography>
+                        </Box>
                       );
                     })()}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
-                <TableCell sx={{ py: 1.2, px: 2 }}>
-                  <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <Select
-                      value={p.estado || 'Pendiente'}
-                      onChange={e => handleEstado(p, e.target.value)}
-                      renderValue={renderStatusValue}
-                      MenuProps={{
-                        disableScrollLock: true,
-                        MenuListProps: { dense: true },
-                        PaperProps: { sx: { borderRadius: 2, boxShadow: '0 14px 34px rgba(15,23,42,0.18)', px: 1, py: 1 } }
-                      }}
-                      sx={{
-                        '.MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
-                        '.MuiSelect-select': { py: 0.6, display: 'flex', alignItems: 'center' },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
-                        '.MuiSelect-icon': { color: '#6b7280' }
-                      }}
-                    >
-                      {renderStatusMenuItem('Pendiente', 'Pendiente')}
-                      {renderStatusMenuItem('En Proceso', 'En Proceso')}
-                      {renderStatusMenuItem('Enviado', 'Enviado')}
-                      {renderStatusMenuItem('Entregado', 'Entregado')}
-                      {renderStatusMenuItem('Cancelado', 'Cancelado')}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell sx={{ py: 1, px: 1, width: 110 }}>
-                  <Tooltip title="Eliminar pedido">
-                    <IconButton color="error" size="small" onClick={() => handleDelete(p)} sx={{ ml: 1 }} edge="end">
-                      <DeleteOutlineIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell sx={{ py: 1, px: 1, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {(() => {
+                        const metodoFromObs = extractMetodoFromObservaciones(p.observaciones);
+                        const metodoRaw = p.metodoPago && String(p.metodoPago).trim() ? String(p.metodoPago).trim() : metodoFromObs;
+                        const cuotasN = p.cuotas != null ? Number(p.cuotas) : null;
+                        const interesN = p.interes != null ? Number(p.interes) : null;
+                        const descuentoN = p.descuento != null ? Number(p.descuento) : null;
+                        if (!metodoRaw && !cuotasN && !descuentoN) return <Typography variant="body2" sx={{ fontWeight: 600 }}>No especificado</Typography>;
+                        return (
+                          <>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{metodoRaw}</Typography>
+                            {cuotasN && cuotasN > 1 ? (
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{`${cuotasN} cuotas${interesN && interesN > 0 ? ` (${interesN}% int.)` : ''}`}</Typography>
+                            ) : null}
+                            {descuentoN && descuentoN > 0 ? (
+                              <Typography variant="caption" sx={{ color: 'success.main' }}>{`${descuentoN}% desc.`}</Typography>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ py: 1.2, px: 2 }} className="tnum num-right">{formatCurrency(Number(p.totalConInteres || p.total || 0))}</TableCell>
+                  <TableCell sx={{ py: 1.2, px: 2 }}>
+                    <FormControl size="small" sx={{ width: 160, minWidth: 160 }}>
+                      <Select
+                        value={p.estado || 'Pendiente'}
+                        onChange={e => handleEstado(p, e.target.value)}
+                        renderValue={renderStatusValue}
+                        disabled={loading}
+                        MenuProps={{
+                          disableScrollLock: true,
+                          MenuListProps: { dense: true },
+                          PaperProps: { sx: { borderRadius: 2, boxShadow: '0 14px 34px rgba(15,23,42,0.18)', px: 1, py: 1 } }
+                        }}
+                        sx={{
+                          '.MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                          '.MuiSelect-select': { py: 0.6, display: 'flex', alignItems: 'center' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent !important' },
+                          '.MuiSelect-icon': { color: '#6b7280' }
+                        }}
+                      >
+                        {renderStatusMenuItem('Pendiente', 'Pendiente')}
+                        {renderStatusMenuItem('En Proceso', 'En Proceso')}
+                        {renderStatusMenuItem('Enviado', 'Enviado')}
+                        {renderStatusMenuItem('Entregado', 'Entregado')}
+                        {renderStatusMenuItem('Cancelado', 'Cancelado')}
+                      </Select>
+                    </FormControl>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, px: 1, width: 110, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                    <Tooltip title="Ver detalle">
+                      <IconButton color="primary" size="small" onClick={() => navigate(`/pedidos/${p.idPedido}`)} sx={{ ml: 0 }} edge="end">
+                        <VisibilityIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Eliminar pedido">
+                      <IconButton color="error" size="small" onClick={() => handleDelete(p)} sx={{ ml: 0 }} edge="end">
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
         </Box>
+
+        {/* native scrollbar is used inside the scroll box */}
       </TableContainer>
 
       <Popover open={!!filtersAnchor} anchorEl={filtersAnchor} onClose={closeFilters} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableScrollLock>
@@ -552,12 +785,37 @@ function Pedidos() {
               <InputLabel>Estado</InputLabel>
               <Select
                 value={filterEstado}
-                onChange={e => setFilterEstado(e.target.value)}
+                onChange={handleFilterEstadoChange}
                 label="Estado"
-                renderValue={(v) => (v && v !== 'ALL' ? renderStatusValue(v) : '(todos)')}
+                renderValue={(v) => {
+                  if (!v || v === 'ALL') return (
+                    <Chip
+                      label="Todos"
+                      size="small"
+                      color="default"
+                      sx={{
+                        fontWeight: 700,
+                        borderRadius: 8,
+                        px: 1.2,
+                        py: 0.4,
+                        transition: 'transform 140ms ease, box-shadow 140ms ease',
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 20px rgba(2,6,23,0.08)' }
+                      }}
+                    />
+                  );
+                  return renderStatusValue(v);
+                }}
                 MenuProps={{ disableScrollLock: true }}
+                sx={{ minWidth: 160 }}
               >
-                <MenuItem value="ALL">(todos)</MenuItem>
+                <MenuItem value="ALL">
+                  <Chip
+                    label="Todos"
+                    size="small"
+                    color="default"
+                    sx={{ fontWeight: 700, borderRadius: 8, px: 1.2, py: 0.4, transition: 'transform 140ms ease' }}
+                  />
+                </MenuItem>
                 {renderStatusMenuItem('Pendiente', 'Pendiente')}
                 {renderStatusMenuItem('En Proceso', 'En Proceso')}
                 {renderStatusMenuItem('Enviado', 'Enviado')}
@@ -582,9 +840,9 @@ function Pedidos() {
             <TextField size="small" label="Total min" value={filterTotalMin} onChange={e => setFilterTotalMin(e.target.value)} />
             <TextField size="small" label="Total max" value={filterTotalMax} onChange={e => setFilterTotalMax(e.target.value)} />
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
             <Button size="small" onClick={clearFilters}>Limpiar</Button>
-            <Button size="small" variant="contained" onClick={closeFilters}>Aplicar</Button>
+            <Button size="small" variant="contained" onClick={applyFiltersToServer}>Aplicar</Button>
           </Box>
         </Box>
       </Popover>

@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     idRol INT NOT NULL,
+    tokenVersion INT DEFAULT 0,
     fechaRegistro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     activo BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (idRol) REFERENCES roles(idRol)
@@ -43,6 +44,13 @@ INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES
 ('Juan', 'Pérez', 'juan.perez@email.com', '$2a$10$N9qo8uLOickgx2ZMRZoMye1IYZIP/CqVvOUMLEL6jE0ZQZZ6zLzze', 1),
 ('María', 'González', 'maria.gonzalez@email.com', '$2a$10$N9qo8uLOickgx2ZMRZoMye1IYZIP/CqVvOUMLEL6jE0ZQZZ6zLzze', 1),
 ('Carlos', 'Vendedor', 'carlos.vendedor@email.com', '$2a$10$N9qo8uLOickgx2ZMRZoMye1IYZIP/CqVvOUMLEL6jE0ZQZZ6zLzze', 2);
+
+-- Usuario demo para el botón "Demo Admin" del frontend
+-- Nota: la contraseña se guarda en texto plano intencionalmente para permitir
+-- login inmediato desde el entorno de desarrollo; AuthService migrará la
+-- contraseña a bcrypt al primer inicio de sesión exitoso.
+INSERT INTO usuarios (nombre, apellido, email, password, idRol) VALUES
+('Admin', 'Demo', 'admin@example.com', 'admin123', 3);
 
 -- =====================================================
 -- 3. TABLA DE CLIENTES (Información adicional)
@@ -83,18 +91,40 @@ INSERT INTO sucursales (idSucursal, nombre, direccion, telefono, email, horario)
 -- =====================================================
 -- 5. TABLA DE PRODUCTOS
 -- =====================================================
-CREATE TABLE IF NOT EXISTS productos (
-    idProducto INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(255) NOT NULL,
-    descripcion TEXT,
-    precio DECIMAL(10,2) NOT NULL,
-    stockTotal INT DEFAULT 0,
-    imagen VARCHAR(255), -- Imagen principal (mantener por compatibilidad)
-    categoria VARCHAR(100),
-    activo BOOLEAN DEFAULT TRUE,
-    fechaCreacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fechaActualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+/*
+    Normalizamos productos:
+    - Creamos tabla `categorias` y referenciamos `productos.idCategoria` (FK)
+    - Mantenemos columna textual `categoria` en productos para compatibilidad
+        con código que aún consulta `categoria` como texto. Esta columna se
+        actualizará automáticamente desde `idCategoria` mediante triggers.
+    - Separación de imágenes en `producto_imagenes` (ya existe) y relaciones
+        adicionales para atributos (producto_atributo) para conseguir 3NF+.
+*/
+
+CREATE TABLE IF NOT EXISTS categorias (
+        idCategoria INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(150) NOT NULL UNIQUE,
+        descripcion TEXT,
+        fechaCreacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS productos (
+        idProducto INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        descripcion TEXT,
+        precio DECIMAL(10,2) NOT NULL,
+        stockTotal INT DEFAULT 0,
+        imagen VARCHAR(255), -- Imagen principal (compatibilidad)
+        idCategoria INT NULL, -- FK a categorias (normalizado)
+        categoria VARCHAR(100) NULL, -- campo textual kept for backwards compatibility
+        activo BOOLEAN DEFAULT TRUE,
+        fechaCreacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        fechaActualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_product_categoria FOREIGN KEY (idCategoria) REFERENCES categorias(idCategoria)
+);
+
+-- Nota: la columna textual `categoria` fue eliminada en favor de `idCategoria`.
+-- Usamos JOIN con `categorias` para obtener el nombre de categoría cuando es necesario.
 
 -- =====================================================
 -- 6. TABLA DE IMÁGENES DE PRODUCTOS (Sistema múltiple)
@@ -109,13 +139,7 @@ CREATE TABLE IF NOT EXISTS producto_imagenes (
     INDEX idx_producto_orden (producto_id, orden)
 );
 
--- Insertar productos de ejemplo
-INSERT INTO productos (nombre, descripcion, precio, stockTotal, categoria) VALUES
-('Bomba de Agua 1HP', 'Bomba centrífuga para uso doméstico e industrial. Ideal para extracción de agua de pozos y cisternas.', 45000.00, 15, 'Bombas'),
-('Panel Solar 300W', 'Panel solar fotovoltaico de alta eficiencia. Ideal para sistemas de energía renovable.', 85000.00, 8, 'Energía Solar'),
-('Tanque de Agua 1000L', 'Tanque de polietileno de alta resistencia para almacenamiento de agua potable.', 60000.00, 12, 'Tanques'),
-('Motor Eléctrico 2HP', 'Motor eléctrico trifásico de alta eficiencia para uso industrial.', 120000.00, 6, 'Motores'),
-('Inversor Solar 5KW', 'Inversor de corriente para sistemas solares fotovoltaicos residenciales.', 200000.00, 4, 'Energía Solar');
+-- Los productos de ejemplo se insertan más abajo una vez creadas las categorías (evitar duplicados)
 
 -- =====================================================
 -- 7. TABLA DE STOCK POR SUCURSAL
@@ -133,27 +157,9 @@ CREATE TABLE IF NOT EXISTS stock_sucursal (
 );
 
 -- Insertar stock por sucursal de ejemplo
-INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible, stockMinimo) VALUES
--- Bomba de Agua 1HP
-(1, 1, 5, 2),
-(2, 1, 6, 2),
-(3, 1, 4, 2),
--- Panel Solar 300W
-(1, 2, 3, 1),
-(2, 2, 3, 1),
-(3, 2, 2, 1),
--- Tanque de Agua 1000L
-(1, 3, 4, 2),
-(2, 3, 4, 2),
-(3, 3, 4, 2),
--- Motor Eléctrico 2HP
-(1, 4, 2, 1),
-(2, 4, 2, 1),
-(3, 4, 2, 1),
--- Inversor Solar 5KW
-(1, 5, 1, 1),
-(2, 5, 2, 1),
-(3, 5, 1, 1);
+-- Insertar stock por sucursal de ejemplo
+-- Nota: los inserts de stock se mueven más abajo, después de crear los productos,
+-- para respetar las constraints FK. Ver sección 15 donde se insertan productos.
 
 -- =====================================================
 -- 8. TABLA DE PEDIDOS
@@ -162,15 +168,25 @@ CREATE TABLE IF NOT EXISTS pedidos (
     idPedido INT AUTO_INCREMENT PRIMARY KEY,
     idCliente INT NOT NULL,
     idSucursal INT,
+    -- Compatibilidad con código legacy que usa `idSucursalOrigen`
+    idSucursalOrigen INT NULL,
     total DECIMAL(10,2) NOT NULL,
+    -- Normalizar estados a valores en minúsculas (evita duplicados que rompen integridad lógica)
     estado ENUM('pendiente', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado') DEFAULT 'pendiente',
     metodoPago VARCHAR(50),
     direccionEnvio VARCHAR(500),
     observaciones TEXT,
+    -- Columnas de pago / financiación (compatibilidad con scripts existentes)
+    cuotas INT DEFAULT 1,
+    interes DECIMAL(5,2) DEFAULT 0.00,
+    descuento DECIMAL(5,2) DEFAULT 0.00,
+    totalConInteres DECIMAL(10,2) DEFAULT NULL,
+    -- Compatibilidad con código que consulta `fecha` en lugar de `fechaPedido`
     fechaPedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fechaActualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (idCliente) REFERENCES usuarios(idUsuario),
-    FOREIGN KEY (idSucursal) REFERENCES sucursales(idSucursal)
+    FOREIGN KEY (idCliente) REFERENCES clientes(idCliente),
+    FOREIGN KEY (idSucursal) REFERENCES sucursales(idSucursal),
+    FOREIGN KEY (idSucursalOrigen) REFERENCES sucursales(idSucursal)
 );
 
 -- =====================================================
@@ -178,6 +194,10 @@ CREATE TABLE IF NOT EXISTS pedidos (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS detalle_pedidos (
     idDetalle INT AUTO_INCREMENT PRIMARY KEY,
+    -- Columna de compatibilidad usada en varios scripts/admin
+    -- Nota: se eliminó la columna generada `idDetallePedido` porque MySQL no
+    -- permite que una columna GENERATED dependa de una columna AUTO_INCREMENT.
+    -- Para compatibilidad, crear una vista si se necesita el alias `idDetallePedido`.
     idPedido INT NOT NULL,
     idProducto INT NOT NULL,
     cantidad INT NOT NULL,
@@ -187,16 +207,27 @@ CREATE TABLE IF NOT EXISTS detalle_pedidos (
     FOREIGN KEY (idProducto) REFERENCES productos(idProducto)
 );
 
--- Insertar pedidos de ejemplo
-INSERT INTO pedidos (idCliente, idSucursal, total, estado, metodoPago, direccionEnvio) VALUES
-(2, 1, 45000.00, 'entregado', 'transferencia', 'Av. Corrientes 1234, CABA'),
-(3, 2, 145000.00, 'confirmado', 'efectivo', 'Av. Santa Fe 5678, CABA');
+-- =====================================================
+-- Tabla para códigos de retiro (pedidos físicos / retiradas)
+-- Separamos esta entidad para no modificar la tabla `pedidos`.
+CREATE TABLE IF NOT EXISTS retiros_pedido (
+    idRetiro INT AUTO_INCREMENT PRIMARY KEY,
+    idPedido INT NOT NULL,
+    codigo VARCHAR(16) NOT NULL,
+    telefono VARCHAR(50) DEFAULT NULL,
+    creadoPor INT DEFAULT NULL,
+    estado ENUM('pendiente','entregado','anulado') NOT NULL DEFAULT 'pendiente',
+    creadoEn DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    usadoEn DATETIME DEFAULT NULL,
+    UNIQUE KEY uq_retiros_codigo (codigo),
+    KEY idx_retiros_pedido (idPedido),
+    CONSTRAINT fk_retiros_pedido_pedidos FOREIGN KEY (idPedido) REFERENCES pedidos(idPedido) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insertar detalles de pedidos
-INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES
-(1, 1, 1, 45000.00, 45000.00),
-(2, 2, 1, 85000.00, 85000.00),
-(2, 3, 1, 60000.00, 60000.00);
+
+-- Los INSERT de ejemplo para `pedidos` y `detalle_pedidos` se realizan
+-- más abajo, después de crear los `productos` y cargar el stock, para
+-- respetar las constraints de clave foránea (idProducto, idCliente).
 
 -- =====================================================
 -- 10. TABLA DE SOLICITUDES DE SERVICIOS POST-VENTA
@@ -245,7 +276,7 @@ CREATE INDEX idx_usuarios_email ON usuarios(email);
 CREATE INDEX idx_usuarios_rol ON usuarios(idRol);
 
 -- Índices para productos
-CREATE INDEX idx_productos_categoria ON productos(categoria);
+CREATE INDEX idx_productos_idCategoria ON productos(idCategoria);
 CREATE INDEX idx_productos_activo ON productos(activo);
 CREATE INDEX idx_productos_precio ON productos(precio);
 
@@ -264,21 +295,66 @@ CREATE INDEX idx_servicios_fecha_creacion ON solicitudes_servicio_postventa(fech
 -- 13. TRIGGERS PARA MANTENER CONSISTENCIA
 -- =====================================================
 
--- Trigger para actualizar stockTotal cuando cambia stock_sucursal
+-- Triggers para mantener stockTotal actualizado cuando cambia stock_sucursal
 DELIMITER //
-CREATE TRIGGER actualizar_stock_total 
-AFTER UPDATE ON stock_sucursal
+CREATE TRIGGER actualizar_stock_total_after_insert
+AFTER INSERT ON stock_sucursal
 FOR EACH ROW
 BEGIN
-    UPDATE productos 
+    UPDATE productos
     SET stockTotal = (
-        SELECT COALESCE(SUM(stockDisponible), 0) 
-        FROM stock_sucursal 
+        SELECT COALESCE(SUM(stockDisponible), 0)
+        FROM stock_sucursal
         WHERE idProducto = NEW.idProducto
     )
     WHERE idProducto = NEW.idProducto;
 END//
+
+CREATE TRIGGER actualizar_stock_total_after_update
+AFTER UPDATE ON stock_sucursal
+FOR EACH ROW
+BEGIN
+    UPDATE productos
+    SET stockTotal = (
+        SELECT COALESCE(SUM(stockDisponible), 0)
+        FROM stock_sucursal
+        WHERE idProducto = NEW.idProducto
+    )
+    WHERE idProducto = NEW.idProducto;
+END//
+
+CREATE TRIGGER actualizar_stock_total_after_delete
+AFTER DELETE ON stock_sucursal
+FOR EACH ROW
+BEGIN
+    UPDATE productos
+    SET stockTotal = (
+        SELECT COALESCE(SUM(stockDisponible), 0)
+        FROM stock_sucursal
+        WHERE idProducto = OLD.idProducto
+    )
+    WHERE idProducto = OLD.idProducto;
+END//
 DELIMITER ;
+
+-- =====================================================
+-- Tabla de movimientos de stock (auditoría de transferencias/ajustes)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS movimientos_stock (
+    idMovimiento INT AUTO_INCREMENT PRIMARY KEY,
+    idProducto INT NOT NULL,
+    fromSucursal INT NULL,
+    toSucursal INT NULL,
+    cantidad INT NOT NULL,
+    tipo ENUM('transfer','entrada','salida','ajuste') NOT NULL DEFAULT 'ajuste',
+    idUsuario INT NULL,
+    nota TEXT NULL,
+    fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (idProducto),
+    INDEX (fromSucursal),
+    INDEX (toSucursal)
+);
+
 
 -- Trigger para actualizar total del pedido
 DELIMITER //
@@ -296,6 +372,10 @@ BEGIN
 END//
 DELIMITER ;
 
+-- (Los triggers específicos de sincronización de `productos.categoria` con `categorias`
+-- se definen después de crear `categorias` y `productos` en la sección de datos,
+-- para evitar errores de orden durante la importación.)
+
 -- =====================================================
 -- 14. VISTAS ÚTILES
 -- =====================================================
@@ -307,11 +387,12 @@ SELECT
     p.nombre,
     p.descripcion,
     p.precio,
-    p.categoria,
+    COALESCE(c.nombre, '') AS categoria,
     p.stockTotal,
     GROUP_CONCAT(pi.imagen ORDER BY pi.orden) as imagenes,
     COUNT(pi.id) as total_imagenes
 FROM productos p
+LEFT JOIN categorias c ON p.idCategoria = c.idCategoria
 LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
 WHERE p.activo = TRUE
 GROUP BY p.idProducto;
@@ -331,17 +412,122 @@ SELECT
 FROM solicitudes_servicio_postventa s
 JOIN usuarios u ON s.idUsuario = u.idUsuario;
 
+-- Vista de pedidos para compatibilidad: expone `fechaPedido` como `fecha`
+CREATE VIEW pedidos_view AS
+SELECT p.*, p.fechaPedido AS fecha
+FROM pedidos p;
+
+-- =====================================================
+-- TABLAS AUXILIARES / COMPATIBILIDAD
+-- =====================================================
+
+-- Banners / Carousel (nombre utilizado en repositorio: banners_carousel)
+CREATE TABLE IF NOT EXISTS banners_carousel (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(255),
+    descripcion TEXT,
+    imagen VARCHAR(255),
+    enlace VARCHAR(255),
+    orden INT DEFAULT 0,
+    activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabla para recuperación de contraseña (tokens de un sólo uso, guardamos hash)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    idUsuario INT NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    ip_request VARCHAR(45) DEFAULT NULL,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE,
+    INDEX idx_token_hash (token_hash),
+    INDEX idx_usuario (idUsuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Favoritos de usuario
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    idUsuario INT NOT NULL,
+    idProducto INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (idUsuario) REFERENCES usuarios(idUsuario) ON DELETE CASCADE,
+    FOREIGN KEY (idProducto) REFERENCES productos(idProducto) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Información de la empresa
+CREATE TABLE IF NOT EXISTS empresa_info (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    vision TEXT,
+    mision TEXT,
+    composicion TEXT,
+    archivo_pdf VARCHAR(255),
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    actualizado_por VARCHAR(100)
+);
+
+-- =====================================================
+--  Additional: Tabla de notificaciones para administradores
+-- =====================================================
+CREATE TABLE IF NOT EXISTS notificaciones (
+    idNotificacion INT AUTO_INCREMENT PRIMARY KEY,
+    tipo VARCHAR(50) NOT NULL,
+    referenciaId INT NULL,
+    mensaje TEXT NOT NULL,
+    destinatarioRol VARCHAR(50) DEFAULT 'Administrador',
+    destinatarioId INT NULL,
+    estado ENUM('pendiente','leida') DEFAULT 'pendiente',
+    metadata JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL,
+    INDEX idx_notif_destino (destinatarioRol, destinatarioId),
+    INDEX idx_notif_estado (estado),
+    INDEX idx_notif_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cargos/organización
+CREATE TABLE IF NOT EXISTS organizacion_cargos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_cargo VARCHAR(255) NOT NULL,
+    descripcion TEXT,
+    nivel_jerarquico INT DEFAULT 0,
+    foto VARCHAR(255),
+    orden_en_nivel INT DEFAULT 0,
+    activo BOOLEAN DEFAULT TRUE,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- =====================================================
 -- 15. DATOS DE PRUEBA ADICIONALES
 -- =====================================================
 
 -- Más productos para pruebas
-INSERT INTO productos (nombre, descripcion, precio, stockTotal, categoria) VALUES
-('Filtro de Agua Industrial', 'Sistema de filtración de agua para uso industrial y doméstico', 35000.00, 20, 'Filtros'),
-('Calentador Solar 200L', 'Calentador solar de agua con tanque de 200 litros', 180000.00, 5, 'Energía Solar'),
-('Bomba Sumergible 0.5HP', 'Bomba sumergible para pozos profundos', 65000.00, 10, 'Bombas'),
-('Regulador de Voltaje 5KVA', 'Regulador automático de voltaje para protección de equipos', 95000.00, 8, 'Reguladores'),
-('Hidroneumático 100L', 'Tanque hidroneumático con bomba incluida', 150000.00, 6, 'Sistemas');
+-- Insertar categorías primero y luego productos referenciando idCategoria
+INSERT INTO categorias (nombre, descripcion) VALUES
+('Bombas', 'Bombas centrífugas y sumergibles'),
+('Energía Solar', 'Paneles e inversores solares'),
+('Tanques', 'Tanques de almacenamiento'),
+('Motores', 'Motores eléctricos'),
+('Filtros', 'Sistemas de filtrado y purificación');
+
+-- Insertar productos asociando idCategoria
+INSERT INTO productos (nombre, descripcion, precio, stockTotal, idCategoria) VALUES
+('Bomba de Agua 1HP', 'Bomba centrífuga para uso doméstico e industrial. Ideal para extracción de agua de pozos y cisternas.', 45000.00, 15, (SELECT idCategoria FROM categorias WHERE nombre='Bombas' LIMIT 1)),
+('Panel Solar 300W', 'Panel solar fotovoltaico de alta eficiencia. Ideal para sistemas de energía renovable.', 85000.00, 8, (SELECT idCategoria FROM categorias WHERE nombre='Energía Solar' LIMIT 1)),
+('Tanque de Agua 1000L', 'Tanque de polietileno de alta resistencia para almacenamiento de agua potable.', 60000.00, 12, (SELECT idCategoria FROM categorias WHERE nombre='Tanques' LIMIT 1)),
+('Motor Eléctrico 2HP', 'Motor eléctrico trifásico de alta eficiencia para uso industrial.', 120000.00, 6, (SELECT idCategoria FROM categorias WHERE nombre='Motores' LIMIT 1)),
+('Inversor Solar 5KW', 'Inversor de corriente para sistemas solares fotovoltaicos residenciales.', 200000.00, 4, (SELECT idCategoria FROM categorias WHERE nombre='Energía Solar' LIMIT 1));
+
+-- Productos adicionales (ids 6..10) necesarios para los inserts de `stock_sucursal` que siguen
+INSERT INTO productos (nombre, descripcion, precio, stockTotal, idCategoria) VALUES
+('Filtro de Agua Industrial', 'Filtro de cartucho industrial para tratamiento de agua.', 35000.00, 10, (SELECT idCategoria FROM categorias WHERE nombre='Filtros' LIMIT 1)),
+('Calentador Solar 200L', 'Calentador solar de 200 litros para agua sanitaria.', 95000.00, 4, (SELECT idCategoria FROM categorias WHERE nombre='Energía Solar' LIMIT 1)),
+('Bomba Sumergible 0.5HP', 'Bomba sumergible compacta para pozos y cisternas pequeñas.', 25000.00, 6, (SELECT idCategoria FROM categorias WHERE nombre='Bombas' LIMIT 1)),
+('Regulador de Voltaje 5KVA', 'Regulador/estabilizador de voltaje 5KVA para equipos sensibles.', 50000.00, 5, (SELECT idCategoria FROM categorias WHERE nombre='Motores' LIMIT 1)),
+('Hidroneumático 100L', 'Equipo hidroneumático de 100 litros para almacenamiento y presión.', 80000.00, 3, (SELECT idCategoria FROM categorias WHERE nombre='Tanques' LIMIT 1));
 
 -- Stock para los nuevos productos
 INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible, stockMinimo) VALUES
@@ -366,9 +552,107 @@ INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible, stockMinimo
 (2, 10, 2, 1),
 (3, 10, 2, 1);
 
+-- Insertar stock por sucursal para los primeros productos (ids 1..5)
+INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible, stockMinimo) VALUES
+-- Bomba de Agua 1HP
+(1, 1, 5, 2),
+(2, 1, 6, 2),
+(3, 1, 4, 2),
+-- Panel Solar 300W
+(1, 2, 3, 1),
+(2, 2, 3, 1),
+(3, 2, 2, 1),
+-- Tanque de Agua 1000L
+(1, 3, 4, 2),
+(2, 3, 4, 2),
+(3, 3, 4, 2),
+-- Motor Eléctrico 2HP
+(1, 4, 2, 1),
+(2, 4, 2, 1),
+(3, 4, 2, 1),
+-- Inversor Solar 5KW
+(1, 5, 1, 1),
+(2, 5, 2, 1),
+(3, 5, 1, 1);
+
+-- Insertar pedidos de ejemplo (desplazado aquí para respetar FK con `productos`)
+INSERT INTO pedidos (idCliente, idSucursal, idSucursalOrigen, total, estado, metodoPago, direccionEnvio) VALUES
+-- Ajustado: los idCliente son los AUTO_INCREMENT generados en la tabla clientes (1 y 2)
+(1, 1, 1, 45000.00, 'entregado', 'transferencia', 'Av. Corrientes 1234, CABA'),
+(2, 2, 2, 145000.00, 'confirmado', 'efectivo', 'Av. Santa Fe 5678, CABA');
+
+-- Insertar detalles de pedidos (desplazado aquí para respetar FK con `productos`)
+INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES
+(1, 1, 1, 45000.00, 45000.00),
+(2, 2, 1, 85000.00, 85000.00),
+(2, 3, 1, 60000.00, 60000.00);
+
+-- Triggers para mantener `productos.categoria` sincronizado con `categorias.nombre`
+DELIMITER //
+CREATE TRIGGER productos_set_categoria_before_insert
+BEFORE INSERT ON productos
+FOR EACH ROW
+BEGIN
+    IF NEW.idCategoria IS NOT NULL THEN
+        SET NEW.categoria = (SELECT nombre FROM categorias WHERE idCategoria = NEW.idCategoria LIMIT 1);
+    END IF;
+END//
+
+CREATE TRIGGER productos_set_categoria_before_update
+BEFORE UPDATE ON productos
+FOR EACH ROW
+BEGIN
+    IF NEW.idCategoria IS NOT NULL THEN
+        SET NEW.categoria = (SELECT nombre FROM categorias WHERE idCategoria = NEW.idCategoria LIMIT 1);
+    ELSE
+        SET NEW.categoria = NULL;
+    END IF;
+END//
+
+CREATE TRIGGER categorias_after_update
+AFTER UPDATE ON categorias
+FOR EACH ROW
+BEGIN
+    IF OLD.nombre <> NEW.nombre THEN
+        UPDATE productos SET categoria = NEW.nombre WHERE idCategoria = NEW.idCategoria;
+    END IF;
+END//
+DELIMITER ;
+
 -- =====================================================
 -- 16. PROCEDIMIENTOS ALMACENADOS ÚTILES
 -- =====================================================
+-- Procedimiento para recalcular stockTotal de todos los productos
+DELIMITER //
+CREATE PROCEDURE RecalculateAllStock()
+BEGIN
+    -- Recorremos los productos y actualizamos por clave primaria (idProducto).
+    -- Esto evita ejecutar un UPDATE masivo sin WHERE y es compatible con
+    -- clientes/configuraciones que activan "safe update mode".
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_idProducto INT;
+    DECLARE cur CURSOR FOR SELECT idProducto FROM productos;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO v_idProducto;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        UPDATE productos
+        SET stockTotal = (
+            SELECT COALESCE(SUM(ss.stockDisponible), 0)
+            FROM stock_sucursal ss
+            WHERE ss.idProducto = v_idProducto
+        )
+        WHERE idProducto = v_idProducto;
+
+    END LOOP;
+    CLOSE cur;
+END//
+DELIMITER ;
 
 -- Procedimiento para crear un pedido completo
 DELIMITER //
@@ -455,6 +739,16 @@ DELIMITER ;
 -- GROUP BY p.idProducto
 -- HAVING stock_tabla_productos != stock_sum_sucursales;
 
+/*
+    NOTAS DE MIGRACIÓN / COMPATIBILIDAD:
+    - El esquema ahora usa `categorias` + `productos.idCategoria` para normalizar.
+    - Para compatibilidad con código que espera `productos.categoria` (texto),
+        se creó triggers BEFORE INSERT/UPDATE que rellenan `categoria` desde
+        `categorias.nombre` cuando `idCategoria` está presente.
+    - Si en tu entorno existe una tabla `products` (en inglés) usada por servicios
+        de prueba, revisa y elimina/mapea esa tabla preferentemente hacia `productos`.
+*/
+
 -- Resumen de servicios por estado
 -- SELECT estado, COUNT(*) as cantidad 
 -- FROM solicitudes_servicio_postventa 
@@ -477,4 +771,13 @@ DELIMITER ;
 -- =====================================================
 
 -- Mensaje de confirmación
+-- Recalcular stockTotal una vez finalizada la importación para garantizar consistencia
+-- Algunos clientes (p. ej. MySQL Workbench) usan "safe update mode" y bloquean
+-- actualizaciones que no incluyen un WHERE con una KEY. Para hacer la importación
+-- robusta, desactivamos temporalmente `sql_safe_updates` solo para este CALL.
+SET @__old_sql_safe_updates = @@sql_safe_updates;
+SET SESSION sql_safe_updates = 0;
+CALL RecalculateAllStock();
+SET SESSION sql_safe_updates = @__old_sql_safe_updates;
+
 SELECT 'Base de datos creada exitosamente con todos los datos de ejemplo' as Resultado;

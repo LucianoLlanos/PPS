@@ -2,11 +2,14 @@ const { BaseRepository } = require('./BaseRepository');
 
 class OrderRepository extends BaseRepository {
   async insertPedido(conn, { idCliente, fechaPedido, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres }) {
+    // Nota: la columna `total` en la tabla `pedidos` es obligatoria (sin valor por defecto)
+    // Para evitar el error cuando aún no se calculó el total detallado se establece inicialmente en 0.
     const sql = `
-      INSERT INTO pedidos (idCliente, estado, fechaPedido, observaciones, idSucursalOrigen, metodoPago, cuotas, interes, descuento, totalConInteres)
-      VALUES (?, 'Pendiente', ?, ?, 1, ?, ?, ?, ?, ?)
+      INSERT INTO pedidos (idCliente, estado, fechaPedido, observaciones, idSucursalOrigen, metodoPago, cuotas, interes, descuento, total, totalConInteres)
+      VALUES (?, 'Pendiente', ?, ?, 1, ?, ?, ?, ?, ?, ?)
     `;
-    const [result] = await conn.query(sql, [idCliente, fechaPedido, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, totalConInteres || 0]);
+    // Pasamos total = 0 inicialmente; más adelante `updateTotal` escribirá el total real.
+    const [result] = await conn.query(sql, [idCliente, fechaPedido, observaciones || null, metodoPago || 'Efectivo', cuotas || 1, interes || 0, descuento || 0, 0, totalConInteres || 0]);
     return result.insertId;
   }
 

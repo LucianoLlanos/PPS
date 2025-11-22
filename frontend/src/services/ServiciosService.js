@@ -9,4 +9,5 @@ export class ServiciosService {
   // Admin
   async listAdmin() { return this.client.get('/servicios/admin/todas'); }
   async updateAdmin(idSolicitud, payload) { return this.client.put(`/servicios/admin/solicitud/${idSolicitud}`, payload); }
+  async getByIdAdmin(idSolicitud) { return this.client.get(`/servicios/admin/solicitud/${idSolicitud}`); }
 }

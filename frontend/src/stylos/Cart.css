@@ -200,6 +200,22 @@
   top: 2rem;
 }
 
+/* Target the MUI Card used as cart summary to avoid blurry rendering on some browsers
+   Force its own compositing layer and improve text/image sharpness. */
+.cart-summary-card {
+  -webkit-transform: translate3d(0,0,0);
+  transform: translate3d(0,0,0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.cart-summary-card *, .cart-summary-card img {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
 .cart-summary-title {
   font-size: 1.25rem;
   font-weight: 600;

@@ -20,11 +20,14 @@ export default function ServiciosPostVenta() {
 	const [loading, setLoading] = useState(false);
 	const [activeTab, setActiveTab] = useState('solicitar');
 	const [detalle, setDetalle] = useState({ open: false, solicitud: null });
+	const [phoneDialog, setPhoneDialog] = useState({ open: false, value: '' });
 
 	// Controlar apertura de Selects para cerrar al hacer scroll
 	const [openTipo, setOpenTipo] = useState(false);
 	const [openHora, setOpenHora] = useState(false);
 	const { user } = useAuthStore();
+	const token = useAuthStore((s) => s.token);
+	const setAuth = useAuthStore((s) => s.setAuth);
 	const navigate = useNavigate();
 
 	const getMinDate = () => {
@@ -91,9 +94,20 @@ export default function ServiciosPostVenta() {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		if (!validate()) return;
+		// If user account already has a phone, we don't need to prompt
+		const userPhone = user && user.telefono ? String(user.telefono).trim() : '';
+		if (!userPhone && (!formData.telefono || String(formData.telefono).trim() === '')) {
+			setPhoneDialog({ open: true, value: '' });
+			return;
+		}
 		setLoading(true);
 		try {
-			await serviciosService.createSolicitud(formData);
+			const res = await serviciosService.createSolicitud(formData);
+			// If backend linked the phone, update local user in store so UI reflects change
+			if (res && res.phoneUpdated && user) {
+				const updated = { ...user, telefono: formData.telefono || user.telefono };
+				setAuth(updated, token);
+			}
 			alert('Solicitud enviada correctamente');
 			setFormData({ tipoServicio: '', descripcion: '', direccion: '', telefono: '', fechaPreferida: '', horaPreferida: '' });
 			setErrors({});
@@ -104,6 +118,38 @@ export default function ServiciosPostVenta() {
 			alert('Error al enviar la solicitud');
 		} finally { setLoading(false); }
 	};
+
+	const handlePhoneDialogConfirm = async () => {
+		const val = (phoneDialog.value || '').trim();
+		if (!val) return;
+		// basic validation: at least 6 digits
+		const digits = val.replace(/\D/g, '');
+		if (digits.length < 6) {
+			alert('Ingresá un número válido');
+			return;
+		}
+		setFormData(f => ({ ...f, telefono: val }));
+		setPhoneDialog({ open: false, value: '' });
+		// proceed to submit with telefono now set
+		setLoading(true);
+		try {
+			const res = await serviciosService.createSolicitud({ ...formData, telefono: val });
+			if (res && res.phoneUpdated && user) {
+				const updated = { ...user, telefono: val };
+				setAuth(updated, token);
+			}
+			alert('Solicitud enviada correctamente');
+			setFormData({ tipoServicio: '', descripcion: '', direccion: '', telefono: '', fechaPreferida: '', horaPreferida: '' });
+			setErrors({});
+			await cargarMisSolicitudes();
+			setActiveTab('historial');
+		} catch (err) {
+			console.error('submit after phone', err);
+			alert('Error al enviar la solicitud');
+		} finally { setLoading(false); }
+	};
+
+	const handlePhoneDialogClose = () => setPhoneDialog({ open: false, value: '' });
 
 	return (
 			<Container className="servicios-apple servicios-container" maxWidth="lg" sx={{ mt: 2, px: { xs: 2, md: 3 } }}>
@@ -173,7 +219,7 @@ export default function ServiciosPostVenta() {
 																							<Alert severity="info">Importante: las solicitudes deben realizarse con al menos <strong>24 horas</strong> de anticipación.</Alert>
 																						</Box>
 																						<Box>
-																							<Button className="servicios-submit-btn" type="submit" variant="contained" disabled={loading} startIcon={<SendIcon />} sx={{ borderRadius: 0, py: 1.2, fontWeight: 800 }}>{loading ? <CircularProgress size={18} color="inherit" /> : 'Enviar Solicitud'}</Button>
+																										<Button className="servicios-submit-btn" type="submit" variant="contained" disabled={loading} startIcon={<SendIcon />} sx={{ borderRadius: 0, py: 1.2, fontWeight: 800 }}>{loading ? <CircularProgress size={18} color="inherit" /> : 'Enviar Solicitud'}</Button>
 																						</Box>
 											</Box>
 										</CardContent>
@@ -195,6 +241,19 @@ export default function ServiciosPostVenta() {
 								</Grid>
 				</Grid>
 			)}
+
+							{/* Dialog to ask for phone number if user didn't provide it */}
+							<Dialog open={phoneDialog.open} onClose={handlePhoneDialogClose} maxWidth="xs" fullWidth>
+								<DialogTitle>Ingresá tu número de teléfono</DialogTitle>
+								<DialogContent>
+									<Typography variant="body2" sx={{ mb: 1 }}>Para poder contactarnos, necesitaremos tu número. Se asociará a tu cuenta.</Typography>
+									<TextField fullWidth label="Teléfono" value={phoneDialog.value} onChange={(e) => setPhoneDialog(d => ({ ...d, value: e.target.value }))} placeholder="Incluí código de área" />
+								</DialogContent>
+								<DialogActions>
+									<Button onClick={handlePhoneDialogClose}>Cancelar</Button>
+									<Button variant="contained" onClick={handlePhoneDialogConfirm}>Confirmar</Button>
+								</DialogActions>
+							</Dialog>
 
 			{activeTab === 'historial' && (
 					<Grid container spacing={3} alignItems="flex-start">

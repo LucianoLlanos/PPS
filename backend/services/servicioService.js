@@ -1,6 +1,7 @@
 const { Database } = require('../core/database');
 const { AppError } = require('../core/errors');
 const { ServicioRepository } = require('../repositories/ServicioRepository');
+const { NotificationService } = require('./NotificationService');
 
 const TIPOS_VALIDOS = ['instalacion', 'mantenimiento', 'garantia'];
 
@@ -8,10 +9,20 @@ class ServicioService {
   constructor(db = new Database()) {
     this.db = db;
     this.repo = new ServicioRepository(db);
+    this.notif = new NotificationService(db);
   }
 
   async listAll() { return this.repo.listAll(); }
   async listMine(user) { return this.repo.listByUsuario(user.idUsuario); }
+  async getById(id) { return this.repo.getById(id); }
+  async getByIdSafe(id) {
+    try {
+      return await this.repo.getById(id);
+    } catch (err) {
+      console.error('[ServicioService] getById error', err && err.message ? err.message : err);
+      throw err;
+    }
+  }
 
   async create(user, payload) {
     const { tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida } = payload;
@@ -19,7 +30,33 @@ class ServicioService {
     if (descripcion.length > 500) throw AppError.badRequest('La descripción no puede exceder 500 caracteres');
     if (!TIPOS_VALIDOS.includes(tipoServicio)) throw AppError.badRequest('Tipo de servicio no válido');
     const idSolicitud = await this.repo.createSolicitud({ idUsuario: user.idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida });
-    return { idSolicitud };
+
+    // Si el usuario proporcionó un teléfono en la solicitud, vinculamos ese número
+    // con su registro de cliente para que aparezca en su perfil y en las tarjetas de admin.
+    let phoneUpdated = false;
+    try {
+      if (telefono && String(telefono).trim().length > 0) {
+        // sólo actualizar si actualmente no tiene teléfono
+        const rows = await this.db.query('SELECT telefono FROM clientes WHERE idUsuario = ?', [user.idUsuario]);
+        const current = rows && rows[0] ? rows[0].telefono : null;
+        if (!current || String(current).trim() === '') {
+          await this.db.query('UPDATE clientes SET telefono = ? WHERE idUsuario = ?', [String(telefono).trim(), user.idUsuario]);
+          phoneUpdated = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[ServicioService] No se pudo actualizar teléfono del cliente:', e && e.message ? e.message : e);
+    }
+
+    // Crear notificación para administradores
+    try {
+      const mensaje = `Nueva solicitud de servicio (${tipoServicio}) de ${user.nombre || ''} ${user.apellido || ''}`.trim();
+      await this.notif.createNotification({ tipo: 'servicio', referenciaId: idSolicitud, mensaje, destinatarioRol: 'Administrador', metadata: { idUsuario: user.idUsuario } });
+    } catch (e) {
+      console.warn('[Notification] No se pudo crear notificación de servicio:', e && e.message ? e.message : e);
+    }
+
+    return { idSolicitud, phoneUpdated };
   }
 
   async updateEstado(idSolicitud, { estado, observacionesAdmin }) {

@@ -17,7 +17,7 @@ function testPedidosFixed() {
           pe.idPedido, 
           u.nombre AS nombreUsuario, 
           u.apellido AS apellidoUsuario, 
-          COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+          pe.fechaPedido as fecha, 
           pe.estado,
           COALESCE(pe.total, 0) as total,
           (SELECT COALESCE(SUM(dp.cantidad), 0) 
@@ -27,7 +27,7 @@ function testPedidosFixed() {
         JOIN clientes c ON pe.idCliente = c.idCliente
         JOIN usuarios u ON c.idUsuario = u.idUsuario
         WHERE pe.idPedido IN (75, 76)
-        ORDER BY COALESCE(pe.fechaPedido, pe.fecha) DESC
+        ORDER BY pe.fechaPedido DESC
     `;
 
     connection.query(sql, [], (err, pedidos) => {

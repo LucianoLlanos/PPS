@@ -47,90 +47,6 @@
   color: #333;
 }
 
-/* Tools menu styled like macOS menu */
-.productos-tools-container .btn {
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 600;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-
-.productos-tools-container .btn.btn-success {
-  background: linear-gradient(180deg,#34c759,#10a84d);
-  color: #fff;
-  border: none;
-  box-shadow: 0 8px 24px rgba(16,168,77,0.12);
-}
-.productos-tools-container .btn.btn-success:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(16,168,77,0.16);
-}
-
-.productos-tools-container .btn.btn-secondary {
-  background: rgba(0,0,0,0.04);
-  border: 1px solid rgba(0,0,0,0.06);
-  color: #111827;
-}
-.productos-tools-container .btn.btn-secondary:hover {
-  background: rgba(0,0,0,0.06);
-}
-.productos-tools-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,0.06);
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(15,23,42,0.08);
-  padding: 8px;
-  min-width: 260px;
-}
-.productos-tools-dropdown .list-group-item { border: none; border-radius: 6px; padding: 10px; }
-.productos-tools-dropdown .list-group-item:hover { background: rgba(0,0,0,0.03); }
-
-.productos-tools-dropdown {
-  position: relative;
-}
-
-.productos-tools-btn {
-  background-color: #6f42c1;
-  border-color: #6f42c1;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-}
-
-.productos-tools-btn:hover {
-  background-color: #5a2d91;
-  border-color: #5a2d91;
-}
-
-.productos-tools-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 200px;
-}
-
-.productos-tools-item {
-  padding: 0.5rem 1rem;
-  border: none;
-  background: none;
-  text-align: left;
-  width: 100%;
-  cursor: pointer;
-  transition: background-color 0.15s ease-in-out;
-}
-
-.productos-tools-item:hover {
-  background-color: #f8f9fa;
-}
-
 /* Modales */
 
 
@@ -726,80 +642,146 @@
   color: #212529 !important;
 }
 
-/* Estilos para el modal "inline" usado en Agregar Producto */
-.productos-inline-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(10,10,10,0.18);
-  backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  z-index: 9999;
-  overflow-y: auto;
-}
-
-.productos-inline-modal-wrapper {
-  max-width: 680px;
-  width: 100%;
-  border-radius: 14px;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.08);
-  overflow: hidden;
-}
-
+/* Modal: nuevo conjunto simple y simétrico para Add/Edit Producto */
 .productos-inline-modal-content {
-  background-color: #ffffff;
-  padding: 18px 20px;
+  background: #ffffff;
+  padding: 18px;
   border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.06);
   max-height: 86vh;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  scrollbar-gutter: stable; /* ayuda a evitar reflow cuando aparece scrollbar */
 }
 
-/* Quitar scrollbar visual pero mantener funcionalidad */
-.productos-inline-modal-content::-webkit-scrollbar { width: 8px; }
-.productos-inline-modal-content::-webkit-scrollbar-track { background: transparent; }
-.productos-inline-modal-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 8px; }
-/* navegador moderno: ocultar visualmente en situaciones donde no se quiere ver */
-.productos-inline-modal-content.hide-scrollbar {
-  scrollbar-width: none; /* firefox */
-  -ms-overflow-style: none;  /* IE 10+ */
+/* Grid principal: columna izquierda fija (ficha) y columna derecha flexible (formulario más estrecho) */
+.productos-inline-modal-content .productos-form-row {
+  display: grid;
+  grid-template-columns: 1fr; /* single-column layout on desktop (stacked) */
+  gap: 10px 12px; /* tighter gaps */
+  align-items: start;
 }
-.productos-inline-modal-content.hide-scrollbar::-webkit-scrollbar { display: none; }
 
-/* Botones compactos dentro del modal */
-.productos-inline-btn-primary {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: linear-gradient(180deg,#34c759,#10a84d);
-  color: #fff;
-  font-weight: 700;
-  border: none;
-  display: inline-flex;
+/* Contenedor centrado y con ancho máximo para que los inputs no ocupen todo el ancho del modal */
+.productos-inline-modal-content .productos-form-inner {
+  max-width: 560px; /* cajas más estrechas para que no ocupen toda la pantalla */
+  margin: 0 auto;
+  width: 100%;
+}
+
+.productos-inline-modal-content .productos-form-inner .MuiTextField-root,
+.productos-inline-modal-content .productos-form-inner input[type="file"],
+.productos-inline-modal-content .productos-form-inner .MuiFormControl-root {
+  width: 100%;
+}
+
+/* Column wrapper used in JSX: left column and right column */
+.productos-inline-modal-content .productos-form-col {
+  width: 100%;
+  padding: 4px 0; /* consistent top/bottom padding inside column */
+}
+
+/* Make each direct control inside a column have consistent vertical spacing (tighter) */
+.productos-inline-modal-content .productos-form-col > * {
+  margin-bottom: 10px;
+}
+
+/* compact two-column helper for price/stock */
+.productos-inline-modal-content .two-cols {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.productos-inline-modal-content .two-cols .MuiTextField-root,
+.productos-inline-modal-content .two-cols .MuiFormControl-root { flex: 1; max-width: 140px; }
+
+/* When more vertical space is needed for a control, use full-width row */
+.productos-inline-modal-content .productos-form-col.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Inputs and textareas: neutral, compact and aligned */
+.productos-inline-modal-content .MuiTextField-root,
+.productos-inline-modal-content input[type="file"] {
+  width: 100%;
+}
+.productos-inline-modal-content .MuiOutlinedInput-root { border-radius: 8px; }
+.productos-inline-modal-content .MuiInputBase-input { padding: 10px 12px; }
+.productos-inline-modal-content textarea { min-height: 48px; }
+
+/* Thumbnails: vertical stack in the left column (compact) */
+.productos-inline-modal-content .image-previews {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap; /* wrap so images don't push too much vertically */
+  gap: 8px;
+  margin-top: 6px;
+  align-items: flex-start;
+}
+
+.productos-inline-modal-content .preview-item {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 26px rgba(16,168,77,0.12);
-}
-.productos-inline-btn-primary:disabled { opacity: 0.8; cursor: not-allowed; }
-.productos-inline-btn-secondary {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.04);
-  color: #111827;
-  border: 1px solid rgba(0,0,0,0.06);
-  font-weight: 600;
+  width: 72px;
 }
 
-/* Mejoras de layout internas: reducir espaciados excesivos */
-.productos-inline-modal-content .form-label { margin-bottom: 6px; font-size: 0.95rem; }
-.productos-inline-modal-content input[type="text"],
-.productos-inline-modal-content input[type="number"],
-.productos-inline-modal-content textarea { font-size: 14px; }
+.productos-inline-modal-content .preview-wrap { position: relative; display: inline-block; width:56px; height:56px; }
+.productos-inline-modal-content .preview-wrap img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; box-shadow: 0 6px 12px rgba(15,23,42,0.04); }
+.productos-inline-modal-content .remove-btn { position: absolute; top: -6px; right: -6px; background: rgba(0,0,0,0.6); color: #fff; width: 18px; height: 18px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
 
-@media (max-width: 576px) {
-  .productos-inline-modal-wrapper { max-width: 95%; }
-  .productos-inline-modal-content { padding: 16px; }
+.productos-inline-modal-content .preview-item .MuiTypography-root {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+/* Radios and labels: clearer spacing */
+.productos-inline-modal-content .MuiFormControlLabel-root { margin-bottom: 6px; }
+
+/* Align description block top and avoid stretching inside right column */
+.productos-inline-modal-content .productos-form-col textarea,
+.productos-inline-modal-content .productos-form-col .MuiInputBase-root[aria-multiline="true"] {
+  align-self: start;
+  max-height: 80px; /* descripción aún más compacta */
+}
+
+/* Radios de sucursales: dos columnas en desktop para ocupar menos altura */
+.productos-inline-modal-content .MuiFormControl-root .MuiFormControlLabel-root { display: inline-block; width: 48%; }
+.productos-inline-modal-content .MuiFormControl-root .MuiFormControlLabel-root:nth-child(odd) { padding-right: 4%; }
+
+/* Compact the file input area and prevent it from stretching full width strangely */
+.productos-inline-modal-content input[type="file"] { max-width: 260px; }
+
+/* Make helper labels consistent and less tall */
+.productos-inline-modal-content .MuiFormHelperText-root { margin-top: 6px; line-height: 1.1; }
+
+/* Two-cols helper: keep tight widths */
+.productos-inline-modal-content .two-cols { display:flex; gap:8px; align-items:center; }
+.productos-inline-modal-content .two-cols .MuiTextField-root { flex: 0 0 110px; }
+
+/* Compactar y reordenar sucursales en grid de dos columnas */
+.productos-inline-modal-content .MuiRadioGroup-root {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+.productos-inline-modal-content .MuiFormControlLabel-root {
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+.productos-inline-modal-content .MuiFormControlLabel-root .MuiRadio-root {
+  transform: scale(0.95);
+}
+
+/* Actions: keep buttons aligned right and compact */
+.productos-inline-modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(15,23,42,0.04); margin-top: 12px; }
+.productos-inline-modal-actions .MuiButton-root { border-radius: 8px; padding: 8px 14px; text-transform: none; }
+
+/* Responsive: single column on smaller screens */
+@media (max-width: 900px) {
+  .productos-inline-modal-content .productos-form-row { grid-template-columns: 1fr; }
+  .productos-inline-modal-content .image-previews { flex-direction: row; flex-wrap: wrap; }
 }
 
 /* ---------------------------------------------

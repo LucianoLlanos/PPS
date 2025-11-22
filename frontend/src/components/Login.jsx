@@ -105,6 +105,7 @@ export default function Login() {
             </Box>
 
             <Typography variant="body2">¿No tienes cuenta? <Link to="/register">Regístrate aquí</Link></Typography>
+            <Typography variant="body2">¿Olvidaste tu contraseña? <Link to="/forgot-password">Recupérala aquí</Link></Typography>
           </Stack>
         </CardContent>
       </Card>

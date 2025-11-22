@@ -1,478 +1,287 @@
 // Monolithic adminController obsoleto: usar controladores modulares en ./admin/*
-const { connection } = require('../db/DB');
+const { Database } = require('../core/database');
 const bcrypt = require('bcryptjs');
+const db = new Database();
 
 // USUARIOS
-const listarUsuarios = (req, res) => {
-  // Incluir datos de clientes (direccion/telefono) cuando existan para que el frontend pueda mostrarlos en la edición
-  const query = `SELECT u.*, r.nombreRol, c.direccion, c.telefono FROM usuarios u JOIN roles r ON u.idRol = r.idRol LEFT JOIN clientes c ON c.idUsuario = u.idUsuario`;
-  connection.query(query, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
-    res.json(results);
-  });
+const listarUsuarios = async (req, res) => {
+  try {
+    const query = `SELECT u.*, r.nombreRol, c.direccion, c.telefono FROM usuarios u JOIN roles r ON u.idRol = r.idRol LEFT JOIN clientes c ON c.idUsuario = u.idUsuario`;
+    const rows = await db.query(query, []);
+    return res.json(rows);
+  } catch (e) {
+    console.error('[listarUsuarios] error', e);
+    return res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
 };
 
 const crearUsuario = (req, res) => {
-  const { nombre, apellido, email, password, idRol, direccion, telefono } = req.body;
-  if (!nombre || !apellido || !email || !password || !idRol) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios' });
-  }
-  // Validar email único
-  connection.query('SELECT * FROM usuarios WHERE email=?', [email], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al validar email' });
-    if (results.length > 0) return res.status(409).json({ error: 'El email ya está registrado' });
-    // Archivo obsoleto: la lógica administrativa ha sido migrada a controladores modulares en ./admin/*.
-    // Se deja este stub vacío para evitar referencias rotas durante la transición post-merge.
-    // No utilizar este controlador; preferir los nuevos controladores específicos.
-
-    module.exports = { deprecated: true };
-            if (!cliRows || cliRows.length === 0) {
-              // No es cliente: continuar a borrar el usuario
-              return deleteUsuario();
-            }
-
-            const idCliente = cliRows[0].idCliente;
-            // Verificar si tiene pedidos asociados
-            connection.query('SELECT COUNT(*) AS cnt FROM pedidos WHERE idCliente = ?', [idCliente], (pedErr, pedRows) => {
-              if (pedErr) return connection.rollback(() => res.status(500).json({ error: 'Error al verificar pedidos del cliente' }));
-              const tienePedidos = pedRows && pedRows[0] ? Number(pedRows[0].cnt) > 0 : false;
-              if (tienePedidos) {
-                // No permitir borrar usuario con pedidos históricos
-                return connection.rollback(() => res.status(400).json({ error: 'No se puede eliminar el usuario porque tiene pedidos asociados. Para preservar el historial de ventas, no se permite eliminar clientes con pedidos.' }));
-              }
-              // Eliminar registro de clientes
-              connection.query('DELETE FROM clientes WHERE idUsuario = ?', [id], (delCliErr) => {
-                if (delCliErr) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar datos de cliente' }));
-                deleteUsuario();
-              });
-            });
-          });
-        };
-
-        const deleteUsuario = () => {
-          connection.query('DELETE FROM usuarios WHERE idUsuario=?', [id], (err2) => {
-            if (err2) return connection.rollback(() => res.status(500).json({ error: 'Error al eliminar usuario' }));
-            registrarHistorial('usuarios', id, 'eliminar', email, `Usuario eliminado`);
-            connection.commit((commitErr) => {
-              if (commitErr) return connection.rollback(() => res.status(500).json({ error: 'Error al confirmar transacción' }));
-              res.json({ mensaje: 'Usuario eliminado' });
-            });
-          });
-        };
-
-        // Si el rol indica cliente o no se sabe, igual revisar tabla clientes
-        handleCliente();
-      });
-    });
-  });
+  // Controlador obsoleto: migrado a ./admin/*
+  return res.status(501).json({ error: 'Controlador obsoleto, usar ./admin/*' });
 };
 // SUCURSALES
-const listarSucursales = (req, res) => {
-  connection.query('SELECT * FROM sucursales', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener sucursales' });
-    res.json(results);
-  });
+const listarSucursales = async (req, res) => {
+  try {
+    const rows = await db.query('SELECT * FROM sucursales', []);
+    return res.json(rows);
+  } catch (e) {
+    console.error('[listarSucursales] error', e);
+    return res.status(500).json({ error: 'Error al obtener sucursales' });
+  }
 };
 
 // CLIENTES
-const listarClientes = (req, res) => {
-  const query = `SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario`;
-  connection.query(query, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener clientes' });
-    res.json(results);
-  });
+const listarClientes = async (req, res) => {
+  try {
+    const query = `SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario`;
+    const rows = await db.query(query, []);
+    return res.json(rows);
+  } catch (e) {
+    console.error('[listarClientes] error', e);
+    return res.status(500).json({ error: 'Error al obtener clientes' });
+  }
 };
 
 // Ver un cliente por idCliente
-const verCliente = (req, res) => {
-  const { id } = req.params;
-  connection.query(
-    'SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario WHERE c.idCliente = ?',
-    [id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Error al obtener cliente' });
-      if (!rows || rows.length === 0)
-        return res.status(404).json({ error: 'Cliente no encontrado' });
-      res.json(rows[0]);
-    }
-  );
+const verCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await db.query('SELECT c.*, u.nombre, u.apellido, u.email FROM clientes c JOIN usuarios u ON c.idUsuario = u.idUsuario WHERE c.idCliente = ?', [id]);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Cliente no encontrado' });
+    return res.json(rows[0]);
+  } catch (e) {
+    console.error('[verCliente] error', e);
+    return res.status(500).json({ error: 'Error al obtener cliente' });
+  }
 };
 
 // Actualizar datos de cliente (direccion, telefono)
-const actualizarCliente = (req, res) => {
-  const { id } = req.params;
-  const { direccion, telefono } = req.body;
-  connection.query('SELECT * FROM clientes WHERE idCliente = ?', [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar cliente' });
+const actualizarCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { direccion, telefono } = req.body;
+    const rows = await db.query('SELECT * FROM clientes WHERE idCliente = ?', [id]);
     if (!rows || rows.length === 0) return res.status(404).json({ error: 'Cliente no encontrado' });
-    connection.query(
-      'UPDATE clientes SET direccion = ?, telefono = ? WHERE idCliente = ?',
-      [direccion || null, telefono || null, id],
-      (err2) => {
-        if (err2) return res.status(500).json({ error: 'Error al actualizar cliente' });
-        registrarHistorial('clientes', id, 'actualizar', null, `Cliente actualizado: ${id}`);
-        res.json({ mensaje: 'Cliente actualizado' });
-      }
-    );
-  });
+    await db.query('UPDATE clientes SET direccion = ?, telefono = ? WHERE idCliente = ?', [direccion || null, telefono || null, id]);
+    await registrarHistorial('clientes', id, 'actualizar', null, `Cliente actualizado: ${id}`);
+    return res.json({ mensaje: 'Cliente actualizado' });
+  } catch (e) {
+    console.error('[actualizarCliente] error', e);
+    return res.status(500).json({ error: 'Error al actualizar cliente' });
+  }
 };
 
 // SERVICIOS POSTVENTA
-const listarServicios = (req, res) => {
-  connection.query('SELECT * FROM servicios_postventa', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener servicios' });
-    res.json(results);
-  });
+// La tabla actual en el esquema es `solicitudes_servicio_postventa`.
+const listarServicios = async (req, res) => {
+  try {
+    const rows = await db.query('SELECT * FROM solicitudes_servicio_postventa', []);
+    return res.json(rows);
+  } catch (e) {
+    console.error('[listarServicios] error', e);
+    return res.status(500).json({ error: 'Error al obtener servicios' });
+  }
 };
 
 // HISTORIAL DE CAMBIOS
-const registrarHistorial = (tabla, idRegistro, accion, usuario, descripcion) => {
-  const query =
-    'INSERT INTO historial_cambios (tabla, idRegistro, accion, usuario, descripcion) VALUES (?, ?, ?, ?, ?)';
-  connection.query(query, [tabla, idRegistro, accion, usuario, descripcion], (err) => {
-    if (err) console.error('Error al registrar historial:', err);
-  });
+const registrarHistorial = async (tabla, idRegistro, accion, usuario, descripcion) => {
+  try {
+    const query = 'INSERT INTO historial (tabla, idRegistro, accion, usuario, descripcion) VALUES (?, ?, ?, ?, ?)';
+    await db.query(query, [tabla, idRegistro, accion, usuario, descripcion]);
+  } catch (e) {
+    console.error('Error al registrar historial:', e);
+  }
 };
 
 // PRODUCTOS
-const listarProductos = (req, res) => {
-  // Incluir todas las imágenes asociadas (múltiples) para que el panel admin pueda mostrarlas y permitir eliminarlas.
-  // Similar a endpoint público /productos pero manteniendo alias de stock y compatibilidad.
-  const query = `
-    SELECT 
-      p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
-      GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
-    FROM productos p
-    LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
-    GROUP BY p.idProducto
-  `;
-  connection.query(query, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener productos' });
-    const parsed = results.map(r => {
-      const imgs = r.imagenes ? r.imagenes.split(',') : [];
-      // Fallback: si no hay filas en producto_imagenes, usar la imagen legacy de productos.imagen
-      const finalImgs = (imgs && imgs.length > 0) ? imgs : (r.imagen ? [r.imagen] : []);
+const listarProductos = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        p.idProducto, p.nombre, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+        GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
+      FROM productos p
+      LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
+      GROUP BY p.idProducto
+    `;
+    const results = await db.query(query, []);
+    const parsed = (results || []).map((r) => {
+      const imgs = r.imagenes ? String(r.imagenes).split(',') : [];
+      const finalImgs = imgs.length > 0 ? imgs : (r.imagen ? [r.imagen] : []);
       return { ...r, imagenes: finalImgs };
     });
-    res.json(parsed);
-  });
+    return res.json(parsed);
+  } catch (e) {
+    console.error('[listarProductos] error', e);
+    return res.status(500).json({ error: 'Error al obtener productos' });
+  }
 };
 
-const crearProducto = (req, res) => {
-  console.log('[DEBUG] Datos recibidos:', req.body);
-  console.log('[DEBUG] Archivos recibidos:', req.files ? req.files.map(f => f.filename) : 'No hay archivos');
-  
-  const { nombre, descripcion, precio, stockTotal } = req.body;
-  
-  // Validación más específica
-  if (!nombre || nombre.trim() === '') {
-    console.log('[ERROR] Nombre faltante o vacío');
-    return res.status(400).json({ error: 'El nombre es obligatorio' });
-  }
-  if (!precio || isNaN(precio) || Number(precio) <= 0) {
-    console.log('[ERROR] Precio inválido:', precio);
-    return res.status(400).json({ error: 'El precio debe ser un número mayor a 0' });
-  }
-  
-  // Manejar múltiples imágenes subidas
-  const imagenes = req.files ? req.files.map(file => file.filename) : [];
-  console.log('[DEBUG] Imágenes procesadas:', imagenes);
-  
-  // sucursales opcion: array de ids de sucursales a las que asignar el producto
-  // Si viene como string JSON, parsearlo; si no, usar como array o default vacío
-  let sucursalesSelected = req.body.sucursales || [];
-  if (typeof sucursalesSelected === 'string') {
-    try {
-      sucursalesSelected = JSON.parse(sucursalesSelected);
-    } catch (e) {
-      console.log('[ERROR] Error parseando sucursales JSON:', e.message);
-      sucursalesSelected = [];
-    }
-  }
-  
-  console.log('[DEBUG] Sucursales procesadas:', sucursalesSelected);
-  
-  // Crear producto sin imagen en la tabla principal (mantener compatibilidad)
-  const query =
-    'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)';
-  const imagenPrincipal = imagenes.length > 0 ? imagenes[0] : null;
-  
-  connection.query(query, [nombre, descripcion, precio, stockTotal, imagenPrincipal], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error al crear producto' });
-    const idProducto = result.insertId;
+const crearProducto = async (req, res) => {
+  try {
+    console.log('[DEBUG] Datos recibidos:', req.body);
+    console.log('[DEBUG] Archivos recibidos:', req.files ? req.files.map(f => f.filename) : 'No hay archivos');
+    const { nombre, descripcion, precio, stockTotal } = req.body;
+    if (!nombre || nombre.trim() === '') return res.status(400).json({ error: 'El nombre es obligatorio' });
+    if (!precio || isNaN(precio) || Number(precio) <= 0) return res.status(400).json({ error: 'El precio debe ser un número mayor a 0' });
 
-    // Insertar todas las imágenes en la tabla producto_imagenes
-    const insertarImagenes = (callback) => {
-      if (imagenes.length === 0) {
-        callback();
-        return;
+    const imagenes = req.files ? req.files.map(f => f.filename) : [];
+    let sucursalesSelected = req.body.sucursales || [];
+    if (typeof sucursalesSelected === 'string') {
+      try { sucursalesSelected = JSON.parse(sucursalesSelected); } catch { sucursalesSelected = []; }
+    }
+
+    const result = await db.withTransaction(async (conn) => {
+      const imagenPrincipal = imagenes.length > 0 ? imagenes[0] : null;
+      const [ins] = await conn.query('INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)', [nombre, descripcion, precio, stockTotal, imagenPrincipal]);
+      const idProducto = ins.insertId;
+
+      // Insertar imágenes (si las hay)
+      if (imagenes.length > 0) {
+        let orden = 0;
+        for (const imagen of imagenes) {
+          await conn.query('INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [idProducto, imagen, orden++]);
+        }
       }
 
-      let insertados = 0;
-      imagenes.forEach((imagen, index) => {
-        connection.query(
-          'INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)',
-          [idProducto, imagen, index],
-          (err) => {
-            if (err) {
-              console.log('[ERROR] Error insertando imagen:', err);
-              return res.status(500).json({ error: 'Error al guardar imágenes' });
-            }
-            insertados++;
-            if (insertados === imagenes.length) {
-              callback();
-            }
-          }
-        );
-      });
-    };
+      // Obtener sucursales existentes
+      const sucursalesAll = await conn.query('SELECT idSucursal FROM sucursales', []);
+      const existIds = (sucursalesAll || []).map(s => s.idSucursal);
+      let targets = [];
+      if (Array.isArray(sucursalesSelected) && sucursalesSelected.length > 0) {
+        targets = sucursalesSelected.filter(id => existIds.includes(Number(id))).map(id => Number(id));
+      } else {
+        targets = existIds;
+      }
 
-    insertarImagenes(() => {
-      // Continúa con la lógica de sucursales
-      connection.query('SELECT idSucursal FROM sucursales', (err2, sucursalesAll) => {
-        if (err2) return res.status(500).json({ error: 'Error al obtener sucursales' });
+      if (!targets || targets.length === 0) return { id: idProducto, mensaje: 'Producto creado, sin sucursales disponibles' };
 
-        let targets = [];
-        if (Array.isArray(sucursalesSelected) && sucursalesSelected.length > 0) {
-          // Usar solo las sucursales seleccionadas (filtrar por las que existen)
-          const existIds = sucursalesAll.map((s) => s.idSucursal);
-          targets = sucursalesSelected
-            .filter((id) => existIds.includes(Number(id)))
-            .map((id) => Number(id));
-        } else {
-          // Si no se proporcionaron, crear entradas con 0 en todas las sucursales
-          targets = sucursalesAll.map((s) => s.idSucursal);
-        }
+      const total = Number(stockTotal) || 0;
+      const n = targets.length;
+      const base = Math.floor(total / n);
+      let remainder = total % n;
 
-        if (targets.length === 0)
-          return res.json({ mensaje: 'Producto creado, sin sucursales disponibles', id: idProducto });
+      for (const idSucursal of targets) {
+        const asignado = total > 0 ? base + (remainder > 0 ? (remainder--, 1) : 0) : 0;
+        await conn.query('INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)', [idSucursal, idProducto, asignado]);
+      }
 
-        // Distribuir stockTotal entre las sucursales seleccionadas (si hay stockTotal > 0)
-        const total = Number(stockTotal) || 0;
-        const n = targets.length;
-        const base = Math.floor(total / n);
-        let remainder = total % n;
-
-        // Insertar filas en stock_sucursal para cada target
-        const insertar = (i) => {
-          if (i >= targets.length) {
-            return res.json({
-              mensaje: `Producto creado con ${imagenes.length} imagen(es) y stock por sucursal inicializado`,
-              id: idProducto,
-            });
-          }
-          const idSucursal = targets[i];
-          const asignado = total > 0 ? base + (remainder > 0 ? (remainder--, 1) : 0) : 0;
-          connection.query(
-            'INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)',
-            [idSucursal, idProducto, asignado],
-            (err3) => {
-              if (err3)
-                return res.status(500).json({ error: 'Error al crear stock_sucursal inicial' });
-              insertar(i + 1);
-            }
-          );
-        };
-
-        insertar(0);
-      });
+      return { id: idProducto, mensaje: `Producto creado con ${imagenes.length} imagen(es) y stock por sucursal inicializado` };
     });
-  });
+
+    res.json(result);
+  } catch (e) {
+    console.error('[crearProducto] error', e);
+    res.status(500).json({ error: 'Error al crear producto' });
+  }
 };
 
 // Backfill: crear filas faltantes en stock_sucursal con stock 0 para todas las combinaciones producto-sucursal que faltan
-const backfillStockSucursales = (req, res) => {
-  // Obtener todos los productos y sucursales
-  connection.query('SELECT idProducto FROM productos', (err, productos) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener productos' });
-    connection.query('SELECT idSucursal FROM sucursales', (err2, sucursales) => {
-      if (err2) return res.status(500).json({ error: 'Error al obtener sucursales' });
-
-      const tareas = [];
-      productos.forEach((p) => {
-        sucursales.forEach((s) => {
-          tareas.push([s.idSucursal, p.idProducto]);
-        });
+const backfillStockSucursales = async (req, res) => {
+  try {
+    const productos = await db.query('SELECT idProducto FROM productos', []);
+    const sucursales = await db.query('SELECT idSucursal FROM sucursales', []);
+    const tareas = [];
+    (productos || []).forEach((p) => {
+      (sucursales || []).forEach((s) => {
+        tareas.push({ idSucursal: s.idSucursal, idProducto: p.idProducto });
       });
-
-      if (tareas.length === 0) return res.json({ mensaje: 'No hay combinaciones para procesar' });
-
-      // Procesar en serie para evitar duplicados por constraints
-      const procesar = (i) => {
-        if (i >= tareas.length) return res.json({ mensaje: 'Backfill completado' });
-        const [idSucursal, idProducto] = tareas[i];
-        connection.query(
-          'SELECT 1 FROM stock_sucursal WHERE idSucursal=? AND idProducto=?',
-          [idSucursal, idProducto],
-          (err3, rows) => {
-            if (err3) return res.status(500).json({ error: 'Error al comprobar stock_sucursal' });
-            if (rows && rows.length > 0) return procesar(i + 1);
-            connection.query(
-              'INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, 0)',
-              [idSucursal, idProducto],
-              (err4) => {
-                if (err4)
-                  return res
-                    .status(500)
-                    .json({ error: 'Error al insertar stock_sucursal durante backfill' });
-                procesar(i + 1);
-              }
-            );
-          }
-        );
-      };
-
-      procesar(0);
     });
-  });
+
+    if (tareas.length === 0) return res.json({ mensaje: 'No hay combinaciones para procesar' });
+
+    for (const t of tareas) {
+      const rows = await db.query('SELECT 1 as ok FROM stock_sucursal WHERE idSucursal=? AND idProducto=? LIMIT 1', [t.idSucursal, t.idProducto]);
+      if (rows && rows.length > 0) continue;
+      try {
+        await db.query('INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, 0)', [t.idSucursal, t.idProducto]);
+      } catch (err) {
+        console.warn('[backfillStockSucursales] insert skipped or failed for', t, err);
+      }
+    }
+
+    return res.json({ mensaje: 'Backfill completado' });
+  } catch (e) {
+    console.error('[backfillStockSucursales] error', e);
+    return res.status(500).json({ error: 'Error en backfill de stock' });
+  }
 };
 
 // Reconciliar stockTotal de un producto con las filas de stock_sucursal
-const reconcileStockProducto = (req, res) => {
+const reconcileStockProducto = async (req, res) => {
   const { idProducto } = req.params;
-  // Obtener stockTotal actual
-  connection.query(
-    'SELECT stockTotal FROM productos WHERE idProducto=?',
-    [idProducto],
-    (err, prodRows) => {
-      if (err) return res.status(500).json({ error: 'Error al obtener producto' });
-      if (!prodRows || prodRows.length === 0)
-        return res.status(404).json({ error: 'Producto no encontrado' });
-      const total = Number(prodRows[0].stockTotal || 0);
+  try {
+    const prodRows = await db.query('SELECT stockTotal FROM productos WHERE idProducto=?', [idProducto]);
+    if (!prodRows || prodRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const total = Number(prodRows[0].stockTotal || 0);
 
-      // Obtener filas existentes en stock_sucursal para este producto
-      connection.query(
-        'SELECT idSucursal, stockDisponible FROM stock_sucursal WHERE idProducto=?',
-        [idProducto],
-        (err2, rows) => {
-          if (err2) return res.status(500).json({ error: 'Error al obtener stock_sucursal' });
+    const rows = await db.query('SELECT idSucursal, stockDisponible FROM stock_sucursal WHERE idProducto=?', [idProducto]);
+    const procesarDistribucion = async (targets) => {
+      if (!targets || targets.length === 0) {
+        const sucursalesAll = await db.query('SELECT idSucursal FROM sucursales', []);
+        if (!sucursalesAll || sucursalesAll.length === 0) return res.status(400).json({ error: 'No hay sucursales configuradas' });
+        const ids = sucursalesAll.map((s) => s.idSucursal);
+        const n = ids.length;
+        const base = Math.floor(total / n);
+        let rem = total % n;
 
-          const procesarDistribucion = (targets) => {
-            // targets: array of { idSucursal, current }
-            // Si no hay targets, crear para todas las sucursales
-            if (!targets || targets.length === 0) {
-              // crear filas y distribuir
-              connection.query('SELECT idSucursal FROM sucursales', (err3, sucursalesAll) => {
-                if (err3) return res.status(500).json({ error: 'Error al obtener sucursales' });
-                if (!sucursalesAll || sucursalesAll.length === 0)
-                  return res.status(400).json({ error: 'No hay sucursales configuradas' });
-                const ids = sucursalesAll.map((s) => s.idSucursal);
-                // distribuir evenly
-                const n = ids.length;
-                const base = Math.floor(total / n);
-                let rem = total % n;
+        await db.withTransaction(async (conn) => {
+          for (const idSuc of ids) {
+            const asign = base + (rem > 0 ? (rem--, 1) : 0);
+            await conn.query('INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)', [idSuc, idProducto, asign]);
+          }
+        });
+        return res.json({ mensaje: 'Stock reconciliado y filas creadas' });
+      }
 
-                connection.beginTransaction((trxErr) => {
-                  if (trxErr)
-                    return res.status(500).json({ error: 'Error al iniciar transacción' });
-                  const insertOne = (i) => {
-                    if (i >= ids.length)
-                      return connection.commit((errc) => {
-                        if (errc)
-                          return connection.rollback(() =>
-                            res.status(500).json({ error: 'Error al confirmar transacción' })
-                          );
-                        res.json({ mensaje: 'Stock reconciliado y filas creadas' });
-                      });
-                    const idSuc = ids[i];
-                    const asign = base + (rem > 0 ? (rem--, 1) : 0);
-                    connection.query(
-                      'INSERT INTO stock_sucursal (idSucursal, idProducto, stockDisponible) VALUES (?, ?, ?)',
-                      [idSuc, idProducto, asign],
-                      (err4) => {
-                        if (err4)
-                          return connection.rollback(() =>
-                            res.status(500).json({ error: 'Error al insertar stock_sucursal' })
-                          );
-                        insertOne(i + 1);
-                      }
-                    );
-                  };
-                  insertOne(0);
-                });
-              });
-              return;
-            }
+      const sum = targets.reduce((a, b) => a + Number(b.stockDisponible || 0), 0);
+      if (sum === total) return res.json({ mensaje: 'Stock ya conciliado' });
 
-            // Si hay filas existentes, sumar y comparar
-            const sum = targets.reduce((a, b) => a + Number(b.stockDisponible || 0), 0);
-            if (sum === total) return res.json({ mensaje: 'Stock ya conciliado' });
-
-            // Distribuir:
-            connection.beginTransaction((trxErr) => {
-              if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-
-              const updates = [];
-              if (sum === 0) {
-                // repartir equitativamente
-                const n = targets.length;
-                const base = Math.floor(total / n);
-                let rem = total % n;
-                targets.forEach((t) => {
-                  const asign = base + (rem > 0 ? (rem--, 1) : 0);
-                  updates.push({ idSucursal: t.idSucursal, asign });
-                });
-              } else {
-                // Escalar proporcionalmente manteniendo ratios
-                let assignedTotal = 0;
-                targets.forEach((t, idx) => {
-                  const frac = Number(t.stockDisponible || 0) / sum;
-                  const asign = Math.floor(frac * total);
-                  updates.push({ idSucursal: t.idSucursal, asign });
-                  assignedTotal += asign;
-                });
-                // distribuir resto
-                let rem = total - assignedTotal;
-                let i = 0;
-                while (rem > 0 && updates.length > 0) {
-                  updates[i % updates.length].asign += 1;
-                  rem--;
-                  i++;
-                }
-              }
-
-              // Aplicar updates en serie
-              const applyOne = (i) => {
-                if (i >= updates.length)
-                  return connection.commit((errc) => {
-                    if (errc)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al confirmar transacción' })
-                      );
-                    res.json({ mensaje: 'Stock reconciliado' });
-                  });
-                const u = updates[i];
-                connection.query(
-                  'UPDATE stock_sucursal SET stockDisponible=? WHERE idProducto=? AND idSucursal=?',
-                  [u.asign, idProducto, u.idSucursal],
-                  (err5) => {
-                    if (err5)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al actualizar stock_sucursal' })
-                      );
-                    applyOne(i + 1);
-                  }
-                );
-              };
-
-              applyOne(0);
-            });
-          };
-
-          if (!rows || rows.length === 0) return procesarDistribucion([]);
-          // map rows to targets
-          const targets = rows.map((r) => ({
-            idSucursal: r.idSucursal,
-            stockDisponible: r.stockDisponible,
-          }));
-          procesarDistribucion(targets);
+      const updates = [];
+      if (sum === 0) {
+        const n = targets.length;
+        const base = Math.floor(total / n);
+        let rem = total % n;
+        targets.forEach((t) => {
+          const asign = base + (rem > 0 ? (rem--, 1) : 0);
+          updates.push({ idSucursal: t.idSucursal, asign });
+        });
+      } else {
+        let assignedTotal = 0;
+        targets.forEach((t) => {
+          const frac = Number(t.stockDisponible || 0) / sum;
+          const asign = Math.floor(frac * total);
+          updates.push({ idSucursal: t.idSucursal, asign });
+          assignedTotal += asign;
+        });
+        let rem = total - assignedTotal;
+        let i = 0;
+        while (rem > 0 && updates.length > 0) {
+          updates[i % updates.length].asign += 1;
+          rem--;
+          i++;
         }
-      );
-    }
-  );
+      }
+
+      await db.withTransaction(async (conn) => {
+        for (const u of updates) {
+          await conn.query('UPDATE stock_sucursal SET stockDisponible=? WHERE idProducto=? AND idSucursal=?', [u.asign, idProducto, u.idSucursal]);
+        }
+      });
+
+      return res.json({ mensaje: 'Stock reconciliado' });
+    };
+
+    if (!rows || rows.length === 0) return await procesarDistribucion([]);
+    const targets = rows.map((r) => ({ idSucursal: r.idSucursal, stockDisponible: r.stockDisponible }));
+    return await procesarDistribucion(targets);
+  } catch (e) {
+    console.error('[reconcileStockProducto] error', e);
+    return res.status(500).json({ error: 'Error al reconciliar stock' });
+  }
 };
 
-const actualizarProducto = (req, res) => {
+const actualizarProducto = async (req, res) => {
   const { id } = req.params;
   const { nombre, descripcion, precio, stockTotal } = req.body;
   console.log('[DEBUG actualizarProducto] id=', id);
@@ -482,14 +291,10 @@ const actualizarProducto = (req, res) => {
   // Manejo de múltiples imágenes si vienen en req.files (Multer)
   const nuevasImagenes = req.files ? req.files.map(f => f.filename) : [];
 
-  // Actualizar campos básicos primero
-  const baseQuery = 'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
-  connection.query(baseQuery, [nombre, descripcion, precio, stockTotal, id], (err) => {
-    if (err) {
-      console.error('[ERROR actualizarProducto] baseQuery err=', err);
-      return res.status(500).json({ error: 'Error al actualizar producto' });
-    }
-    console.log('[DEBUG actualizarProducto] baseQuery OK for id=', id);
+  try {
+    // Actualizar campos básicos primero
+    const baseQuery = 'UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?';
+    await db.query(baseQuery, [nombre, descripcion, precio, stockTotal, id]);
     // Manejar eliminación solicitada de imágenes existentes (si viene removeImages en body)
     let removeList = [];
     if (req.body && req.body.removeImages) {
@@ -500,158 +305,87 @@ const actualizarProducto = (req, res) => {
       }
     }
 
-    const handleRemoveExisting = (done) => {
-      if (!removeList || removeList.length === 0) return done();
-      // Borrar filas de producto_imagenes y archivos del disco si existen
-      let remCount = 0;
-      removeList.forEach((filename) => {
-        connection.query('DELETE FROM producto_imagenes WHERE producto_id = ? AND imagen = ?', [id, filename], (errRem) => {
-          if (errRem) console.error('[ERROR] al borrar fila imagen DB:', errRem);
-          // intentar borrar archivo fisico
-          const imgPath = require('path').join(__dirname, '..', 'uploads', filename);
-          const fs = require('fs');
-          fs.unlink(imgPath, (unlinkErr) => {
-            // ignorar errores de unlink (archivo puede no existir)
-            remCount++;
-            if (remCount === removeList.length) {
-              // Ajustar imagen principal: si la imagen actual fue eliminada o no quedan imágenes, setear a primera restante o NULL
-              connection.query('SELECT imagen FROM producto_imagenes WHERE producto_id = ? ORDER BY orden ASC, id ASC LIMIT 1', [id], (selErr, rowsSel) => {
-                if (selErr) {
-                  console.warn('[WARN] No se pudo seleccionar imagen principal restante:', selErr);
-                  return done();
-                }
-                const nuevaPrincipal = rowsSel && rowsSel[0] ? rowsSel[0].imagen : null;
-                // Si no hay filas, igualmente puede quedar alguna en campo legacy productos.imagen que no esté en la tabla; si la eliminamos explícitamente, la lista removeList lo cubre
-                connection.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [nuevaPrincipal, id], (updErr) => {
-                  if (updErr) console.warn('[WARN] No se pudo actualizar imagen principal tras eliminar:', updErr);
-                  done();
-                });
-              });
-            }
-          });
-        });
-      });
-    };
+    const fs = require('fs').promises;
+    const path = require('path');
 
-    handleRemoveExisting(() => {
-      // Si no hay nuevas imágenes, respondemos ya después de procesar remociones
-      if (!nuevasImagenes || nuevasImagenes.length === 0) {
-        return res.json({ mensaje: 'Producto actualizado' });
+    if (removeList && removeList.length > 0) {
+      for (const filename of removeList) {
+        try {
+          await db.query('DELETE FROM producto_imagenes WHERE producto_id = ? AND imagen = ?', [id, filename]);
+        } catch (errRem) {
+          console.warn('[WARN] al borrar fila imagen DB:', errRem);
+        }
+        try {
+          const imgPath = path.join(__dirname, '..', 'uploads', filename);
+          await fs.unlink(imgPath).catch(() => {});
+        } catch (e) {
+          // ignore
+        }
       }
+      try {
+        const rowsSel = await db.query('SELECT imagen FROM producto_imagenes WHERE producto_id = ? ORDER BY orden ASC, id ASC LIMIT 1', [id]);
+        const nuevaPrincipal = rowsSel && rowsSel[0] ? rowsSel[0].imagen : null;
+        await db.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [nuevaPrincipal, id]);
+      } catch (e) {
+        console.warn('[WARN] No se pudo actualizar imagen principal tras eliminar:', e);
+      }
+    }
 
-      // Insertar nuevas imágenes en producto_imagenes y actualizar imagen principal
-      connection.query('SELECT MAX(orden) AS maxOrden FROM producto_imagenes WHERE producto_id = ?', [id], (err2, rows) => {
-        if (err2) return res.status(500).json({ error: 'Error al obtener orden de imágenes' });
-        let startOrden = (rows && rows[0] && rows[0].maxOrden != null) ? rows[0].maxOrden + 1 : 0;
+    // Si no hay nuevas imágenes, respondemos ya después de procesar remociones
+    if (!nuevasImagenes || nuevasImagenes.length === 0) {
+      return res.json({ mensaje: 'Producto actualizado' });
+    }
 
-        let inserted = 0;
-        nuevasImagenes.forEach((img) => {
-          connection.query('INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [id, img, startOrden++], (err3) => {
-            if (err3) console.error('[ERROR] al insertar imagen:', err3);
-            inserted++;
-            if (inserted === nuevasImagenes.length) {
-              // Actualizar imagen principal en tabla productos al primer archivo nuevo (si se desea)
-              const primera = nuevasImagenes[0];
-              connection.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [primera, id], (err4) => {
-                if (err4) console.error('[ERROR] al actualizar imagen principal:', err4);
-                return res.json({ mensaje: 'Producto actualizado con nuevas imágenes' });
-              });
-            }
-          });
-        });
-      });
-    });
-  });
+    // Insertar nuevas imágenes en producto_imagenes y actualizar imagen principal
+    const rows = await db.query('SELECT MAX(orden) AS maxOrden FROM producto_imagenes WHERE producto_id = ?', [id]);
+    let startOrden = (rows && rows[0] && rows[0].maxOrden != null) ? rows[0].maxOrden + 1 : 0;
+    for (const img of nuevasImagenes) {
+      try {
+        await db.query('INSERT INTO producto_imagenes (producto_id, imagen, orden) VALUES (?, ?, ?)', [id, img, startOrden++]);
+      } catch (e) {
+        console.warn('[WARN] al insertar imagen:', e);
+      }
+    }
+    try {
+      const primera = nuevasImagenes[0];
+      await db.query('UPDATE productos SET imagen = ? WHERE idProducto = ?', [primera, id]);
+    } catch (e) {
+      console.warn('[WARN] al actualizar imagen principal:', e);
+    }
+    return res.json({ mensaje: 'Producto actualizado con nuevas imágenes' });
+  } catch (e) {
+    console.error('[actualizarProducto] error', e);
+    return res.status(500).json({ error: 'Error al actualizar producto' });
+  }
 };
 
-const eliminarProducto = (req, res) => {
+const eliminarProducto = async (req, res) => {
   const { id } = req.params;
-  
-  // Primero verificar si el producto existe
-  connection.query('SELECT nombre FROM productos WHERE idProducto = ?', [id], (err, prodRows) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar producto' });
-    if (!prodRows || prodRows.length === 0) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    
+  try {
+    const prodRows = await db.query('SELECT nombre FROM productos WHERE idProducto = ?', [id]);
+    if (!prodRows || prodRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     const nombreProducto = prodRows[0].nombre;
-    
-    // Verificar si el producto tiene pedidos asociados (histórico de ventas)
-    connection.query(
-      'SELECT COUNT(*) as count FROM detalle_pedidos WHERE idProducto = ?', 
-      [id], 
-      (err, pedidoRows) => {
-        if (err) return res.status(500).json({ error: 'Error al verificar pedidos del producto' });
-        
-        const tienePedidos = pedidoRows[0].count > 0;
-        
-        if (tienePedidos) {
-          return res.status(400).json({ 
-            error: 'No se puede eliminar el producto porque tiene pedidos asociados (histórico de ventas). Para mantener la integridad de los datos, considere marcarlo como inactivo o descontinuado en lugar de eliminarlo.' 
-          });
-        }
-        
-        // Si no tiene pedidos, proceder con la eliminación
-        connection.beginTransaction((trxErr) => {
-          if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-          
-          // 1. Eliminar registros de stock_sucursal
-          connection.query('DELETE FROM stock_sucursal WHERE idProducto = ?', [id], (err1) => {
-            if (err1) {
-              return connection.rollback(() => 
-                res.status(500).json({ error: 'Error al eliminar stock por sucursal' })
-              );
-            }
-            
-            // 2. Eliminar imágenes del producto (producto_imagenes ya tiene CASCADE, pero por si acaso)
-            connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id], (err2) => {
-              if (err2) {
-                return connection.rollback(() => 
-                  res.status(500).json({ error: 'Error al eliminar imágenes del producto' })
-                );
-              }
-              
-              // 3. Finalmente eliminar el producto
-              connection.query('DELETE FROM productos WHERE idProducto = ?', [id], (err3) => {
-                if (err3) {
-                  return connection.rollback(() => 
-                    res.status(500).json({ error: 'Error al eliminar producto' })
-                  );
-                }
-                
-                // Confirmar transacción
-                connection.commit((commitErr) => {
-                  if (commitErr) {
-                    return connection.rollback(() => 
-                      res.status(500).json({ error: 'Error al confirmar transacción' })
-                    );
-                  }
-                  
-                  // Registrar en historial
-                  registrarHistorial(
-                    'productos', 
-                    id, 
-                    'eliminar', 
-                    null, 
-                    `Producto eliminado: ${nombreProducto}`
-                  );
-                  
-                  res.json({ 
-                    mensaje: 'Producto eliminado exitosamente',
-                    productoEliminado: nombreProducto
-                  });
-                });
-              });
-            });
-          });
-        });
-      }
-    );
-  });
+
+    const pedidoRows = await db.query('SELECT COUNT(*) as count FROM detalle_pedidos WHERE idProducto = ?', [id]);
+    const tienePedidos = pedidoRows && pedidoRows[0] && pedidoRows[0].count > 0;
+    if (tienePedidos) return res.status(400).json({ error: 'No se puede eliminar el producto porque tiene pedidos asociados (histórico de ventas). Para mantener la integridad de los datos, considere marcarlo como inactivo o descontinuado en lugar de eliminarlo.' });
+
+    await db.withTransaction(async (conn) => {
+      await conn.query('DELETE FROM stock_sucursal WHERE idProducto = ?', [id]);
+      await conn.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id]);
+      await conn.query('DELETE FROM productos WHERE idProducto = ?', [id]);
+    });
+
+    registrarHistorial('productos', id, 'eliminar', null, `Producto eliminado: ${nombreProducto}`);
+    return res.json({ mensaje: 'Producto eliminado exitosamente', productoEliminado: nombreProducto });
+  } catch (e) {
+    console.error('[eliminarProducto] error', e);
+    return res.status(500).json({ error: 'Error al eliminar producto' });
+  }
 };
 
 // PEDIDOS (VENTAS)
-const listarPedidos = (req, res) => {
+const listarPedidos = async (req, res) => {
   // Filtros soportados: idPedido, estado, fecha (YYYY-MM-DD exacta), fechaDesde, fechaHasta, producto (nombre LIKE), usuario (nombre/apellido/email LIKE),
   // totalMin, totalMax, cantidadMin, cantidadMax, priorizarPendientes (1), sort (fecha_asc/fecha_desc)
   const {
@@ -675,7 +409,7 @@ const listarPedidos = (req, res) => {
           pe.idPedido, 
           u.nombre AS nombreUsuario, 
           u.apellido AS apellidoUsuario, 
-          COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+          pe.fechaPedido as fecha, 
           pe.estado,
           COALESCE(pe.total, 0) as total,
           (SELECT COALESCE(SUM(dp.cantidad), 0) 
@@ -703,18 +437,18 @@ const listarPedidos = (req, res) => {
   // - Si solo fechaDesde usar DATE(fechaPedido) >= fechaDesde
   // - Si solo fechaHasta usar DATE(fechaPedido) <= fechaHasta
   if (fecha) {
-    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) = ?');
+    where.push('DATE(pe.fechaPedido) = ?');
     params.push(fecha);
   } else if (fechaDesde && fechaHasta) {
-    where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) BETWEEN ? AND ?');
+    where.push('DATE(pe.fechaPedido) BETWEEN ? AND ?');
     params.push(fechaDesde, fechaHasta);
   } else {
     if (fechaDesde) {
-      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) >= ?');
+      where.push('DATE(pe.fechaPedido) >= ?');
       params.push(fechaDesde);
     }
     if (fechaHasta) {
-      where.push('DATE(COALESCE(pe.fechaPedido, pe.fecha)) <= ?');
+      where.push('DATE(pe.fechaPedido) <= ?');
       params.push(fechaHasta);
     }
   }
@@ -767,8 +501,8 @@ const listarPedidos = (req, res) => {
   if (sort) {
     const parts = String(sort).split(',').map(s => s.trim()).filter(Boolean);
     parts.forEach(s => {
-      if (s === 'fecha_asc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) ASC');
-      else if (s === 'fecha_desc') orderClauses.push('COALESCE(pe.fechaPedido, pe.fecha) DESC');
+      if (s === 'fecha_asc') orderClauses.push('pe.fechaPedido ASC');
+      else if (s === 'fecha_desc') orderClauses.push('pe.fechaPedido DESC');
       else if (s === 'cantidad_asc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) ASC");
       else if (s === 'cantidad_desc') orderClauses.push("(SELECT COALESCE(SUM(dp.cantidad),0) FROM detalle_pedidos dp WHERE dp.idPedido = pe.idPedido) DESC");
     });
@@ -777,14 +511,12 @@ const listarPedidos = (req, res) => {
   if (orderClauses.length) {
     sql += ' ORDER BY ' + orderClauses.join(', ');
   } else {
-    sql += ' ORDER BY COALESCE(pe.fechaPedido, pe.fecha) DESC';
+    sql += ' ORDER BY pe.fechaPedido DESC';
   }
 
-  connection.query(sql, params, (err, pedidos) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener pedidos' });
+  try {
+    const pedidos = await db.query(sql, params);
     if (!pedidos || pedidos.length === 0) return res.json([]);
-
-    // Obtener productos de cada pedido
     const ids = pedidos.map((p) => p.idPedido);
     const placeholders = ids.map(() => '?').join(',');
     const queryDetalles = `
@@ -793,23 +525,18 @@ const listarPedidos = (req, res) => {
             JOIN productos pr ON dp.idProducto = pr.idProducto
             WHERE dp.idPedido IN (${placeholders})
         `;
-    connection.query(queryDetalles, ids, (err2, detalles) => {
-      if (err2) return res.status(500).json({ error: 'Error al obtener detalles' });
-      // Agrupar productos por pedido
-      const pedidosFinal = pedidos.map((p) => {
-        const productos = detalles
-          .filter((d) => d.idPedido === p.idPedido)
-          .map((d) => ({
-            nombre: d.nombreProducto,
-            cantidad: d.cantidad,
-            total: d.cantidad * d.precioUnitario,
-          }));
-        // Mantener el total original de la base de datos en lugar de recalcular
-        return { ...p, productos };
-      });
-      res.json(pedidosFinal);
+    const detalles = await db.query(queryDetalles, ids);
+    const pedidosFinal = pedidos.map((p) => {
+      const productos = detalles
+        .filter((d) => d.idPedido === p.idPedido)
+        .map((d) => ({ nombre: d.nombreProducto, cantidad: d.cantidad, total: d.cantidad * d.precioUnitario }));
+      return { ...p, productos };
     });
-  });
+    return res.json(pedidosFinal);
+  } catch (e) {
+    console.error('[listarPedidos] error', e);
+    return res.status(500).json({ error: 'Error al obtener pedidos' });
+  }
 };
 
 const crearPedido = (req, res) => {
@@ -826,273 +553,133 @@ const crearPedido = (req, res) => {
   }
 
   // Validar que el idCliente (enviado como idUsuario desde frontend) corresponda a un usuario con rol 'Cliente'
-  const queryRol = `SELECT r.nombreRol FROM usuarios u JOIN roles r ON u.idRol = r.idRol WHERE u.idUsuario = ?`;
-  connection.query(queryRol, [idCliente], (err, rolRes) => {
-    if (err) return res.status(500).json({ error: 'Error al validar rol del cliente' });
-    if (!rolRes || rolRes.length === 0)
-      return res.status(404).json({ error: 'Cliente no encontrado' });
-    const nombreRol = (rolRes[0].nombreRol || '').toLowerCase();
-    if (nombreRol !== 'cliente')
-      return res
-        .status(403)
-        .json({ error: 'Solo usuarios con rol Cliente pueden registrar pedidos' });
-
-    // Buscar en clientes el idCliente real asociado al idUsuario recibido
-    connection.query(
-      'SELECT idCliente FROM clientes WHERE idUsuario = ?',
-      [idCliente],
-      (errCli, cliRows) => {
-        if (errCli) return res.status(500).json({ error: 'Error al buscar cliente asociado' });
-
-        const handlePedido = (clienteId) => {
-          // Iniciar transacción
-          connection.beginTransaction((trxErr) => {
-            if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-
-            // Detectar si existe la columna metodoPago para guardarla explícitamente
-            const colCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1`;
-            connection.query(colCheck, (colErr, rowsCol) => {
-              if (colErr) {
-                console.warn('[crearPedido] No se pudo verificar columna metodoPago:', colErr.message || colErr);
-              }
-
-              let queryPedido, paramsPedido;
-              if (!colErr && rowsCol && rowsCol.length > 0) {
-                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)';
-                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null];
-              } else {
-                queryPedido = 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
-                paramsPedido = [clienteId, estado, idSucursalOrigen, observaciones || null];
-              }
-
-              connection.query(queryPedido, paramsPedido, (err2, result) => {
-              if (err2)
-                return connection.rollback(() =>
-                  res.status(500).json({ error: 'Error al crear pedido' })
-                );
-              const idPedido = result.insertId;
-
-              // Procesar productos en serie para insertar detalle y decrementar stocks
-              let totalPedido = 0;
-              let cantidadTotal = 0;
-              const procesarProducto = (i) => {
-                if (i >= productos.length) {
-                  // Actualizar totales del pedido (compatibilidad si no existe columna cantidadTotal)
-                  const colCantCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1`;
-                  connection.query(colCantCheck, (chkErr, chkRows) => {
-                    if (chkErr) {
-                      console.warn('[crearPedido] No se pudo verificar columna cantidadTotal:', chkErr.message || chkErr);
-                    }
-
-                    const hasCantidadTotal = !chkErr && chkRows && chkRows.length > 0;
-                    const updSql = hasCantidadTotal
-                      ? 'UPDATE pedidos SET total = ?, cantidadTotal = ? WHERE idPedido = ?'
-                      : 'UPDATE pedidos SET total = ? WHERE idPedido = ?';
-                    const updParams = hasCantidadTotal
-                      ? [totalPedido, cantidadTotal, idPedido]
-                      : [totalPedido, idPedido];
-
-                    connection.query(updSql, updParams, (updErr) => {
-                      if (updErr)
-                        return connection.rollback(() =>
-                          res.status(500).json({ error: 'Error al actualizar totales del pedido' })
-                        );
-                      connection.commit((commitErr) => {
-                        if (commitErr)
-                          return connection.rollback(() =>
-                            res.status(500).json({ error: 'Error al confirmar transacción' })
-                          );
-                        res.json({ mensaje: 'Pedido creado', idPedido, total: totalPedido, cantidadTotal });
-                      });
-                    });
-                  });
-                  return;
-                }
-                const p = productos[i];
-                // Insertar detalle
-                const insertDetalle =
-                  'INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES (?, ?, ?, ?, ?)';
-                const precioUnit = Number(p.precioUnitario || p.precio || 0);
-                const subtotal = precioUnit * Number(p.cantidad || 0);
-                connection.query(
-                  insertDetalle,
-                  [idPedido, p.idProducto, p.cantidad, precioUnit, subtotal],
-                  (err3) => {
-                    if (err3)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al insertar detalle de pedido' })
-                      );
-                    totalPedido += subtotal;
-                    cantidadTotal += Number(p.cantidad || 0);
-                    // Decrementar stock en sucursal (asegurando no quedar negativo)
-                    const updSucursal =
-                      'UPDATE stock_sucursal SET stockDisponible = stockDisponible - ? WHERE idProducto=? AND idSucursal=? AND stockDisponible >= ?';
-                    connection.query(
-                      updSucursal,
-                      [p.cantidad, p.idProducto, idSucursalOrigen, p.cantidad],
-                      (err4, updRes) => {
-                        if (err4)
-                          return connection.rollback(() =>
-                            res.status(500).json({ error: 'Error al actualizar stock en sucursal' })
-                          );
-                        if (!updRes || updRes.affectedRows === 0)
-                          return connection.rollback(() =>
-                            res.status(400).json({
-                              error: `Stock insuficiente para producto ${p.idProducto} en sucursal ${idSucursalOrigen}`,
-                            })
-                          );
-                        // Decrementar stock total en productos
-                        connection.query(
-                          'UPDATE productos SET stockTotal = stockTotal - ? WHERE idProducto=?',
-                          [p.cantidad, p.idProducto],
-                          (err5) => {
-                            if (err5)
-                              return connection.rollback(() =>
-                                res
-                                  .status(500)
-                                  .json({ error: 'Error al actualizar stock total del producto' })
-                              );
-                            procesarProducto(i + 1);
-                          }
-                        );
-                      }
-                    );
-                  }
-                );
-              };
-
-              procesarProducto(0);
-            });
-            });
-          });
-        };
-
-        if (cliRows && cliRows.length > 0) {
-          handlePedido(cliRows[0].idCliente);
-        } else {
-          // No existe cliente: crear una fila mínima y obtener su idCliente
-          connection.query(
-            'INSERT INTO clientes (idUsuario) VALUES (?)',
-            [idCliente],
-            (errIns, resIns) => {
-              if (errIns)
-                return res.status(500).json({ error: 'Error al crear registro de cliente' });
-              const newClienteId = resIns.insertId;
-              handlePedido(newClienteId);
-            }
-          );
-        }
+  (async () => {
+    try {
+      // Validación mínima
+      if (!idCliente || !estado || !idSucursalOrigen || !productos || !Array.isArray(productos) || productos.length === 0) {
+        return res.status(400).json({ error: 'Faltan datos obligatorios o productos no es un array' });
       }
-    );
-  });
+
+      const result = await db.withTransaction(async (conn) => {
+        // Verificar rol del usuario
+        const [rolRows] = await conn.query('SELECT r.nombreRol FROM usuarios u JOIN roles r ON u.idRol = r.idRol WHERE u.idUsuario = ?', [idCliente]);
+        if (!rolRows || rolRows.length === 0) throw { status: 404, message: 'Cliente no encontrado' };
+        const nombreRol = (rolRows[0].nombreRol || '').toLowerCase();
+        if (nombreRol !== 'cliente') throw { status: 403, message: 'Solo usuarios con rol Cliente pueden registrar pedidos' };
+
+        // Obtener o crear idCliente real
+        const [cliRows] = await conn.query('SELECT idCliente FROM clientes WHERE idUsuario = ?', [idCliente]);
+        let clienteId = null;
+        if (cliRows && cliRows.length > 0) clienteId = cliRows[0].idCliente;
+        else {
+          const [ins] = await conn.query('INSERT INTO clientes (idUsuario) VALUES (?)', [idCliente]);
+          clienteId = ins.insertId;
+        }
+
+        // Comprobar columnas opcionales
+        const [rowsCol] = await conn.query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'metodoPago' LIMIT 1", []);
+        const hasMetodo = rowsCol && rowsCol.length > 0;
+        const insertPedidoSql = hasMetodo
+          ? 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones, metodoPago) VALUES (?, ?, ?, NOW(), ?, ?)'
+          : 'INSERT INTO pedidos (idCliente, estado, idSucursalOrigen, fechaPedido, observaciones) VALUES (?, ?, ?, NOW(), ?)';
+        const paramsPedido = hasMetodo ? [clienteId, estado, idSucursalOrigen, observaciones || null, metodoPago || null] : [clienteId, estado, idSucursalOrigen, observaciones || null];
+        const [resInsert] = await conn.query(insertPedidoSql, paramsPedido);
+        const idPedido = resInsert.insertId;
+
+        let totalPedido = 0;
+        let cantidadTotal = 0;
+        for (const p of productos) {
+          const precioUnit = Number(p.precioUnitario || p.precio || 0);
+          const subtotal = precioUnit * Number(p.cantidad || 0);
+          await conn.query('INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) VALUES (?, ?, ?, ?, ?)', [idPedido, p.idProducto, p.cantidad, precioUnit, subtotal]);
+          totalPedido += subtotal;
+          cantidadTotal += Number(p.cantidad || 0);
+
+          const [updRes] = await conn.query('UPDATE stock_sucursal SET stockDisponible = stockDisponible - ? WHERE idProducto=? AND idSucursal=? AND stockDisponible >= ?', [p.cantidad, p.idProducto, idSucursalOrigen, p.cantidad]);
+          if (!updRes || updRes.affectedRows === 0) throw { status: 400, message: `Stock insuficiente para producto ${p.idProducto} en sucursal ${idSucursalOrigen}` };
+          await conn.query('UPDATE productos SET stockTotal = stockTotal - ? WHERE idProducto=?', [p.cantidad, p.idProducto]);
+        }
+
+        const [chkRows] = await conn.query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'cantidadTotal' LIMIT 1", []);
+        const hasCantidadTotal = chkRows && chkRows.length > 0;
+        if (hasCantidadTotal) {
+          await conn.query('UPDATE pedidos SET total = ?, cantidadTotal = ? WHERE idPedido = ?', [totalPedido, cantidadTotal, idPedido]);
+        } else {
+          await conn.query('UPDATE pedidos SET total = ? WHERE idPedido = ?', [totalPedido, idPedido]);
+        }
+
+        return { idPedido, total: totalPedido, cantidadTotal };
+      });
+
+      return res.json({ mensaje: 'Pedido creado', ...result });
+    } catch (e) {
+      console.error('[crearPedido] error', e);
+      if (e && e.status) return res.status(e.status).json({ error: e.message });
+      return res.status(500).json({ error: 'Error al crear pedido' });
+    }
+  })();
 };
 
 // Ver detalle de un pedido
-const verDetallePedido = (req, res) => {
-  const { id } = req.params;
-  const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedidos dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
-  connection.query(query, [id], (err, detalles) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener detalle del pedido' });
-    res.json(detalles);
-  });
+const verDetallePedido = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = `SELECT dp.idPedido, dp.idProducto, p.nombre AS nombreProducto, dp.cantidad, dp.precioUnitario FROM detalle_pedidos dp JOIN productos p ON dp.idProducto = p.idProducto WHERE dp.idPedido = ?`;
+    const detalles = await db.query(query, [id]);
+    return res.json(detalles);
+  } catch (e) {
+    console.error('[verDetallePedido] error', e);
+    return res.status(500).json({ error: 'Error al obtener detalle del pedido' });
+  }
 };
 
 // Eliminar pedido: restaurar stocks y eliminar dentro de transacción
-const eliminarPedido = (req, res) => {
+const eliminarPedido = async (req, res) => {
   const { id } = req.params;
-  connection.beginTransaction((trxErr) => {
-    if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-
-    connection.query('SELECT * FROM pedidos WHERE idPedido=?', [id], (err, pedidos) => {
-      if (err)
-        return connection.rollback(() => res.status(500).json({ error: 'Error al buscar pedido' }));
-      if (!pedidos || pedidos.length === 0)
-        return connection.rollback(() => res.status(404).json({ error: 'Pedido no encontrado' }));
-
+  try {
+    await db.withTransaction(async (conn) => {
+      const pedidos = await conn.query('SELECT * FROM pedidos WHERE idPedido=?', [id]);
+      if (!pedidos || pedidos.length === 0) throw { status: 404, message: 'Pedido no encontrado' };
       const pedido = pedidos[0];
       const idSucursalOrigen = pedido.idSucursalOrigen;
 
-      connection.query(
-        'SELECT idProducto, cantidad FROM detalle_pedidos WHERE idPedido=?',
-        [id],
-        (err2, detalles) => {
-          if (err2)
-            return connection.rollback(() =>
-              res.status(500).json({ error: 'Error al obtener detalles del pedido' })
-            );
+      const detalles = await conn.query('SELECT idProducto, cantidad FROM detalle_pedidos WHERE idPedido=?', [id]);
+      for (const d of detalles) {
+        await conn.query('UPDATE stock_sucursal SET stockDisponible = stockDisponible + ? WHERE idProducto=? AND idSucursal=?', [d.cantidad, d.idProducto, idSucursalOrigen]);
+        await conn.query('UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?', [d.cantidad, d.idProducto]);
+      }
 
-          const procesarDetalle = (i) => {
-            if (i >= detalles.length) {
-              // eliminar detalles y pedido
-              connection.query('DELETE FROM detalle_pedidos WHERE idPedido=?', [id], (err5) => {
-                if (err5)
-                  return connection.rollback(() =>
-                    res.status(500).json({ error: 'Error al eliminar detalle de pedido' })
-                  );
-                connection.query('DELETE FROM pedidos WHERE idPedido=?', [id], (err6) => {
-                  if (err6)
-                    return connection.rollback(() =>
-                      res.status(500).json({ error: 'Error al eliminar pedido' })
-                    );
-                  connection.commit((commitErr) => {
-                    if (commitErr)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al confirmar transacción' })
-                      );
-                    res.json({ mensaje: 'Pedido eliminado y stock restaurado' });
-                  });
-                });
-              });
-              return;
-            }
-            const d = detalles[i];
-            connection.query(
-              'UPDATE stock_sucursal SET stockDisponible = stockDisponible + ? WHERE idProducto=? AND idSucursal=?',
-              [d.cantidad, d.idProducto, idSucursalOrigen],
-              (err3) => {
-                if (err3)
-                  return connection.rollback(() =>
-                    res.status(500).json({ error: 'Error al restaurar stock_sucursal' })
-                  );
-                connection.query(
-                  'UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?',
-                  [d.cantidad, d.idProducto],
-                  (err4) => {
-                    if (err4)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al restaurar stock total' })
-                      );
-                    procesarDetalle(i + 1);
-                  }
-                );
-              }
-            );
-          };
-
-          procesarDetalle(0);
-        }
-      );
+      await conn.query('DELETE FROM detalle_pedidos WHERE idPedido=?', [id]);
+      await conn.query('DELETE FROM pedidos WHERE idPedido=?', [id]);
     });
-  });
+    return res.json({ mensaje: 'Pedido eliminado y stock restaurado' });
+  } catch (e) {
+    console.error('[eliminarPedido] error', e);
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    return res.status(500).json({ error: 'Error al eliminar pedido' });
+  }
 };
 
 // Listar stock por sucursal (incluye nombre del producto y sucursal)
-const listarStockSucursal = (req, res) => {
-  const query = `
-        SELECT ss.idSucursal, ss.idProducto, ss.stockDisponible, p.nombre as nombreProducto, s.nombre as nombreSucursal
-        FROM stock_sucursal ss
-        JOIN productos p ON ss.idProducto = p.idProducto
-        JOIN sucursales s ON ss.idSucursal = s.idSucursal
-        ORDER BY ss.idSucursal, p.idProducto
+const listarStockSucursal = async (req, res) => {
+  try {
+    const query = `
+      SELECT ss.idSucursal, ss.idProducto, ss.stockDisponible, p.nombre as nombreProducto, s.nombre as nombreSucursal
+      FROM stock_sucursal ss
+      JOIN productos p ON ss.idProducto = p.idProducto
+      JOIN sucursales s ON ss.idSucursal = s.idSucursal
+      ORDER BY ss.idSucursal, p.idProducto
     `;
-  connection.query(query, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener stock por sucursal' });
-    res.json(results);
-  });
+    const results = await db.query(query, []);
+    return res.json(results);
+  } catch (e) {
+    console.error('[listarStockSucursal] error', e);
+    return res.status(500).json({ error: 'Error al obtener stock por sucursal' });
+  }
 };
 
 // Actualizar stock de un producto en una sucursal (solo stockDisponible)
-const actualizarStockSucursal = (req, res) => {
+const actualizarStockSucursal = async (req, res) => {
   const { idSucursal, idProducto } = req.params;
   const { stockDisponible } = req.body;
   if (
@@ -1103,143 +690,59 @@ const actualizarStockSucursal = (req, res) => {
     return res.status(400).json({ error: 'stockDisponible inválido' });
   }
   const nuevoStock = Number(stockDisponible);
+  try {
+    await db.withTransaction(async (conn) => {
+      const rows = await conn.query('SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [idSucursal, idProducto]);
+      if (!rows || rows.length === 0) throw { status: 404, message: 'Registro de stock no encontrado para esa sucursal y producto' };
+      const actual = Number(rows[0].stockDisponible || 0);
+      const delta = nuevoStock - actual;
 
-  connection.beginTransaction((trxErr) => {
-    if (trxErr) return res.status(500).json({ error: 'Error al iniciar transacción' });
-
-    // Obtener stock actual
-    connection.query(
-      'SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=?',
-      [idSucursal, idProducto],
-      (err, rows) => {
-        if (err)
-          return connection.rollback(() =>
-            res.status(500).json({ error: 'Error al buscar stock_sucursal' })
-          );
-        if (!rows || rows.length === 0)
-          return connection.rollback(() =>
-            res
-              .status(404)
-              .json({ error: 'Registro de stock no encontrado para esa sucursal y producto' })
-          );
-        const actual = Number(rows[0].stockDisponible || 0);
-        const delta = nuevoStock - actual;
-
-        // Actualizar stock_sucursal al nuevo valor
-        connection.query(
-          'UPDATE stock_sucursal SET stockDisponible = ? WHERE idSucursal=? AND idProducto=?',
-          [nuevoStock, idSucursal, idProducto],
-          (err2) => {
-            if (err2)
-              return connection.rollback(() =>
-                res.status(500).json({ error: 'Error al actualizar stock_sucursal' })
-              );
-
-            // Ajustar stockTotal en productos por la diferencia
-            if (delta !== 0) {
-              connection.query(
-                'UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?',
-                [delta, idProducto],
-                (err3) => {
-                  if (err3)
-                    return connection.rollback(() =>
-                      res
-                        .status(500)
-                        .json({ error: 'Error al actualizar stock total del producto' })
-                    );
-                  // Registrar historial (usar idProducto como referencia)
-                  registrarHistorial(
-                    'stock_sucursal',
-                    idProducto,
-                    'actualizar',
-                    null,
-                    `Stock sucursal ${idSucursal} cambiado de ${actual} a ${nuevoStock}`
-                  );
-                  connection.commit((commitErr) => {
-                    if (commitErr)
-                      return connection.rollback(() =>
-                        res.status(500).json({ error: 'Error al confirmar transacción' })
-                      );
-                    res.json({
-                      mensaje: 'Stock actualizado',
-                      idSucursal: Number(idSucursal),
-                      idProducto: Number(idProducto),
-                      stockDisponible: nuevoStock,
-                    });
-                  });
-                }
-              );
-            } else {
-              // No hay cambio en delta, solo commit
-              registrarHistorial(
-                'stock_sucursal',
-                idProducto,
-                'actualizar',
-                null,
-                `Stock sucursal ${idSucursal} confirmado sin cambios (${actual})`
-              );
-              connection.commit((commitErr) => {
-                if (commitErr)
-                  return connection.rollback(() =>
-                    res.status(500).json({ error: 'Error al confirmar transacción' })
-                  );
-                res.json({
-                  mensaje: 'Stock actualizado',
-                  idSucursal: Number(idSucursal),
-                  idProducto: Number(idProducto),
-                  stockDisponible: nuevoStock,
-                });
-              });
-            }
-          }
-        );
+      await conn.query('UPDATE stock_sucursal SET stockDisponible = ? WHERE idSucursal=? AND idProducto=?', [nuevoStock, idSucursal, idProducto]);
+      if (delta !== 0) {
+        await conn.query('UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?', [delta, idProducto]);
       }
-    );
-  });
+
+      registrarHistorial('stock_sucursal', idProducto, 'actualizar', null, `Stock sucursal ${idSucursal} cambiado de ${actual} a ${nuevoStock}`);
+    });
+
+    return res.json({ mensaje: 'Stock actualizado', idSucursal: Number(idSucursal), idProducto: Number(idProducto), stockDisponible: nuevoStock });
+  } catch (e) {
+    console.error('[actualizarStockSucursal] error', e);
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    return res.status(500).json({ error: 'Error al actualizar stock' });
+  }
 };
 
 // Actualizar pedido (por ejemplo cambiar estado)
-const actualizarPedido = (req, res) => {
+const actualizarPedido = async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body;
   if (!estado) return res.status(400).json({ error: 'Faltan datos (estado)' });
-  connection.query('SELECT * FROM pedidos WHERE idPedido=?', [id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar pedido' });
-    if (results.length === 0) return res.status(404).json({ error: 'Pedido no encontrado' });
-    connection.query('UPDATE pedidos SET estado=? WHERE idPedido=?', [estado, id], (err2) => {
-      if (err2) return res.status(500).json({ error: 'Error al actualizar pedido' });
-      registrarHistorial(
-        'pedidos',
-        id,
-        'actualizar',
-        results[0].idCliente || null,
-        `Estado actualizado a: ${estado}`
-      );
-      // Si se marca como "Entregado", intentar registrar fecha de entrega si la columna existe
-      if (String(estado).toLowerCase() === 'entregado') {
-        // Comprobar si la columna fecha_entrega existe en la tabla pedidos
-        const colCheck = `SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1`;
-        connection.query(colCheck, (errCol, rowsCol) => {
-          if (!errCol && rowsCol && rowsCol.length > 0) {
-            // Actualizar fecha_entrega a NOW() para este pedido
-            connection.query('UPDATE pedidos SET fecha_entrega = NOW() WHERE idPedido = ?', [id], (errUpd) => {
-              if (errUpd) console.error('Error al setear fecha_entrega:', errUpd);
-              // Responder igual aunque haya error en la columna extra
-              return res.json({ mensaje: 'Pedido actualizado' });
-            });
-          } else {
-            return res.json({ mensaje: 'Pedido actualizado' });
-          }
-        });
-      } else {
-        res.json({ mensaje: 'Pedido actualizado' });
+  try {
+    const results = await db.query('SELECT * FROM pedidos WHERE idPedido=?', [id]);
+    if (!results || results.length === 0) return res.status(404).json({ error: 'Pedido no encontrado' });
+    await db.query('UPDATE pedidos SET estado=? WHERE idPedido=?', [estado, id]);
+    registrarHistorial('pedidos', id, 'actualizar', results[0].idCliente || null, `Estado actualizado a: ${estado}`);
+    if (String(estado).toLowerCase() === 'entregado') {
+      const rowsCol = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'pedidos' AND column_name = 'fecha_entrega' LIMIT 1`, []);
+      if (rowsCol && rowsCol.length > 0) {
+        try {
+          await db.query('UPDATE pedidos SET fecha_entrega = NOW() WHERE idPedido = ?', [id]);
+        } catch (e) {
+          console.error('Error al setear fecha_entrega:', e);
+        }
       }
-    });
-  });
+      return res.json({ mensaje: 'Pedido actualizado' });
+    }
+    return res.json({ mensaje: 'Pedido actualizado' });
+  } catch (e) {
+    console.error('[actualizarPedido] error', e);
+    return res.status(500).json({ error: 'Error al actualizar pedido' });
+  }
 };
 
 // --------- Analytics de ventas (basado en pedidos con estado 'Entregado')
-const ventasSummary = (req, res) => {
+const ventasSummary = async (req, res) => {
   const { fechaDesde, fechaHasta, idSucursal } = req.query;
   // Default últimos 30 días
   const end = fechaHasta || new Date().toISOString().slice(0, 10);
@@ -1254,7 +757,7 @@ const ventasSummary = (req, res) => {
       COALESCE(SUM(dp.cantidad), 0) AS unidades_vendidas
     FROM pedidos pe
     JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
-    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+    WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
   `;
   const params = [start, end];
   if (idSucursal) {
@@ -1262,44 +765,50 @@ const ventasSummary = (req, res) => {
     params.push(idSucursal);
   }
 
-  connection.query(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al calcular resumen de ventas' });
+  try {
+    const rows = await db.query(sql, params);
     const r = rows && rows[0] ? rows[0] : { pedidos_entregados:0, ingresos_totales:0, unidades_vendidas:0 };
     const aov = (r.pedidos_entregados && Number(r.pedidos_entregados) > 0) ? (Number(r.ingresos_totales) / Number(r.pedidos_entregados)) : 0;
-    res.json({ pedidos: Number(r.pedidos_entregados), ingresos: Number(r.ingresos_totales), unidades: Number(r.unidades_vendidas), aov: Number(aov) });
-  });
+    return res.json({ pedidos: Number(r.pedidos_entregados), ingresos: Number(r.ingresos_totales), unidades: Number(r.unidades_vendidas), aov: Number(aov) });
+  } catch (e) {
+    console.error('[ventasSummary] error', e);
+    return res.status(500).json({ error: 'Error al calcular resumen de ventas' });
+  }
 };
 
-const ventasTimeseries = (req, res) => {
+const ventasTimeseries = async (req, res) => {
   const { fechaDesde, fechaHasta, idSucursal } = req.query;
   const end = fechaHasta || new Date().toISOString().slice(0, 10);
   const start = fechaDesde || (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); })();
 
   let sql = `
-    SELECT DATE(pe.fecha) AS fecha, 
+    SELECT DATE(pe.fechaPedido) AS fecha, 
       COUNT(DISTINCT pe.idPedido) AS pedidos,
       COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) AS ingresos,
       COALESCE(SUM(dp.cantidad),0) AS unidades
     FROM pedidos pe
     JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
-    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
-    GROUP BY DATE(pe.fecha)
-    ORDER BY DATE(pe.fecha) ASC
+    WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
+    GROUP BY DATE(pe.fechaPedido)
+    ORDER BY DATE(pe.fechaPedido) ASC
   `;
   const params = [start, end];
-  if (idSucursal) {
+    if (idSucursal) {
     // inject filter by sucursal
-    sql = sql.replace("WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?", "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+    sql = sql.replace("WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?", "WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
     params.push(idSucursal);
   }
 
-  connection.query(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al calcular series temporales de ventas' });
-    res.json(rows.map(r => ({ fecha: r.fecha, pedidos: Number(r.pedidos), ingresos: Number(r.ingresos), unidades: Number(r.unidades) })));
-  });
+  try {
+    const rows = await db.query(sql, params);
+    return res.json(rows.map(r => ({ fecha: r.fecha, pedidos: Number(r.pedidos), ingresos: Number(r.ingresos), unidades: Number(r.unidades) })));
+  } catch (e) {
+    console.error('[ventasTimeseries] error', e);
+    return res.status(500).json({ error: 'Error al calcular series temporales de ventas' });
+  }
 };
 
-const ventasTopProducts = (req, res) => {
+const ventasTopProducts = async (req, res) => {
   const { fechaDesde, fechaHasta, limit, idSucursal } = req.query;
   const end = fechaHasta || new Date().toISOString().slice(0, 10);
   const start = fechaDesde || (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); })();
@@ -1310,31 +819,32 @@ const ventasTopProducts = (req, res) => {
     FROM detalle_pedidos dp
     JOIN pedidos pe ON dp.idPedido = pe.idPedido
     JOIN productos pr ON dp.idProducto = pr.idProducto
-    WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+    WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
     GROUP BY dp.idProducto
     ORDER BY ingresos DESC
     LIMIT ?
   `;
   const params = [start, end, lim];
-  if (idSucursal) {
+    if (idSucursal) {
     // add filter to SQL (pe.idSucursalOrigen)
-    sql = sql.replace("WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?", "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+    sql = sql.replace("WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?", "WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
     // params become [start, end, idSucursal, lim]
     params.splice(2, 0, idSucursal);
   }
 
-  connection.query(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener top de productos' });
-    res.json(rows.map(r => ({ idProducto: r.idProducto, nombre: r.nombre, cantidad: Number(r.cantidad_vendida), ingresos: Number(r.ingresos) })));
-  });
+  try {
+    const rows = await db.query(sql, params);
+    return res.json(rows.map(r => ({ idProducto: r.idProducto, nombre: r.nombre, cantidad: Number(r.cantidad_vendida), ingresos: Number(r.ingresos) })));
+  } catch (e) {
+    console.error('[ventasTopProducts] error', e);
+    return res.status(500).json({ error: 'Error al obtener top de productos' });
+  }
 };
 
 
 module.exports = {
   listarUsuarios,
   crearUsuario,
-  actualizarUsuario,
-  eliminarUsuario,
   listarProductos,
   crearProducto,
   actualizarProducto,

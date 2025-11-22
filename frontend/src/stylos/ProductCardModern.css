@@ -1,4 +1,6 @@
 .product-card-modern{opacity:0;transform:translateY(14px);animation:cardIn .6s cubic-bezier(.17,.67,.27,1) forwards;}
+/* Improve rendering of images inside animated cards: force image compositing layer */
+.product-card-modern img{transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform,opacity}
 @keyframes cardIn{0%{opacity:0;transform:translateY(14px);}60%{opacity:.9;transform:translateY(-2px);}100%{opacity:1;transform:translateY(0);}}
 .product-card-modern:nth-of-type(2){animation-delay:.05s}
 .product-card-modern:nth-of-type(3){animation-delay:.1s}

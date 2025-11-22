@@ -59,7 +59,7 @@ setTimeout(() => {
       pe.idPedido, 
       u.nombre AS nombreUsuario, 
       u.apellido AS apellidoUsuario, 
-      COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+      pe.fechaPedido as fecha, 
       pe.estado,
       COALESCE(pe.total, 0) as total,
       (SELECT COALESCE(SUM(dp.cantidad), 0) 

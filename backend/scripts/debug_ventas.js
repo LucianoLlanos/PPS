@@ -13,11 +13,11 @@ function run() {
   const fechaHasta = '2025-10-31';
 
   console.log('Comprobando detalle_pedido para idPedido =', pedidoId);
-  connection.query('SELECT * FROM detalle_pedido WHERE idPedido = ?', [pedidoId], (err, rows) => {
+  connection.query('SELECT * FROM detalle_pedidos WHERE idPedido = ?', [pedidoId], (err, rows) => {
     if (err) {
-      console.error('Error al consultar detalle_pedido:', err);
+      console.error('Error al consultar detalle_pedidos:', err);
     } else {
-      console.log('detalle_pedido rows:', rows);
+      console.log('detalle_pedidos rows:', rows);
     }
 
     // Ahora summary
@@ -27,8 +27,8 @@ function run() {
         COALESCE(SUM(dp.cantidad*dp.precioUnitario),0) AS ingresos_totales,
         COALESCE(SUM(dp.cantidad),0) AS unidades_vendidas
       FROM pedidos pe
-      JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
-      WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+      JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
+      WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
     `;
 
     console.log('\nEjecutando summary query entre', fechaDesde, 'y', fechaHasta);
@@ -40,12 +40,12 @@ function run() {
       }
 
       const timeseriesQuery = `
-        SELECT DATE(pe.fecha) AS fecha, COUNT(DISTINCT pe.idPedido) AS pedidos, COALESCE(SUM(dp.cantidad*dp.precioUnitario),0) AS ingresos
+        SELECT DATE(pe.fechaPedido) AS fecha, COUNT(DISTINCT pe.idPedido) AS pedidos, COALESCE(SUM(dp.cantidad*dp.precioUnitario),0) AS ingresos
         FROM pedidos pe
-        JOIN detalle_pedido dp ON dp.idPedido = pe.idPedido
-        WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
-        GROUP BY DATE(pe.fecha)
-        ORDER BY DATE(pe.fecha)
+        JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
+        WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
+        GROUP BY DATE(pe.fechaPedido)
+        ORDER BY DATE(pe.fechaPedido)
       `;
 
       console.log('\nEjecutando timeseries query entre', fechaDesde, 'y', fechaHasta);

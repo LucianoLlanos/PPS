@@ -12,6 +12,8 @@ class OrderService {
     this.clienteRepo = new ClienteRepository(db);
     this.orderRepo = new OrderRepository(db);
     this.productRepo = new ProductRepository(db);
+    const { NotificationService } = require('./NotificationService');
+    this.notif = new NotificationService(db);
   }
 
   validateProductos(productos) {
@@ -61,7 +63,10 @@ class OrderService {
 
         // Preferir precioUnitario enviado en el payload (admin override). Si no viene, usar precio del producto.
         let precioUnitario = (p.precioUnitario !== undefined && p.precioUnitario !== null) ? Number(p.precioUnitario) : Number(basic.precio);
-        if (isNaN(precioUnitario) || precioUnitario < 0) throw AppError.badRequest(`Precio unitario inválido para producto ${p.idProducto}`);
+        if (isNaN(precioUnitario) || precioUnitario <= 0) {
+          console.warn(`[OrderService] Precio unitario inválido para producto ${p.idProducto}:`, precioUnitario);
+          throw AppError.badRequest(`Precio inválido para producto ${p.idProducto}`);
+        }
 
         const subtotal = precioUnitario * cantidad;
         acumulado += subtotal;
@@ -77,6 +82,15 @@ class OrderService {
 
       const totalFinal = totalConInteres || acumulado;
       await this.orderRepo.updateTotal(conn, { idPedido, total: totalFinal });
+
+      // Crear notificación para administradores informando nuevo pedido
+      try {
+        const mensaje = `Nuevo pedido #${idPedido} - total $${Number(totalFinal || 0)}`;
+        await this.notif.createNotification({ tipo: 'pedido', referenciaId: idPedido, mensaje, destinatarioRol: 'Administrador', metadata: { total: totalFinal } }, conn);
+      } catch (e) {
+        // No bloquear la transacción por fallas en notificaciones
+        console.warn('[Notification] No se pudo crear notificación para pedido:', e && e.message ? e.message : e);
+      }
 
       return { idPedido, total: totalFinal };
     });

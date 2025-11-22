@@ -11,8 +11,12 @@ class StockAdminRepository extends BaseRepository {
   }
 
   async getStockEntry(idSucursal, idProducto, conn = null) {
-    const runner = conn ? conn.query.bind(conn) : this.db.query.bind(this.db);
-    const rows = await runner('SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [idSucursal, idProducto]);
+    // conn.query (connection) resolves to [rows, fields], while this.db.query resolves to rows directly.
+    if (conn) {
+      const [rows] = await conn.query('SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [idSucursal, idProducto]);
+      return rows && rows[0] ? Number(rows[0].stockDisponible) : null;
+    }
+    const rows = await this.db.query('SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=?', [idSucursal, idProducto]);
     return rows && rows[0] ? Number(rows[0].stockDisponible) : null;
   }
 
@@ -21,12 +25,23 @@ class StockAdminRepository extends BaseRepository {
   }
 
   async incrementProductStockTotal(idProducto, delta, conn) {
-    await conn.query('UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?', [delta, idProducto]);
+    // Defensive: ensure delta is a finite number to avoid injecting NaN into SQL
+    const d = Number(delta);
+    if (!Number.isFinite(d)) {
+      throw new Error(`Invalid delta for incrementProductStockTotal: ${delta}`);
+    }
+    await conn.query('UPDATE productos SET stockTotal = stockTotal + ? WHERE idProducto=?', [d, idProducto]);
   }
 
   async decrementStockIfAvailable({ idSucursal, idProducto, cantidad }, conn) {
-    const [updRes] = await conn.query('UPDATE stock_sucursal SET stockDisponible = stockDisponible - ? WHERE idProducto=? AND idSucursal=? AND stockDisponible >= ?', [cantidad, idProducto, idSucursal, cantidad]);
-    return updRes && updRes.affectedRows > 0;
+    // Use SELECT FOR UPDATE to avoid race conditions and ensure we target a single row
+    const [rows] = await conn.query('SELECT stockDisponible FROM stock_sucursal WHERE idSucursal=? AND idProducto=? FOR UPDATE', [idSucursal, idProducto]);
+    if (!rows || rows.length === 0) return false;
+    const current = Number(rows[0].stockDisponible || 0);
+    if (current < cantidad) return false;
+    const nuevo = current - cantidad;
+    await conn.query('UPDATE stock_sucursal SET stockDisponible = ? WHERE idSucursal=? AND idProducto=?', [nuevo, idSucursal, idProducto]);
+    return true;
   }
 
   async insertStockSucursal(idSucursal, idProducto, stockDisponible, conn) {
@@ -36,6 +51,14 @@ class StockAdminRepository extends BaseRepository {
   async listForProducto(idProducto, conn) {
     const [rows] = await conn.query('SELECT idSucursal, stockDisponible FROM stock_sucursal WHERE idProducto=?', [idProducto]);
     return rows || [];
+  }
+
+  async recalcProductTotalFromSucursal(idProducto, conn) {
+    const runner = conn ? conn.query.bind(conn) : this.db.query.bind(this.db);
+    const [rows] = await runner('SELECT COALESCE(SUM(stockDisponible),0) AS suma FROM stock_sucursal WHERE idProducto=?', [idProducto]);
+    const suma = rows && rows[0] ? Number(rows[0].suma || 0) : 0;
+    await runner('UPDATE productos SET stockTotal = ? WHERE idProducto = ?', [suma, idProducto]);
+    return suma;
   }
 }
 

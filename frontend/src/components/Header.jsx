@@ -5,12 +5,15 @@ import { ServiciosService } from '../services/ServiciosService';
 import useAuthStore from '../store/useAuthStore';
 import useFavoritesStore from '../store/useFavoritesStore';
 import { getCount, clearUserCart } from '../utils/cart';
-import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener, Popper } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener, Popper, Divider } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import MenuIcon from '@mui/icons-material/Menu';
+import NotificationsService from '../services/NotificationsService';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import DoneIcon from '@mui/icons-material/Done';
 
 export default function Header() {
   const brandUnderline = '#f7931e';
@@ -85,6 +88,78 @@ export default function Header() {
 
   const productsService = React.useMemo(() => new ProductsService(), []);
   const serviciosService = React.useMemo(() => new ServiciosService(), []);
+
+  // Notifications (admin)
+  const [notifCount, setNotifCount] = React.useState(0);
+  const [notifItems, setNotifItems] = React.useState([]);
+  const [notifOpen, setNotifOpen] = React.useState(false);
+  const [notifAnchorEl, setNotifAnchorEl] = React.useState(null);
+
+  const fetchNotifCount = async () => {
+    try {
+      const c = await NotificationsService.countUnread();
+      setNotifCount(Number(c || 0));
+    } catch (e) { /* ignore */ }
+  };
+
+  const fetchNotifList = async () => {
+    try {
+      const rows = await NotificationsService.list({ page: 1, limit: 200 });
+      setNotifItems(rows || []);
+    } catch (e) {
+      setNotifItems([]);
+    }
+  };
+
+  React.useEffect(() => {
+    if (token && Number(userRole) === 3) {
+      fetchNotifCount();
+      try { NotificationsService.init(token); } catch (e) { console.warn('socket init', e); }
+      const off = NotificationsService.onNotification(payload => {
+        setNotifCount(c => Number(c || 0) + 1);
+        setNotifItems(prev => prev ? [payload].concat(prev) : [payload]);
+      });
+      return () => { if (off) off(); };
+    }
+  }, [token, userRole]);
+
+  const isRead = (n) => {
+    if (!n) return false;
+    const v = n.leida ?? n.leido ?? n.read ?? n.estado ?? n.status;
+    if (v === undefined || v === null) return Boolean(n.leidaLocalAt);
+    if (typeof v === 'string') {
+      const s = v.toLowerCase();
+      return s === '1' || s === 'true' || s === 'leida' || s === 'read';
+    }
+    if (typeof v === 'number') return v === 1;
+    if (typeof v === 'boolean') return v === true;
+    return Boolean(n.leidaLocalAt);
+  };
+
+  const handleToggleNotif = async (ev) => {
+    if (!token || Number(userRole) !== 3) return;
+    setNotifAnchorEl(ev.currentTarget);
+    const willOpen = !notifOpen;
+    setNotifOpen(willOpen);
+    if (willOpen) await fetchNotifList();
+  };
+
+  const handleMarkRead = async (id) => {
+    if (!id) return;
+    // optimistic update
+    setNotifItems(prev => prev.map(it => it && it.idNotificacion === id ? { ...it, leida: 1, leidaLocalAt: new Date().toISOString() } : it));
+    setNotifCount(c => Math.max(0, (Number(c || 0) - 1)));
+    try {
+      await NotificationsService.markRead(id);
+      await fetchNotifList();
+      await fetchNotifCount();
+    } catch (e) {
+      console.warn('markRead failed', e);
+      // revert optimistic change
+      setNotifItems(prev => prev.map(it => it && it.idNotificacion === id ? { ...it, leida: 0, leidaLocalAt: undefined } : it));
+      setNotifCount(c => Number(c || 0) + 1);
+    }
+  };
 
   useEffect(() => {
     setCartCount(getCount());
@@ -458,6 +533,47 @@ export default function Header() {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Notifications (solo admins) */}
+            {token && userRole && Number(userRole) === 3 && (
+              <Box>
+                <IconButton type="button" aria-label="notificaciones" onClick={handleToggleNotif} sx={{ color: 'white' }}>
+                  <Badge badgeContent={notifCount} color="error"><NotificationsIcon /></Badge>
+                </IconButton>
+
+                <Popper open={notifOpen} anchorEl={notifAnchorEl} placement="bottom-end" style={{ zIndex: 4000 }}>
+                  <ClickAwayListener onClickAway={(event) => { if (notifAnchorEl && notifAnchorEl.contains(event.target)) return; setNotifOpen(false); }}>
+                    <Paper sx={{ width: 360, maxHeight: 420, overflow: 'auto', p: 1 }}>
+                    <Typography variant="subtitle2" sx={{ px: 1, py: 0.5 }}>No leídas</Typography>
+                    <Divider />
+                    <List dense>
+                      {notifItems && notifItems.filter(n => !isRead(n)).length > 0 ? notifItems.filter(n => !isRead(n)).map(n => (
+                        <ListItem key={n.idNotificacion} secondaryAction={<IconButton type="button" edge="end" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkRead(n.idNotificacion); }}><DoneIcon fontSize="small" /></IconButton>}>
+                            <ListItemButton onClick={async (e) => { e.preventDefault(); e.stopPropagation(); await handleMarkRead(n.idNotificacion); setNotifOpen(false); if (n.tipo === 'pedido' && n.referenciaId) navigate(`/pedidos/${n.referenciaId}`); if (n.tipo === 'servicio' && n.referenciaId) navigate(`/servicios-admin/${n.referenciaId}`); }}>
+                            <ListItemText primary={n.mensaje} secondary={n.created_at ? new Date(n.created_at).toLocaleString() : ''} />
+                          </ListItemButton>
+                        </ListItem>
+                      )) : (
+                        <ListItem><ListItemText primary="Sin notificaciones nuevas" /></ListItem>
+                      )}
+                    </List>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle2" sx={{ px: 1, py: 0.5 }}>Leídas</Typography>
+                    <List dense>
+                      {notifItems && notifItems.filter(n => isRead(n)).length > 0 ? notifItems.filter(n => isRead(n)).map(n => (
+                        <ListItem key={`r-${n.idNotificacion}`}>
+                          <ListItemButton onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNotifOpen(false); if (n.tipo === 'pedido' && n.referenciaId) navigate(`/pedidos/${n.referenciaId}`); if (n.tipo === 'servicio' && n.referenciaId) navigate(`/servicios-admin/${n.referenciaId}`); }}>
+                            <ListItemText primary={n.mensaje} secondary={n.created_at ? new Date(n.created_at).toLocaleString() : ''} />
+                          </ListItemButton>
+                        </ListItem>
+                      )) : (
+                        <ListItem><ListItemText primary="No hay notificaciones leídas" /></ListItem>
+                      )}
+                    </List>
+                    </Paper>
+                  </ClickAwayListener>
+                </Popper>
+              </Box>
+            )}
             {/* Ocultar carrito para administradores; permitir a vendedores usar carrito */}
             {!(token && userRole && Number(userRole) === 3) && (
               <>

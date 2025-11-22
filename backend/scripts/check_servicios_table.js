@@ -13,17 +13,17 @@ async function checkServiciosTable() {
     connection = await mysql.createConnection(config);
     console.log('Conectado a MySQL');
 
-    // Describir tabla servicios_postventa
-    const [columns] = await connection.execute('DESCRIBE servicios_postventa');
-    console.log('Estructura de servicios_postventa:');
+    // Describir tabla solicitudes_servicio_postventa (nombre real en el esquema)
+    const [columns] = await connection.execute('DESCRIBE solicitudes_servicio_postventa');
+    console.log('Estructura de solicitudes_servicio_postventa:');
     console.table(columns);
 
     // Contar registros
-    const [count] = await connection.execute('SELECT COUNT(*) as total FROM servicios_postventa');
+    const [count] = await connection.execute('SELECT COUNT(*) as total FROM solicitudes_servicio_postventa');
     console.log('Total de servicios:', count[0].total);
 
     // Mostrar algunos registros de ejemplo
-    const [rows] = await connection.execute('SELECT * FROM servicios_postventa LIMIT 5');
+    const [rows] = await connection.execute('SELECT * FROM solicitudes_servicio_postventa LIMIT 5');
     console.log('Servicios de ejemplo:');
     console.table(rows);
 

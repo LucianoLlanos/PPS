@@ -1,0 +1,260 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { ProductsService } from '../services/ProductsService';
+import useAuthStore from '../store/useAuthStore';
+import { AppBar, Toolbar, IconButton, Typography, Box, Badge, Button, TextField, InputAdornment, Paper, List, ListItem, ListItemButton, ListItemText, ClickAwayListener, Popper, Divider } from '@mui/material';
+import NotificationsService from '../services/NotificationsService';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import DoneIcon from '@mui/icons-material/Done';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+
+export default function Header() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const productsService = useMemo(() => new ProductsService(), []);
+
+    // Auth / user
+    const token = useAuthStore((s) => s.token);
+    const userRole = useAuthStore((s) => s.user && s.user.idRol);
+    const userNombre = useAuthStore((s) => s.user && s.user.nombre);
+    const userApellido = useAuthStore((s) => s.user && s.user.apellido);
+    const clearAuth = useAuthStore((s) => s.clearAuth);
+
+    // Search
+    const [q, setQ] = useState('');
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSug, setShowSug] = useState(false);
+    const [activeSugIndex, setActiveSugIndex] = useState(-1);
+    const searchAnchorRef = useRef(null);
+    const searchInputRef = useRef(null);
+    const timer = useRef(null);
+
+    // Cart / favorites (kept minimal)
+    const [cartCount, setCartCount] = useState(0);
+
+    // Notifications (admin)
+    const [notifCount, setNotifCount] = useState(0);
+    const [notifItems, setNotifItems] = useState([]);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [notifAnchorEl, setNotifAnchorEl] = useState(null);
+
+    // Helper: active nav style test
+    const isActivePath = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+
+    // Fetch notifications summary
+    const fetchNotifCount = async () => {
+      try {
+        const c = await NotificationsService.countUnread();
+        setNotifCount(Number(c || 0));
+      } catch (e) { /* ignore */ }
+    };
+
+    const fetchNotifList = async () => {
+      try {
+        const rows = await NotificationsService.list({ page: 1, limit: 100 });
+        setNotifItems(rows || []);
+      } catch (e) {
+        setNotifItems([]);
+      }
+    };
+
+    useEffect(() => {
+      if (token && Number(userRole) === 3) {
+        fetchNotifCount();
+        // initialize socket connection to receive live notifications
+        try { NotificationsService.init(token); } catch (e) { console.warn('socket init', e); }
+        const off = NotificationsService.onNotification(payload => {
+          setNotifCount(c => Number(c || 0) + 1);
+          setNotifItems(prev => prev ? [payload].concat(prev) : [payload]);
+        });
+        return () => { if (off) off(); };
+      }
+    }, [token, userRole]);
+
+    // Search suggestions
+    useEffect(() => {
+      const params = new URLSearchParams(location.search);
+      setQ(params.get('q') || '');
+    }, [location.search]);
+
+    const fetchSuggestions = async (text) => {
+      if (!text || text.trim() === '') { setSuggestions([]); setShowSug(false); return; }
+      try {
+        const list = await productsService.listPublic();
+        const names = (list || []).map(p => p.nombre || p.name || '');
+        const filtered = names.filter(n => n.toLowerCase().includes(text.toLowerCase())).slice(0, 6);
+        setSuggestions(filtered);
+        setShowSug(filtered.length > 0);
+      } catch (e) { setSuggestions([]); setShowSug(false); }
+    };
+
+    const handleSearchChange = (val) => {
+      setQ(val);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => fetchSuggestions(val), 250);
+    };
+
+    const submitSearch = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setShowSug(false);
+      navigate(`/?q=${encodeURIComponent(q || '')}`);
+    };
+
+    const pickSuggestion = (s) => { setQ(s); setShowSug(false); navigate(`/?q=${encodeURIComponent(s)}`); };
+
+    // Notifications: mark as read (optimistic)
+    const handleToggleNotif = async (ev) => {
+      if (!token || Number(userRole) !== 3) return;
+      setNotifAnchorEl(ev.currentTarget);
+      const willOpen = !notifOpen;
+      setNotifOpen(willOpen);
+      if (willOpen) await fetchNotifList();
+    };
+
+    const isRead = (n) => Boolean(n && (n.leida === 1 || n.read === true || n.leidaLocalAt));
+
+    const handleMarkRead = async (id) => {
+      if (!id) return;
+      // optimistic update
+      setNotifItems(prev => prev.map(it => it && it.idNotificacion === id ? { ...it, leida: 1, leidaLocalAt: new Date().toISOString() } : it));
+      setNotifCount(c => Math.max(0, (Number(c || 0) - 1)));
+      try {
+        await NotificationsService.markRead(id);
+        // refresh to ensure server state
+        await fetchNotifList();
+        await fetchNotifCount();
+      } catch (e) {
+        console.warn('markRead failed', e);
+        // revert
+        setNotifItems(prev => prev.map(it => it && it.idNotificacion === id ? { ...it, leida: 0, leidaLocalAt: undefined } : it));
+        setNotifCount(c => Number(c || 0) + 1);
+      }
+    };
+
+    // Simple layout
+    return (
+      <AppBar position="sticky" elevation={2} sx={{ background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Toolbar sx={{ display: 'flex', gap: 2, py: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+            <Box component={RouterLink} to="/" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none' }}>
+              <Box component="img" src="/logo.jpeg" alt="logo" sx={{ height: 56, width: 56, borderRadius: '50%' }} />
+              <Typography variant="h6" sx={{ color: 'white', fontWeight: 700 }}>AtilioMarola</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ flex: 2, display: 'flex', justifyContent: 'center' }}>
+            <Box component="form" onSubmit={submitSearch} ref={searchAnchorRef} sx={{ width: '100%', maxWidth: 560 }}>
+              <ClickAwayListener onClickAway={() => setShowSug(false)}>
+                <Box>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Buscar productos..."
+                    value={q}
+                    inputRef={searchInputRef}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onFocus={() => { if (suggestions.length) setShowSug(true); }}
+                    InputProps={{
+                      startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {q?.length > 0 && (
+                            <IconButton size="small" onClick={() => { setQ(''); setSuggestions([]); setShowSug(false); if (searchInputRef.current) searchInputRef.current.focus(); }}><CloseIcon /></IconButton>
+                          )}
+                          <Button type="submit" variant="contained" size="small" sx={{ ml: 1 }}>Buscar</Button>
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+
+                  {showSug && suggestions.length > 0 && (
+                    <Popper open anchorEl={searchAnchorRef.current} placement="bottom-start" style={{ zIndex: 3000 }}>
+                      <Paper sx={{ mt: 0.5, width: searchAnchorRef.current ? searchAnchorRef.current.offsetWidth : 400 }}>
+                        <List dense>
+                          {suggestions.map((s, idx) => (
+                            <ListItem key={idx} disablePadding>
+                              <ListItemButton onMouseDown={() => pickSuggestion(s)}>
+                                <ListItemText primary={s} />
+                              </ListItemButton>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    </Popper>
+                  )}
+                </Box>
+              </ClickAwayListener>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+            {/* Notifications bell: only for admin (role 3) */}
+            {token && Number(userRole) === 3 && (
+              <Box>
+                <IconButton aria-label="notificaciones" onClick={handleToggleNotif} sx={{ color: 'white' }}>
+                  <Badge badgeContent={notifCount} color="error"><NotificationsIcon /></Badge>
+                </IconButton>
+
+                <Popper open={notifOpen} anchorEl={notifAnchorEl} placement="bottom-end" style={{ zIndex: 4000 }}>
+                  <Paper sx={{ width: 360, maxHeight: 420, overflow: 'auto', p: 1 }}>
+                    <Typography variant="subtitle2" sx={{ px: 1, py: 0.5 }}>No leídas</Typography>
+                    <Divider />
+                    <List dense>
+                      {notifItems && notifItems.filter(n => !isRead(n)).length > 0 ? notifItems.filter(n => !isRead(n)).map(n => (
+                        <ListItem key={n.idNotificacion} secondaryAction={<IconButton edge="end" onClick={() => handleMarkRead(n.idNotificacion)}><DoneIcon fontSize="small" /></IconButton>}>
+                          <ListItemButton onClick={async () => { await handleMarkRead(n.idNotificacion); setNotifOpen(false); if (n.tipo === 'pedido' && n.referenciaId) navigate(`/pedidos/${n.referenciaId}`); if (n.tipo === 'servicio' && n.referenciaId) navigate(`/servicios-admin/${n.referenciaId}`); }}>
+                            <ListItemText primary={n.mensaje} secondary={n.created_at ? new Date(n.created_at).toLocaleString() : ''} />
+                          </ListItemButton>
+                        </ListItem>
+                      )) : (
+                        <ListItem><ListItemText primary="Sin notificaciones nuevas" /></ListItem>
+                      )}
+                    </List>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle2" sx={{ px: 1, py: 0.5 }}>Leídas</Typography>
+                    <List dense>
+                      {notifItems && notifItems.filter(n => isRead(n)).length > 0 ? notifItems.filter(n => isRead(n)).map(n => (
+                        <ListItem key={`r-${n.idNotificacion}`}>
+                          <ListItemText primary={n.mensaje} secondary={n.created_at ? new Date(n.created_at).toLocaleString() : ''} />
+                        </ListItem>
+                      )) : (
+                        <ListItem><ListItemText primary="No hay notificaciones leídas" /></ListItem>
+                      )}
+                    </List>
+                  </Paper>
+                </Popper>
+              </Box>
+            )}
+
+            {/* Cart (hidden to admins) */}
+            {!(token && Number(userRole) === 3) && (
+              <IconButton onClick={() => navigate('/carrito')} aria-label="carrito" sx={{ color: 'white' }}>
+                <Badge badgeContent={cartCount} color="error"><ShoppingCartIcon /></Badge>
+              </IconButton>
+            )}
+
+            {token && (
+              <IconButton onClick={() => navigate('/favoritos')} aria-label="favoritos" sx={{ color: 'white' }}>
+                <FavoriteIcon />
+              </IconButton>
+            )}
+
+            {token ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography sx={{ color: 'white' }}>{userNombre || ''} {userApellido || ''}</Typography>
+                <Button variant="outlined" size="small" onClick={() => { clearAuth(); navigate('/'); }} sx={{ color: '#ffcdd2', borderColor: '#ffcdd2' }}>Cerrar sesión</Button>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button component={RouterLink} to="/login" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.7)' }}>Login</Button>
+                <Button component={RouterLink} to="/register" variant="contained" sx={{ background: 'linear-gradient(90deg,#ff6b35,#f7931e)' }}>Registro</Button>
+              </Box>
+            )}
+          </Box>
+        </Toolbar>
+      </AppBar>
+    );
+}

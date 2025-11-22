@@ -8,10 +8,12 @@ import { OrdersClientService } from '../services/OrdersClientService';
 import { CustomersService } from '../services/CustomersService';
 import { SucursalesService } from '../services/SucursalesService';
 import { ProductsService } from '../services/ProductsService';
+import { StockService } from '../services/StockService';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, Card, CardContent, Grid, Avatar, Stack, Alert, Divider, FormControl, InputLabel, Select, MenuItem, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import PersonAdd from '@mui/icons-material/PersonAdd';
 
 export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
@@ -25,6 +27,12 @@ export default function Cart() {
   const [clientes, setClientes] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [clienteIdUsuario, setClienteIdUsuario] = useState('');
+  const [selectedCliente, setSelectedCliente] = useState(null);
+  const [openNewClient, setOpenNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ nombre: '', apellido: '', telefono: '', direccion: '' });
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [clientError, setClientError] = useState(null);
   const [sucursalId, setSucursalId] = useState('');
   const [estado, setEstado] = useState('Entregado');
   const [metodoPago, setMetodoPago] = useState('Efectivo');
@@ -49,6 +57,9 @@ export default function Cart() {
   const customersService = React.useMemo(() => new CustomersService(), []);
   const sucursalesService = React.useMemo(() => new SucursalesService(), []);
   const productsService = React.useMemo(() => new ProductsService(), []);
+  const stockService = React.useMemo(() => new StockService(), []);
+
+  const [insufficientStock, setInsufficientStock] = useState([]);
 
   useEffect(() => {
     loadCart();
@@ -101,6 +112,36 @@ export default function Cart() {
     })();
     return () => { mounted = false; };
   }, [isSeller]);
+
+  // Validar stock por sucursal para vendedor
+  useEffect(() => {
+    let mounted = true;
+    const checkStock = async () => {
+      try {
+        if (!isSeller) return;
+        const stockList = await stockService.listStockSucursal();
+        if (!mounted) return;
+        const sucId = Number(sucursalId || 0);
+        if (!sucId) { setInsufficientStock([]); return; }
+        const insuff = [];
+        for (const it of cartItems) {
+          const prodId = Number(it.product?.idProducto || it.product?.id || it.id);
+          const qty = Number(it.quantity || 1);
+          const entry = (stockList || []).find(s => Number(s.idSucursal) === sucId && Number(s.idProducto) === prodId);
+          const available = entry ? Number(entry.stockDisponible || 0) : 0;
+          if (available < qty) {
+            insuff.push({ id: prodId, nombre: it.product?.nombre || String(prodId), required: qty, available });
+          }
+        }
+        setInsufficientStock(insuff);
+      } catch (e) {
+        console.warn('[Cart] no se pudo validar stock por sucursal', e);
+        setInsufficientStock([]);
+      }
+    };
+    checkStock();
+    return () => { mounted = false; };
+  }, [sucursalId, cartItems, isSeller, stockService]);
 
   // Cerrar selects si se scrollea la página
   useEffect(() => {
@@ -280,9 +321,27 @@ export default function Cart() {
         totalConInteres: totalConAjustesV
       });
       const pedidoId = res.idPedido || '';
+      console.debug('Respuesta create pedido (vendedor):', res);
+
+      // intentar crear retiro (best-effort) si hay teléfono
+      let codigoRetiro = null;
+      let retiroError = null;
+      try {
+        const telefono = selectedCliente?.telefono || (newClient?.telefono) || null;
+        if (telefono && pedidoId) {
+          const retiroRes = await ordersAdminService.createRetiro(pedidoId, telefono);
+          console.debug('Respuesta create retiro (vendedor):', retiroRes);
+          codigoRetiro = retiroRes?.codigo || retiroRes?.code || retiroRes?.codigoRetiro || null;
+          if (!codigoRetiro && retiroRes && retiroRes.idRetiro) codigoRetiro = retiroRes.idRetiro;
+        }
+      } catch (err) {
+        console.warn('No se pudo crear código de retiro (vendedor):', err);
+        retiroError = err?.response?.data || err?.message || String(err);
+      }
+
       clearCart();
       loadCart();
-      setOrderModal({ open: true, id: pedidoId, modo: 'vendedor', extra: { sucursal: sucursales.find(s => String(s.idSucursal) === String(sucursalId))?.nombre || '' } });
+      setOrderModal({ open: true, id: pedidoId, modo: 'vendedor', extra: { sucursal: sucursales.find(s => String(s.idSucursal) === String(sucursalId))?.nombre || '', codigoRetiro, retiroError } });
     } catch (e) {
       console.error(e);
       setOrderModal({ open: true, id: null, modo: 'error', extra: 'No se pudo crear el pedido' });
@@ -407,7 +466,16 @@ export default function Cart() {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 0, border: '1px solid #e5e9ef', position: { md: 'sticky' }, top: { md: 24 } }}>
+          <Card className="cart-summary-card" sx={{
+            borderRadius: 0,
+            border: '1px solid #e5e9ef',
+            position: { md: 'sticky' },
+            top: { md: 24 },
+            // Forzar nueva capa de composición para evitar render borroso en algunos navegadores
+            transform: { md: 'translateZ(0)' },
+            willChange: { md: 'transform, opacity' },
+            backfaceVisibility: { md: 'hidden' }
+          }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>Resumen del pedido</Typography>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -539,15 +607,19 @@ export default function Cart() {
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Registrar pedido (vendedor)</Typography>
                   <Grid container spacing={1.5}>
                     <Grid item xs={12}>
-                      <Autocomplete
-                        options={clientes}
-                        size="small"
-                        getOptionLabel={(c) => `${c?.nombre ?? ''} ${c?.apellido ?? ''}`.trim()}
-                        onChange={(_, val) => setClienteIdUsuario(val ? String(val.idUsuario) : '')}
-                        renderInput={(params) => <TextField {...params} label="Cliente" placeholder="Buscar cliente..." />}
-                        isOptionEqualToValue={(o, v) => String(o.idUsuario) === String(v.idUsuario)}
-                      />
-                    </Grid>
+                        <Autocomplete
+                          options={clientes}
+                          size="small"
+                          value={selectedCliente || (clientes.find(c => String(c.idUsuario) === String(clienteIdUsuario)) || null)}
+                          getOptionLabel={(c) => `${c?.nombre ?? ''} ${c?.apellido ?? ''}`.trim()}
+                          onChange={(_, val) => { setClienteIdUsuario(val ? String(val.idUsuario) : ''); setSelectedCliente(val || null); }}
+                          renderInput={(params) => <TextField {...params} label="Cliente" placeholder="Buscar cliente..." />}
+                          isOptionEqualToValue={(o, v) => String(o.idUsuario) === String(v.idUsuario)}
+                        />
+                        <Box sx={{ mt: 1 }}>
+                          <Button size="small" variant="contained" onClick={() => setOpenNewClient(true)} startIcon={<PersonAdd />}>Nuevo cliente</Button>
+                        </Box>
+                      </Grid>
                     <Grid item xs={12} sm={6}>
                       <Autocomplete
                         options={sucursales}
@@ -559,6 +631,11 @@ export default function Cart() {
                         isOptionEqualToValue={(o, v) => String(o.idSucursal) === String(v.idSucursal)}
                       />
                     </Grid>
+                    {insufficientStock && insufficientStock.length > 0 ? (
+                      <Grid item xs={12}>
+                        <Alert severity="warning">La sucursal seleccionada no tiene stock suficiente para {insufficientStock.length} producto(s): {insufficientStock.map(i => `${i.nombre} (necesita ${i.required}, disponible ${i.available})`).join(', ')}. Ajustá cantidades o cambiá la sucursal.</Alert>
+                      </Grid>
+                    ) : null}
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Estado</InputLabel>
@@ -629,7 +706,7 @@ export default function Cart() {
                     </Grid>
                     <Grid item xs={12}>
                       <Stack spacing={1}>
-                        <Button variant="contained" color="primary" fullWidth sx={{ borderRadius: 0 }} onClick={handleSellerCheckout} disabled={loading || !clienteIdUsuario || cartItems.length === 0}>{loading ? 'Procesando...' : 'Crear pedido'}</Button>
+                        <Button variant="contained" color="primary" fullWidth sx={{ borderRadius: 0 }} onClick={handleSellerCheckout} disabled={loading || !clienteIdUsuario || cartItems.length === 0 || (insufficientStock && insufficientStock.length > 0)}>{loading ? 'Procesando...' : 'Crear pedido'}</Button>
                         <Button variant="text" fullWidth color="error" sx={{ borderRadius: 0 }} onClick={handleClearCart}>Vaciar carrito</Button>
                       </Stack>
                     </Grid>
@@ -669,8 +746,14 @@ export default function Cart() {
               <Typography variant="body2" sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 2 }}>
                 ID Pedido: <strong>{orderModal.id}</strong><br />
                 Sucursal: <strong>{orderModal.extra?.sucursal || 'N/D'}</strong><br />
+                {orderModal.extra?.codigoRetiro ? (
+                  <span>Código de retiro: <strong>{orderModal.extra.codigoRetiro}</strong><br /></span>
+                ) : null}
                 El cliente puede retirarlo presentando el número o su nombre.
               </Typography>
+              {orderModal.extra?.retiroError ? (
+                <Box sx={{ mt: 1 }}><Alert severity="warning">No se pudo generar código de retiro: {typeof orderModal.extra.retiroError === 'string' ? orderModal.extra.retiroError : JSON.stringify(orderModal.extra.retiroError)}</Alert></Box>
+              ) : null}
             </Box>
           )}
           {orderModal.modo === 'error' && (
@@ -687,6 +770,45 @@ export default function Cart() {
           {orderModal.modo === 'error' && (
             <Button onClick={() => setOrderModal({ open: false, id: null, modo: 'cliente', extra: null })} variant="contained">Entendido</Button>
           )}
+        </DialogActions>
+      </Dialog>
+    
+      {/* Dialog para crear cliente rápido (vendedor) */}
+      <Dialog open={openNewClient} onClose={() => setOpenNewClient(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Nuevo cliente rápido</DialogTitle>
+        <DialogContent dividers>
+          {clientError ? <Alert severity="error" sx={{ mb: 1 }}>{clientError}</Alert> : null}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}><TextField label="Nombre" fullWidth value={newClient.nombre} onChange={(e) => setNewClient(s => ({ ...s, nombre: e.target.value }))} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Apellido" fullWidth value={newClient.apellido} onChange={(e) => setNewClient(s => ({ ...s, apellido: e.target.value }))} /></Grid>
+            <Grid item xs={12}><TextField label="Teléfono" fullWidth value={newClient.telefono} onChange={(e) => setNewClient(s => ({ ...s, telefono: e.target.value }))} /></Grid>
+            <Grid item xs={12}><TextField label="Email (opcional)" fullWidth value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} /></Grid>
+            <Grid item xs={12}><TextField label="Dirección (opcional)" fullWidth value={newClient.direccion} onChange={(e) => setNewClient(s => ({ ...s, direccion: e.target.value }))} /></Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenNewClient(false)}>Cancelar</Button>
+          <Button variant="contained" disabled={creatingClient} onClick={async () => {
+          setClientError(null);
+          if (!newClient.nombre || !newClient.apellido || !newClient.telefono) { setClientError('Nombre, apellido y teléfono son obligatorios'); return; }
+          try {
+            setCreatingClient(true);
+            const payload = { ...newClient, email: newClientEmail || undefined };
+            const res = await customersService.createMinimal(payload);
+            const created = res?.cliente || res;
+            if (created) {
+              setClientes(prev => [ ...(prev || []), created ]);
+              setClienteIdUsuario(String(created.idUsuario || created.idCliente || ''));
+              setSelectedCliente(created);
+              setOpenNewClient(false);
+              setNewClient({ nombre: '', apellido: '', telefono: '', direccion: '' });
+              setNewClientEmail('');
+            }
+          } catch (e) {
+            console.error('createMinimal error', e);
+            setClientError(e?.response?.data?.error || e.message || 'Error al crear cliente');
+          } finally { setCreatingClient(false); }
+        }}>Crear</Button>
         </DialogActions>
       </Dialog>
     </Box>

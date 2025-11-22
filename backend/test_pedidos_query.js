@@ -13,7 +13,7 @@ const mysql = require('mysql2/promise');
       pe.idPedido, 
       u.nombre AS nombreUsuario, 
       u.apellido AS apellidoUsuario, 
-      COALESCE(pe.fechaPedido, pe.fecha) as fecha, 
+      pe.fechaPedido as fecha, 
       pe.estado,
       COALESCE(pe.total, 0) as total,
       pe.metodoPago,

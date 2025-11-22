@@ -6,7 +6,7 @@ class AnalyticsRepository extends BaseRepository {
                       COALESCE(SUM(dp.cantidad * dp.precioUnitario), 0) AS ingresos_totales,
                       COALESCE(SUM(dp.cantidad), 0) AS unidades_vendidas
                FROM pedidos pe JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
-               WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?`;
+               WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?`;
     const params = [start, end];
     if (idSucursal) { sql += ' AND pe.idSucursalOrigen = ?'; params.push(idSucursal); }
     const rows = await this.db.query(sql, params);
@@ -14,16 +14,16 @@ class AnalyticsRepository extends BaseRepository {
   }
 
   async ventasTimeseries({ start, end, idSucursal }) {
-    let sql = `SELECT DATE(pe.fecha) AS fecha, COUNT(DISTINCT pe.idPedido) AS pedidos,
+    let sql = `SELECT DATE(pe.fechaPedido) AS fecha, COUNT(DISTINCT pe.idPedido) AS pedidos,
                       COALESCE(SUM(dp.cantidad * dp.precioUnitario),0) AS ingresos,
                       COALESCE(SUM(dp.cantidad),0) AS unidades
                FROM pedidos pe JOIN detalle_pedidos dp ON dp.idPedido = pe.idPedido
-               WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
-               GROUP BY DATE(pe.fecha)
-               ORDER BY DATE(pe.fecha) ASC`;
+               WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
+               GROUP BY DATE(pe.fechaPedido)
+               ORDER BY DATE(pe.fechaPedido) ASC`;
     const params = [start, end];
     if (idSucursal) {
-      sql = sql.replace('WHERE pe.estado = \'Entregado\' AND DATE(pe.fecha) BETWEEN ? AND ?', "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+      sql = sql.replace("WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?", "WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
       params.push(idSucursal);
     }
     return this.db.query(sql, params);
@@ -35,13 +35,13 @@ class AnalyticsRepository extends BaseRepository {
                FROM detalle_pedidos dp
                JOIN pedidos pe ON dp.idPedido = pe.idPedido
                JOIN productos pr ON dp.idProducto = pr.idProducto
-               WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ?
+               WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?
                GROUP BY dp.idProducto
                ORDER BY ingresos DESC
                LIMIT ?`;
     const params = [start, end, limit];
     if (idSucursal) {
-      sql = sql.replace('WHERE pe.estado = \'Entregado\' AND DATE(pe.fecha) BETWEEN ? AND ?', "WHERE pe.estado = 'Entregado' AND DATE(pe.fecha) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
+      sql = sql.replace("WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ?", "WHERE pe.estado = 'entregado' AND DATE(pe.fechaPedido) BETWEEN ? AND ? AND pe.idSucursalOrigen = ?");
       params.splice(2, 0, idSucursal);
     }
     return this.db.query(sql, params);

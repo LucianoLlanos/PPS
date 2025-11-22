@@ -11,6 +11,8 @@ const SucursalesAdminController = require('../controllers/admin/SucursalesAdminC
 const ClientsAdminController = require('../controllers/admin/ClientsAdminController');
 const ServiciosPostventaController = require('../controllers/admin/ServiciosPostventaController');
 const AnalyticsAdminController = require('../controllers/admin/AnalyticsAdminController');
+const PasswordResetAdminController = require('../controllers/admin/PasswordResetAdminController');
+const NotificationsAdminController = require('../controllers/admin/NotificationsAdminController');
 
 // Multer setup para subida de imágenes
 const storage = makeDiskStorage('.');
@@ -32,6 +34,8 @@ router.delete('/productos/:id(\\d+)', ProductsAdminController.eliminarProducto);
 // Pedidos
 router.get('/pedidos', OrdersAdminController.listarPedidos);
 router.post('/pedidos', OrdersAdminController.crearPedido);
+// Crear código de retiro para un pedido (no requiere modificar la tabla pedidos)
+router.post('/pedidos/:id(\\d+)/retiro', OrdersAdminController.crearRetiro);
 // Asegurar que los endpoints que toman :id sólo acepten IDs numéricos (evita colisiones con rutas como /pedidos/summary)
 router.get('/pedidos/:id(\\d+)', OrdersAdminController.verDetallePedido);
 router.delete('/pedidos/:id(\\d+)', OrdersAdminController.eliminarPedido);
@@ -62,5 +66,23 @@ router.put('/stock_sucursal/:idSucursal(\\d+)/:idProducto(\\d+)', StockAdminCont
 router.post('/stock_sucursal/backfill', StockAdminController.backfillStockSucursales);
 // Reconciliar stockTotal de un producto con stock_sucursal
 router.post('/productos/:idProducto(\\d+)/reconcile', StockAdminController.reconcileStockProducto);
+
+// Transferir stock entre sucursales
+router.post('/stock/transfer', StockAdminController.transferStock);
+// Ajuste manual de stock (admin)
+router.post('/stock/adjust', StockAdminController.adjustStock);
+// Listar movimientos por producto
+router.get('/stock/movimientos', StockAdminController.listMovimientos);
+
+// Admin endpoints for password resets
+router.post('/password_resets/cleanup', PasswordResetAdminController.cleanup);
+router.get('/password_resets/report', PasswordResetAdminController.report);
+
+// Notificaciones (admin)
+router.get('/notifications/count-unread', NotificationsAdminController.countUnread);
+router.get('/notifications', NotificationsAdminController.list);
+router.post('/notifications/:id(\\d+)/mark-read', NotificationsAdminController.markRead);
+// Endpoint temporal para testing de notificaciones en vivo
+router.post('/notifications/test', NotificationsAdminController.testNotification);
 
 module.exports = router;

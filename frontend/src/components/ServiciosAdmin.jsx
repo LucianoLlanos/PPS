@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ServiciosService } from '../services/ServiciosService';
 import {
   Container,
@@ -15,10 +16,6 @@ import {
   CardContent,
   CardActions,
   Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Divider,
   CircularProgress
 } from '@mui/material';
@@ -29,6 +26,7 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import '../stylos/admin/ServiciosAdmin.css';
 import { STATUSES, getStatusInfo } from '../utils/statusColors';
 import StatusPill from './StatusPill';
+import ServicioEditDialog from './ServicioEditDialog';
 
 function ServiciosAdmin() {
   const serviciosService = useMemo(() => new ServiciosService(), []);
@@ -55,6 +53,72 @@ function ServiciosAdmin() {
   useEffect(() => {
     cargarServicios();
   }, []);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
+
+  // Si la URL contiene ?id=... (compatibilidad) abrir el modal de edición
+  useEffect(() => {
+    const paramsQ = new URLSearchParams(location.search);
+    const idQ = paramsQ.get('id');
+    if (idQ && servicios && servicios.length > 0) {
+      const found = servicios.find(s => String(s.idSolicitud) === String(idQ));
+      if (found) {
+        abrirModalEdicion(found);
+        try { navigate('/servicios-admin', { replace: true }); } catch (e) { /* ignore */ }
+      }
+    }
+  }, [location.search, servicios]);
+
+  // Si la ruta es /servicios-admin/:id abrir el modal correspondiente
+  useEffect(() => {
+    const idParam = params && params.id ? String(params.id) : null;
+    if (!idParam) return;
+    if (!servicios || servicios.length === 0) return;
+    const found = servicios.find(s => String(s.idSolicitud) === idParam);
+    if (found) {
+      abrirModalEdicion(found);
+      try { navigate('/servicios-admin', { replace: true }); } catch (e) { /* ignore */ }
+    }
+  }, [params, servicios]);
+
+  // Helper: fetch single solicitud by id from API and open modal
+  const fetchAndOpenById = async (id) => {
+    try {
+      const data = await serviciosService.getByIdAdmin(id);
+      if (data) {
+        abrirModalEdicion(data);
+        // Optionally add to list so it appears in UI
+        setServicios(prev => prev && Array.isArray(prev) ? [data].concat(prev) : [data]);
+        try { navigate('/servicios-admin', { replace: true }); } catch (e) {}
+      }
+    } catch (err) {
+      console.warn('No se pudo obtener solicitud por id', id, err);
+    }
+  };
+
+  // Enhance previous effects: if not found in current list, fetch by id
+  useEffect(() => {
+    const paramsQ = new URLSearchParams(location.search);
+    const idQ = paramsQ.get('id');
+    if (idQ && servicios && servicios.length > 0) {
+      const found = servicios.find(s => String(s.idSolicitud) === String(idQ));
+      if (!found) fetchAndOpenById(idQ);
+    }
+  }, [location.search, servicios]);
+
+  useEffect(() => {
+    const idParam = params && params.id ? String(params.id) : null;
+    if (!idParam) return;
+    if (!servicios || servicios.length === 0) {
+      // list not loaded yet — try fetching the specific item directly
+      fetchAndOpenById(idParam);
+      return;
+    }
+    const found = servicios.find(s => String(s.idSolicitud) === idParam);
+    if (!found) fetchAndOpenById(idParam);
+  }, [params, servicios]);
 
   const cargarServicios = async () => {
     setLoading(true);
@@ -289,6 +353,7 @@ function ServiciosAdmin() {
                     </Grid>
                   </CardContent>
                   <CardActions>
+                    <Button size="small" variant="text" onClick={() => navigate(`/servicios-admin/${servicio.idSolicitud}`)}>Ver</Button>
                     <Button size="small" startIcon={<EditIcon />} onClick={() => abrirModalEdicion(servicio)}>Cambiar Estado</Button>
                     {servicio.fechaActualizacion && <Typography variant="caption" color="text.secondary" className="servicio-updated">Última actualización: {formatearFecha(servicio.fechaActualizacion)}</Typography>}
                   </CardActions>
@@ -299,42 +364,18 @@ function ServiciosAdmin() {
         </Grid>
       )}
 
-      {/* Dialog de edición */}
-      <Dialog open={!!editandoServicio} onClose={cerrarModal} fullWidth maxWidth="sm" disableScrollLock>
-        <DialogTitle>Cambiar Estado - {editandoServicio ? `Solicitud #${editandoServicio.idSolicitud}` : ''}</DialogTitle>
-        <DialogContent dividers>
-          {editandoServicio && (
-            <div className="dialog-grid">
-              <div>
-                <Typography variant="caption" color="text.secondary">Cliente</Typography>
-                <Typography><strong>{editandoServicio.nombre} {editandoServicio.apellido}</strong></Typography>
-              </div>
-              <div>
-                <Typography variant="caption" color="text.secondary">Tipo de servicio</Typography>
-                <Typography>{tiposServicio[editandoServicio.tipoServicio] || editandoServicio.tipoServicio}</Typography>
-              </div>
-              <div>
-                <Typography variant="caption" color="text.secondary">Estado actual</Typography>
-                <Chip label={getStatusInfo(editandoServicio.estado).label} className={`estado-chip chip-${editandoServicio.estado}`} />
-              </div>
-              <div>
-                <Typography variant="caption" color="text.secondary">Nuevo estado</Typography>
-                <Select fullWidth value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)} MenuProps={{ disableScrollLock: true }}>
-                  {STATUSES.map(st => <MenuItem key={st.value} value={st.value}>{st.label}</MenuItem>)}
-                </Select>
-              </div>
-              <div>
-                <Typography variant="caption" color="text.secondary">Observaciones (opcional)</Typography>
-                <TextField fullWidth multiline rows={3} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-              </div>
-            </div>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={cerrarModal}>Cancelar</Button>
-          <Button onClick={handleCambiarEstado} variant="contained" disabled={!nuevoEstado}>Actualizar Estado</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Dialog de edición (componente compartido) */}
+      <ServicioEditDialog
+        open={!!editandoServicio}
+        servicio={editandoServicio}
+        onClose={() => { cerrarModal(); }}
+        onSaved={(updated) => {
+          setSuccess('Estado actualizado correctamente');
+          // refresh list to show changes
+          cargarServicios();
+          cerrarModal();
+        }}
+      />
     </Container>
   );
 }

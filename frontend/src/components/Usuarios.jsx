@@ -4,6 +4,7 @@ import { UsersAdminService } from '../services/UsersAdminService';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 
 function Usuarios() {
   const usersService = useMemo(() => new UsersAdminService(), []);
@@ -104,7 +105,21 @@ function Usuarios() {
     <Box sx={{ width: '100%', py: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Usuarios</Typography>
-        <Button variant="contained" color="success" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 1, boxShadow: 1 }} onClick={() => setAddUser(true)}>
+        <Button
+          startIcon={<AddIcon />}
+          variant="contained"
+          color="success"
+          sx={{
+            borderRadius: 999,
+            textTransform: 'none',
+            fontWeight: 700,
+            px: 3,
+            py: 0.78,
+            boxShadow: '0 8px 18px rgba(16,185,129,0.16)',
+            '&:hover': { boxShadow: '0 10px 22px rgba(16,185,129,0.22)' }
+          }}
+          onClick={() => setAddUser(true)}
+        >
           Agregar usuario
         </Button>
       </Box>
@@ -180,7 +195,7 @@ function Usuarios() {
               </>
             )}
             <DialogActions sx={{ px: 0, pt: 2 }}>
-              <Button onClick={() => setAddUser(false)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+              <Button onClick={() => setAddUser(false)} color="error" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none', borderColor: 'error.main', color: 'error.main' }}>Cancelar</Button>
               <Button type="submit" color="success" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Crear usuario</Button>
             </DialogActions>
           </Box>
@@ -210,7 +225,7 @@ function Usuarios() {
               </>
             )}
             <DialogActions sx={{ px: 0, pt: 2 }}>
-              <Button onClick={() => setEditUser(null)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+              <Button onClick={() => setEditUser(null)} color="error" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none', borderColor: 'error.main', color: 'error.main' }}>Cancelar</Button>
               <Button type="submit" color="success" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Guardar</Button>
             </DialogActions>
           </Box>
@@ -223,7 +238,7 @@ function Usuarios() {
         <DialogContent>
           <Typography sx={{ mb: 2 }}>¿Estás seguro que quieres eliminar a <b>{deleteUser?.nombre} {deleteUser?.apellido}</b>? Esta acción no se puede deshacer.</Typography>
           <DialogActions sx={{ px: 0, pt: 2 }}>
-            <Button onClick={() => setDeleteUser(null)} color="secondary" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none' }}>Cancelar</Button>
+            <Button onClick={() => setDeleteUser(null)} color="error" variant="outlined" sx={{ borderRadius: 999, textTransform: 'none', borderColor: 'error.main', color: 'error.main' }}>Cancelar</Button>
             <Button onClick={confirmDelete} color="error" variant="contained" sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}>Eliminar</Button>
           </DialogActions>
         </DialogContent>

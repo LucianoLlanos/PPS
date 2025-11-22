@@ -2,24 +2,22 @@ const { BaseRepository } = require('../BaseRepository');
 
 class ProductoAdminRepository extends BaseRepository {
   async selectAllWithImages() {
-    const hasCategoria = await this.hasColumn('productos', 'categoria');
-    const tipoSelect = hasCategoria ? 'p.categoria AS tipo' : "'' AS tipo";
     const sql = `
-      SELECT p.idProducto, p.nombre, ${tipoSelect}, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
-             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
+      SELECT p.idProducto, p.nombre, COALESCE(c.nombre, '') AS tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes, p.idCategoria
       FROM productos p
+      LEFT JOIN categorias c ON p.idCategoria = c.idCategoria
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
       GROUP BY p.idProducto`;
     return this.db.query(sql);
   }
 
   async selectByIdWithImages(id) {
-    const hasCategoria = await this.hasColumn('productos', 'categoria');
-    const tipoSelect = hasCategoria ? 'p.categoria AS tipo' : "'' AS tipo";
     const sql = `
-      SELECT p.idProducto, p.nombre, ${tipoSelect}, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
-             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes
+      SELECT p.idProducto, p.nombre, COALESCE(c.nombre, '') AS tipo, p.descripcion, p.precio, p.stockTotal AS stock, p.imagen,
+             GROUP_CONCAT(pi.imagen ORDER BY pi.orden) AS imagenes, p.idCategoria
       FROM productos p
+      LEFT JOIN categorias c ON p.idCategoria = c.idCategoria
       LEFT JOIN producto_imagenes pi ON p.idProducto = pi.producto_id
       WHERE p.idProducto = ?
       GROUP BY p.idProducto`;
@@ -28,17 +26,21 @@ class ProductoAdminRepository extends BaseRepository {
   }
 
   async insertProduct({ nombre, tipo, descripcion, precio, stockTotal, imagenPrincipal }, conn) {
-    const hasCategoria = await this.hasColumn('productos', 'categoria');
-    if (hasCategoria) {
-      const [result] = await conn.query(
-        'INSERT INTO productos (nombre, categoria, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?, ?)',
-        [nombre, tipo || null, descripcion, precio, stockTotal, imagenPrincipal]
-      );
-      return result.insertId;
+    // Resolve category name to idCategoria (create if missing)
+    let idCategoria = null;
+    if (tipo && tipo.toString().trim() !== '') {
+      const t = String(tipo).trim();
+      const [rows] = await conn.query('SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);
+      if (rows && rows.length) {
+        idCategoria = rows[0].idCategoria;
+      } else {
+        const [res] = await conn.query('INSERT INTO categorias (nombre) VALUES (?)', [t]);
+        idCategoria = res.insertId;
+      }
     }
     const [result] = await conn.query(
-      'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen) VALUES (?, ?, ?, ?, ?)',
-      [nombre, descripcion, precio, stockTotal, imagenPrincipal]
+      'INSERT INTO productos (nombre, descripcion, precio, stockTotal, imagen, idCategoria) VALUES (?, ?, ?, ?, ?, ?)',
+      [nombre, descripcion, precio, stockTotal, imagenPrincipal, idCategoria]
     );
     return result.insertId;
   }
@@ -48,12 +50,19 @@ class ProductoAdminRepository extends BaseRepository {
   }
 
   async updateProductCore(id, { nombre, tipo, descripcion, precio, stockTotal }, conn) {
-    const hasCategoria = await this.hasColumn('productos', 'categoria');
-    if (hasCategoria) {
-      await conn.query('UPDATE productos SET nombre=?, categoria=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, tipo || null, descripcion, precio, stockTotal, id]);
-      return;
+    // Resolve category name to idCategoria (create if missing)
+    let idCategoria = null;
+    if (tipo && tipo.toString().trim() !== '') {
+      const t = String(tipo).trim();
+      const [rows] = await conn.query('SELECT idCategoria FROM categorias WHERE nombre = ? LIMIT 1', [t]);
+      if (rows && rows.length) {
+        idCategoria = rows[0].idCategoria;
+      } else {
+        const [res] = await conn.query('INSERT INTO categorias (nombre) VALUES (?)', [t]);
+        idCategoria = res.insertId;
+      }
     }
-    await conn.query('UPDATE productos SET nombre=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, descripcion, precio, stockTotal, id]);
+    await conn.query('UPDATE productos SET nombre=?, idCategoria=?, descripcion=?, precio=?, stockTotal=? WHERE idProducto=?', [nombre, idCategoria, descriptionOrNull(descripcion), precio, stockTotal, id]);
   }
 
   async deleteImagesByFilenames(id, filenames, conn) {
@@ -88,6 +97,11 @@ class ProductoAdminRepository extends BaseRepository {
   async deleteProduct(id, conn) {
     await conn.query('DELETE FROM productos WHERE idProducto=?', [id]);
   }
+
+}
+
+function descriptionOrNull(desc) {
+  return typeof desc === 'undefined' || desc === null ? null : desc;
 }
 
 module.exports = { ProductoAdminRepository };

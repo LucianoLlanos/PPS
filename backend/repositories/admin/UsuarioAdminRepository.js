@@ -12,7 +12,9 @@ class UsuarioAdminRepository extends BaseRepository {
   async existsEmail(email, conn = null) {
     const sql = 'SELECT 1 FROM usuarios WHERE email=? LIMIT 1';
     const runner = conn ? conn.query.bind(conn) : this.db.query.bind(this.db);
-    const rows = await runner(sql, [email]);
+    const result = await runner(sql, [email]);
+    // If runner is a raw connection method it returns [rows, fields]; normalize
+    const rows = Array.isArray(result) && result.length > 0 && Array.isArray(result[0]) ? result[0] : result;
     return rows && rows.length > 0;
   }
 

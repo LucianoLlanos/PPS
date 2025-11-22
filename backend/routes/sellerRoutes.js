@@ -17,6 +17,7 @@ router.delete('/products/:id(\\d+)', sellerController.deleteProduct);
 
 // Orders
 router.post('/orders', sellerController.createOrder);
+router.post('/clients/minimal', sellerController.createClientMinimal);
 router.get('/orders', sellerController.listOrders);
 router.put('/orders/:id(\\d+)/status', sellerController.updateOrderStatus);
 

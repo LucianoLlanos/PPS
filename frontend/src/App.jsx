@@ -2,9 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Usuarios from './components/Usuarios';
 import Productos from './components/Productos';
 import Pedidos from './components/Pedidos';
+import PedidoDetail from './components/PedidoDetail';
 import PedidosDebug from './components/PedidosDebug';
 import Clientes from './components/Clientes';
 import Login from './components/Login';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import Register from './components/Register';
 import HomeProducts from './components/HomeProducts';
 import PageFade from './components/PageFade';
@@ -13,6 +16,7 @@ import Cart from './components/Cart';
 import Favoritos from './components/Favoritos';
 import ServiciosPostVenta from './components/ServiciosPostVenta';
 import ServiciosAdmin from './components/ServiciosAdmin';
+import ServicioDetail from './components/ServicioDetail';
 import VentasAnalytics from './components/admin/VentasAnalytics';
 import AcercaDe from './components/AcercaDe';
 import EmpresaAdmin from './components/admin/EmpresaAdmin';
@@ -73,6 +77,8 @@ function App() {
       <Routes>
         {/* Rutas públicas principales */}
         <Route path="/login" element={<PageWrapper><Login onLogin={handleLogin} /></PageWrapper>} />
+        <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />
+        <Route path="/reset-password" element={<PageWrapper><ResetPassword /></PageWrapper>} />
         <Route path="/register" element={<PageWrapper><Register /></PageWrapper>} />
         
         {/* Rutas con layout principal */}
@@ -98,8 +104,10 @@ function App() {
             <Route path="/usuarios" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Usuarios /></ProtectedRoute></PageWrapper>} />
             <Route path="/productos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Productos /></ProtectedRoute></PageWrapper>} />
             <Route path="/pedidos" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Pedidos /></ProtectedRoute></PageWrapper>} />
+            <Route path="/pedidos/:id" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><PedidoDetail /></ProtectedRoute></PageWrapper>} />
             <Route path="/clientes" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><Clientes /></ProtectedRoute></PageWrapper>} />
             <Route path="/servicios-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><ServiciosAdmin /></ProtectedRoute></PageWrapper>} />
+            <Route path="/servicios-admin/:id" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><ServicioDetail /></ProtectedRoute></PageWrapper>} />
             <Route path="/empresa-admin" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><EmpresaAdmin /></ProtectedRoute></PageWrapper>} />
             <Route path="/pedidos-debug" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><PedidosDebug /></ProtectedRoute></PageWrapper>} />
             <Route path="/ventas-analytics" element={<PageWrapper><ProtectedRoute requiredRoleId={3}><VentasAnalytics /></ProtectedRoute></PageWrapper>} />

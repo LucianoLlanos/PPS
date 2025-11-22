@@ -8,33 +8,18 @@ const connection = {
 };
 
 const queries = [
-  `CREATE TABLE IF NOT EXISTS products (
+  // Crear tabla de banners compatible con el repositorio (`banners_carousel`)
+  `CREATE TABLE IF NOT EXISTS banners_carousel (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255),
-    description TEXT,
-    price DECIMAL(10,2) DEFAULT 0,
-    stock INT DEFAULT 0,
-    image VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB;`,
-
-  `CREATE TABLE IF NOT EXISTS orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    customer_name VARCHAR(255),
-    items TEXT,
-    total DECIMAL(10,2) DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB;`,
-
-  `CREATE TABLE IF NOT EXISTS carousel (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255),
-    caption TEXT,
-    link VARCHAR(255),
-    image VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB;`,
+    titulo VARCHAR(255),
+    descripcion TEXT,
+    imagen VARCHAR(255),
+    enlace VARCHAR(255),
+    orden INT DEFAULT 0,
+    activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`,
 
   `CREATE TABLE IF NOT EXISTS roles (
     idRol INT PRIMARY KEY,

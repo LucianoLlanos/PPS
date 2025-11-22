@@ -21,6 +21,24 @@ class ServicioRepository extends BaseRepository {
     return this.db.query(sql, [idUsuario]);
   }
 
+  async getById(idSolicitud) {
+    const sql = `
+      SELECT s.*, u.nombre, u.apellido, u.email, c.telefono as clienteTelefono
+      FROM solicitudes_servicio_postventa s
+      JOIN usuarios u ON s.idUsuario = u.idUsuario
+      LEFT JOIN clientes c ON c.idUsuario = u.idUsuario
+      WHERE s.idSolicitud = ?
+      LIMIT 1
+    `;
+    try {
+      const rows = await this.db.query(sql, [idSolicitud]);
+      return rows && rows[0] ? rows[0] : null;
+    } catch (err) {
+      console.error('[ServicioRepository] getById error', err && err.message ? err.message : err);
+      throw err;
+    }
+  }
+
   async createSolicitud({ idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida }) {
     const sql = `
       INSERT INTO solicitudes_servicio_postventa 

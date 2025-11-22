@@ -16,6 +16,7 @@ class OrdersAdminController {
       const data = await this.service.listarPedidos(req.query);
       res.json(data);
     } catch {
+      console.error('[OrdersAdminController][listarPedidos] error', arguments, new Error().stack);
       res.status(500).json({ error: 'Error al obtener pedidos' });
     }
   }
@@ -40,10 +41,13 @@ class OrdersAdminController {
         totalConInteres: z.coerce.number().nonnegative().optional().nullable(),
       });
       const { idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = schema.parse(req.body);
-      const result = await this.service.crearPedido({ idUsuarioCliente: idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres });
+      // Pass authenticated user so the service can decide whether to create notifications
+      const actor = req.user || null;
+      const result = await this.service.crearPedido({ idUsuarioCliente: idCliente, estado, idSucursalOrigen, productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres }, actor);
       res.json({ mensaje: 'Pedido creado', ...result });
     } catch (e) {
       if (e?.issues) return res.status(400).json({ error: 'Validación fallida', issues: e.issues });
+      console.error('[OrdersAdminController][crearPedido] error', e && e.stack ? e.stack : e);
       res.status(e.status || 500).json({ error: e.message || 'Error al crear pedido' });
     }
   }
@@ -54,6 +58,7 @@ class OrdersAdminController {
       const rows = await this.service.verDetallePedido(id);
       res.json(rows);
     } catch {
+      console.error('[OrdersAdminController][verDetallePedido] error', arguments, new Error().stack);
       res.status(500).json({ error: 'Error al obtener detalle del pedido' });
     }
   }
@@ -71,11 +76,63 @@ class OrdersAdminController {
   async actualizarPedido(req, res) {
     try {
       const id = z.coerce.number().int().positive().parse(req.params.id);
-      const { estado } = z.object({ estado: z.string().min(1) }).parse(req.body);
-      await this.service.actualizarPedido(id, estado);
+      const { estado: rawEstado } = z.object({ estado: z.string().min(1) }).parse(req.body);
+
+      // Map frontend estado values to DB enum values (avoid MySQL truncation/errors)
+      // DB enum uses lowercase values like: 'pendiente','confirmado','preparando','enviado','entregado','cancelado'
+      const norm = String(rawEstado || '').trim().toLowerCase().replace(/[^a-záéíóúñ ]/g, '');
+      const mapping = {
+        'pendiente': 'pendiente',
+        'confirmado': 'confirmado',
+        'en proceso': 'preparando',
+        'enproceso': 'preparando',
+        'preparando': 'preparando',
+        'enviado': 'enviado',
+        'entregado': 'entregado',
+        'cancelado': 'cancelado'
+      };
+      const estadoDb = mapping[norm];
+      if (!estadoDb) {
+        return res.status(400).json({ error: 'Estado inválido' });
+      }
+
+      await this.service.actualizarPedido(id, estadoDb);
       res.json({ mensaje: 'Pedido actualizado' });
-    } catch {
-      res.status(500).json({ error: 'Error al actualizar pedido' });
+    } catch (e) {
+      console.error('[OrdersAdminController][actualizarPedido] error', e && (e.stack || e.message) ? (e.stack || e.message) : e);
+      res.status(e.status || 500).json({ error: e.message || 'Error al actualizar pedido' });
+    }
+  }
+
+  async crearRetiro(req, res) {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const body = req.body || {};
+      const schema = z.object({ telefono: z.string().min(4).optional() });
+      const { telefono } = schema.parse(body);
+
+      const actor = req.user || null;
+      const RetiroRepository = require('../../repositories/RetiroRepository');
+
+      // Generar código de 6 dígitos y asegurar unicidad (hasta N intentos)
+      const genCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+      let codigo;
+      let attempts = 0;
+      while (attempts < 6) {
+        codigo = genCode();
+        // eslint-disable-next-line no-await-in-loop
+        const exists = await RetiroRepository.getByCodigo(codigo);
+        if (!exists) break;
+        attempts += 1;
+      }
+      if (!codigo) return res.status(500).json({ error: 'No se pudo generar código de retiro' });
+
+      const creado = await RetiroRepository.create({ idPedido: id, codigo, telefono: telefono || null, creadoPor: actor ? (actor.idUsuario || actor.id || null) : null });
+      res.json({ mensaje: 'Código de retiro creado', codigo: creado.codigo || codigo, idRetiro: creado.idRetiro });
+    } catch (e) {
+      console.error('[OrdersAdminController][crearRetiro] error', e && (e.stack || e.message) ? (e.stack || e.message) : e);
+      if (e?.issues) return res.status(400).json({ error: 'Validación fallida', issues: e.issues });
+      res.status(e.status || 500).json({ error: e.message || 'Error al crear código de retiro' });
     }
   }
 }

@@ -57,6 +57,23 @@ class App {
       }
     });
 
+    // Sucursales públicas (lista para selección de sucursal en checkout)
+    try {
+      const { SucursalesAdminService } = require('./services/admin/SucursalesAdminService');
+      const sucursalesService = new SucursalesAdminService();
+      this.app.get('/sucursales', async (req, res) => {
+        try {
+          const rows = await sucursalesService.listarSucursales();
+          res.json(rows);
+        } catch (e) {
+          this.logger.error('Error al obtener sucursales', e);
+          res.status(500).json({ error: 'Error al obtener sucursales' });
+        }
+      });
+    } catch (e) {
+      this.logger.warn('No se pudo registrar endpoint público de sucursales');
+    }
+
     this.app.use('/auth', authRoutes);
     this.app.use('/favorites', favoritesRoutes);
     this.app.use('/orders', ordersRoutes);

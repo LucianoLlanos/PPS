@@ -60,6 +60,7 @@ export default function Cart() {
   const stockService = React.useMemo(() => new StockService(), []);
 
   const [insufficientStock, setInsufficientStock] = useState([]);
+  const [sucursalAvailabilityMap, setSucursalAvailabilityMap] = useState({}); // idProducto -> disponible en sucursal seleccionada
 
   useEffect(() => {
     loadCart();
@@ -113,27 +114,74 @@ export default function Cart() {
     return () => { mounted = false; };
   }, [isSeller]);
 
-  // Validar stock por sucursal para vendedor
+  // Cargar sucursales para clientes (no vendedores)
+  useEffect(() => {
+    let mounted = true;
+    if (isSeller) return; // ya se cargan en el efecto anterior
+    (async () => {
+      try {
+        const sucs = await sucursalesService.list().catch(() => []);
+        if (!mounted) return;
+        setSucursales(sucs || []);
+        if (sucs && sucs.length > 0 && !sucursalId) setSucursalId(String(sucs[0].idSucursal));
+      } catch {
+        if (mounted) setSucursales([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [isSeller, sucursalesService]);
+
+  // Validar stock por sucursal (vendedor y cliente)
   useEffect(() => {
     let mounted = true;
     const checkStock = async () => {
       try {
-        if (!isSeller) return;
-        const stockList = await stockService.listStockSucursal();
-        if (!mounted) return;
         const sucId = Number(sucursalId || 0);
-        if (!sucId) { setInsufficientStock([]); return; }
-        const insuff = [];
-        for (const it of cartItems) {
-          const prodId = Number(it.product?.idProducto || it.product?.id || it.id);
-          const qty = Number(it.quantity || 1);
-          const entry = (stockList || []).find(s => Number(s.idSucursal) === sucId && Number(s.idProducto) === prodId);
-          const available = entry ? Number(entry.stockDisponible || 0) : 0;
-          if (available < qty) {
-            insuff.push({ id: prodId, nombre: it.product?.nombre || String(prodId), required: qty, available });
+        if (!sucId || cartItems.length === 0) { setInsufficientStock([]); return; }
+        if (isSeller) {
+          // Vendedor: usa endpoint admin
+          const stockList = await stockService.listStockSucursal();
+          if (!mounted) return;
+          const insuff = [];
+          for (const it of cartItems) {
+            const prodId = Number(it.product?.idProducto || it.product?.id || it.id);
+            const qty = Number(it.quantity || 1);
+            const entry = (stockList || []).find(s => Number(s.idSucursal) === sucId && Number(s.idProducto) === prodId);
+            const available = entry ? Number(entry.stockDisponible || 0) : 0;
+            if (available < qty) insuff.push({ id: prodId, nombre: it.product?.nombre || String(prodId), required: qty, available });
           }
+          setInsufficientStock(insuff);
+        } else {
+          // Cliente: usa endpoint público de productos con idSucursal
+          const data = await productsService.client.get('/productos', { params: { idSucursal: sucId } }).catch(() => []);
+          if (!mounted) return;
+          // construir mapa de disponibilidad por producto en esta sucursal
+          const avail = {};
+          for (const p of (Array.isArray(data) ? data : [])) {
+            const pid = Number(p.idProducto || p.id);
+            if (!pid) continue;
+            let available = 0;
+            if (Array.isArray(p.stockPorSucursal)) {
+              const entry = p.stockPorSucursal.find(s => Number(s.idSucursal) === sucId);
+              available = entry ? Number(entry.stockDisponible || 0) : 0;
+            }
+            avail[pid] = available;
+          }
+          setSucursalAvailabilityMap(avail);
+          const insuff = [];
+          for (const it of cartItems) {
+            const prodId = Number(it.product?.idProducto || it.product?.id || it.id);
+            const qty = Number(it.quantity || 1);
+            const prod = (Array.isArray(data) ? data : []).find(p => Number(p.idProducto || p.id) === prodId);
+            let available = 0;
+            if (prod && Array.isArray(prod.stockPorSucursal)) {
+              const entry = prod.stockPorSucursal.find(s => Number(s.idSucursal) === sucId);
+              available = entry ? Number(entry.stockDisponible || 0) : 0;
+            }
+            if (available < qty) insuff.push({ id: prodId, nombre: it.product?.nombre || String(prodId), required: qty, available });
+          }
+          setInsufficientStock(insuff);
         }
-        setInsufficientStock(insuff);
       } catch (e) {
         console.warn('[Cart] no se pudo validar stock por sucursal', e);
         setInsufficientStock([]);
@@ -141,7 +189,7 @@ export default function Cart() {
     };
     checkStock();
     return () => { mounted = false; };
-  }, [sucursalId, cartItems, isSeller, stockService]);
+  }, [sucursalId, cartItems, isSeller, stockService, productsService]);
 
   // Cerrar selects si se scrollea la página
   useEffect(() => {
@@ -171,7 +219,11 @@ export default function Cart() {
     if (newQuantity < 1) return;
     
     // Validar contra stock disponible
-    const stockDisponible = productosStock[id] || 0;
+    let stockDisponible = productosStock[id] || 0;
+    if (!isSeller) {
+      const sucAvail = sucursalAvailabilityMap[id];
+      if (typeof sucAvail === 'number') stockDisponible = sucAvail;
+    }
     if (newQuantity > stockDisponible) {
       alert(`Stock insuficiente. Disponible: ${stockDisponible}`);
       return;
@@ -245,6 +297,12 @@ export default function Cart() {
       return;
     }
 
+    if (insufficientStock && insufficientStock.length > 0) {
+      const msg = `La sucursal seleccionada no tiene stock suficiente para: ${insufficientStock.map(i => `${i.nombre} (necesita ${i.required}, disponible ${i.available})`).join(', ')}`;
+      setOrderModal({ open: true, id: null, modo: 'error', extra: msg });
+      return;
+    }
+
     const productos = cartItems.map(item => ({
       idProducto: item.product.idProducto || item.product.id,
       cantidad: item.quantity
@@ -263,7 +321,8 @@ export default function Cart() {
         cuotas: cuotas,
         interes: interes,
         descuento: descuento,
-        totalConInteres: totalConAjustes
+        totalConInteres: totalConAjustes,
+        idSucursalOrigen: Number(sucursalId || 0) || undefined
       });
       const pedidoId = result.idPedido;
       clearCart();
@@ -408,6 +467,7 @@ export default function Cart() {
                 const product = item.product;
                 const subtotal = getSubtotal(item);
                 const unitPrice = parseFloat(product.price || product.precio || 0);
+                const prodId = Number(product.idProducto || product.id);
                 const resolveImage = (prod) => {
                   if (!prod) return '/img/no-image.jpg';
                   if (Array.isArray(prod.imagenes) && prod.imagenes.length > 0) {
@@ -424,6 +484,8 @@ export default function Cart() {
                   return '/img/no-image.jpg';
                 };
                 const imageUrl = resolveImage(product);
+                const availableInSucursal = !isSeller ? (sucursalAvailabilityMap[prodId] ?? undefined) : undefined;
+                const canIncrease = isSeller || typeof availableInSucursal !== 'number' ? true : (item.quantity < (availableInSucursal || 0));
                 return (
                   <Box key={item.id} sx={{
                     display: 'grid',
@@ -441,6 +503,11 @@ export default function Cart() {
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0.25, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{product.nombre}</Typography>
                       <Typography variant="caption" color="text.secondary">{product.categoria || 'Sin categoría'}</Typography>
+                      {!isSeller && typeof availableInSucursal === 'number' && (
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: availableInSucursal >= item.quantity ? 'success.main' : 'error.main' }}>
+                          Disponible en sucursal: {availableInSucursal}
+                        </Typography>
+                      )}
                       <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'block', sm: 'none' }, mt: 0.5 }}>
                         {formatCurrency(unitPrice)} x {item.quantity} = {formatCurrency(subtotal)}
                       </Typography>
@@ -449,7 +516,7 @@ export default function Cart() {
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'center' }, gap: 1, gridColumn: { xs: '1 / span 2', sm: 'auto' } }}>
                       <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity - 1)} disabled={item.quantity <= 1}><RemoveIcon /></IconButton>
                       <TextField value={item.quantity} size="small" inputProps={{ style: { textAlign: 'center', width: 56 } }} onChange={(e) => { const q = Math.max(1, parseInt(e.target.value) || 1); handleQuantityChange(item.id, q); }} />
-                      <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity + 1)}><AddIcon /></IconButton>
+                      <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity + 1)} disabled={!canIncrease}><AddIcon /></IconButton>
                     </Box>
                     <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'center', fontWeight: 700 }}>{formatCurrency(subtotal)}</Box>
                     <Box sx={{ display: { xs: 'none', sm: 'flex' }, justifyContent: 'center' }}>
@@ -508,6 +575,27 @@ export default function Cart() {
               
               {!isSeller && user && (
                 <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>Sucursal de retiro</Typography>
+                  <Autocomplete
+                    options={sucursales}
+                    size="small"
+                    getOptionLabel={(s) => s?.nombre ?? ''}
+                    value={sucursales.find((s) => String(s.idSucursal) === String(sucursalId)) || null}
+                    onChange={(_, val) => setSucursalId(val ? String(val.idSucursal) : '')}
+                    renderInput={(params) => <TextField {...params} label="Sucursal" placeholder="Seleccione sucursal" />}
+                    isOptionEqualToValue={(o, v) => String(o.idSucursal) === String(v.idSucursal)}
+                  />
+                  {Array.isArray(sucursales) && sucursales.length === 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Alert severity="info">No hay sucursales disponibles para seleccionar. Si el problema persiste, recargá o volvé a intentar más tarde.</Alert>
+                    </Box>
+                  )}
+                  {insufficientStock && insufficientStock.length > 0 ? (
+                    <Box sx={{ mt: 1 }}>
+                      <Alert severity="warning">La sucursal seleccionada no tiene stock suficiente para {insufficientStock.length} producto(s): {insufficientStock.map(i => `${i.nombre} (necesita ${i.required}, disponible ${i.available})`).join(', ')}. Ajustá cantidades o cambiá la sucursal.</Alert>
+                    </Box>
+                  ) : null}
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>Método de pago</Typography>
                   <FormControl fullWidth size="small" sx={{ mb: 2 }}>
@@ -594,7 +682,7 @@ export default function Cart() {
               {/* Acciones para comprador normal */}
               {!isSeller && !emptyCart && (
                 <Stack spacing={1} sx={{ mt: 3 }}>
-                  <Button sx={{ borderRadius: 0, py: 1.2, fontWeight: 800 }} variant={user ? 'contained' : 'outlined'} color={user ? 'success' : 'primary'} fullWidth onClick={handleCheckout} disabled={loading}>{loading ? 'Procesando...' : (user ? 'Hacer Pedido' : 'Iniciar sesión para pedir')}</Button>
+                  <Button sx={{ borderRadius: 0, py: 1.2, fontWeight: 800 }} variant={user ? 'contained' : 'outlined'} color={user ? 'success' : 'primary'} fullWidth onClick={handleCheckout} disabled={loading || (insufficientStock && insufficientStock.length > 0)}>{loading ? 'Procesando...' : (user ? 'Hacer Pedido' : 'Iniciar sesión para pedir')}</Button>
                   <Button sx={{ borderRadius: 0 }} variant="outlined" fullWidth onClick={() => navigate('/')}>Seguir comprando</Button>
                   <Button sx={{ borderRadius: 0 }} variant="text" fullWidth color="error" onClick={handleClearCart}>Vaciar carrito</Button>
                 </Stack>

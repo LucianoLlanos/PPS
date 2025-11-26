@@ -51,10 +51,15 @@ class CarouselController {
       const { id } = req.params;
       const { titulo, descripcion, enlace, orden, activo } = req.body;
       const nuevaImagen = req.file ? req.file.filename : null;
+      // Logs de diagnóstico (opción A)
+      console.debug('[CarouselController] actualizarBanner params:', req.params);
+      console.debug('[CarouselController] actualizarBanner body snapshot:', { titulo, descripcion, enlace, orden, activo });
+      if (req.file) console.debug('[CarouselController] actualizarBanner file:', { originalname: req.file.originalname, filename: req.file.filename, size: req.file.size });
       await this.service.update(id, { titulo, descripcion, imagen: nuevaImagen, enlace, orden, activo });
       res.json({ message: 'Banner actualizado exitosamente' });
     } catch (err) {
       if (err instanceof AppError) return res.status(err.status).json({ error: err.message });
+      if (err && err.sqlMessage) console.error('SQL Error actualizarBanner:', err.sqlMessage);
       console.error('Error actualizando banner:', err);
       res.status(500).json({ error: 'Error interno del servidor' });
     }

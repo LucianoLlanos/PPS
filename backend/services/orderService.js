@@ -28,7 +28,7 @@ class OrderService {
   }
 
   async createOrder(user, payload) {
-    const { productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = payload;
+    const { productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres, idSucursalOrigen } = payload;
     this.validateProductos(productos);
 
     const idUsuario = user.idUsuario;
@@ -42,10 +42,21 @@ class OrderService {
       const parsedInteres = Number(interes) || 0;
       const parsedDescuento = Number(descuento) || 0;
 
+      // Validar sucursal origen
+      let sucursalOrigen = Number(idSucursalOrigen || 0);
+      if (!Number.isInteger(sucursalOrigen) || sucursalOrigen <= 0) {
+        const { SucursalAdminRepository } = require('../repositories/admin/SucursalAdminRepository');
+        const sRepo = new SucursalAdminRepository(this.db);
+        const ids = await sRepo.listIds(conn);
+        if (!ids || ids.length === 0) throw AppError.badRequest('No hay sucursales configuradas');
+        sucursalOrigen = ids[0];
+      }
+
       const idPedido = await this.orderRepo.insertPedido(conn, {
         idCliente,
         fechaPedido,
         observaciones,
+        idSucursalOrigen: sucursalOrigen,
         metodoPago,
         cuotas: parsedCuotas,
         interes: parsedInteres,
@@ -78,6 +89,15 @@ class OrderService {
           precioUnitario,
           subtotal,
         });
+
+        // Descontar stock por sucursal y recalcular total del producto desde stock_sucursal
+        const { StockAdminRepository } = require('../repositories/admin/StockAdminRepository');
+        const stockRepo = new StockAdminRepository(this.db);
+        const ok = await stockRepo.decrementStockIfAvailable({ idSucursal: sucursalOrigen, idProducto: p.idProducto, cantidad }, conn);
+        if (!ok) {
+          throw AppError.badRequest(`Stock insuficiente para producto ${p.idProducto} en sucursal ${sucursalOrigen}`);
+        }
+        await stockRepo.recalcProductTotalFromSucursal(p.idProducto, conn);
       }
 
       const totalFinal = totalConInteres || acumulado;

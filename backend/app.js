@@ -43,6 +43,19 @@ class App {
         res.json(await productService.listProducts(idSucursal));
       } catch (e) { this.logger.error('Error al obtener productos', e); res.status(500).json({ error: 'Error al obtener productos' }); }
     });
+
+    // Sucursales públicas (solo lectura)
+    this.app.get('/sucursales', async (req, res) => {
+      try {
+        const { Database } = require('./core/database');
+        const db = new Database();
+        const rows = await db.query('SELECT * FROM sucursales');
+        res.json(rows || []);
+      } catch (e) {
+        this.logger.error('Error al obtener sucursales', e);
+        res.status(500).json({ error: 'Error al obtener sucursales' });
+      }
+    });
     this.app.get('/productos/:id', async (req, res) => {
       try {
         const id = Number(req.params.id);

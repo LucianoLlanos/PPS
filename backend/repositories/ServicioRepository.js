@@ -4,10 +4,8 @@ class ServicioRepository extends BaseRepository {
   async listAll() {
     const sql = `
       SELECT 
-        s.*, u.nombre, u.apellido, u.email,
-        sd.productoTipo, sd.distanciaKm, sd.provincia
+        s.*, u.nombre, u.apellido, u.email
       FROM solicitudes_servicio_postventa s
-      LEFT JOIN solicitudes_servicio_detalle sd ON sd.idSolicitud = s.idSolicitud
       JOIN usuarios u ON s.idUsuario = u.idUsuario
       ORDER BY s.fechaCreacion DESC
     `;
@@ -16,9 +14,8 @@ class ServicioRepository extends BaseRepository {
 
   async listByUsuario(idUsuario) {
     const sql = `
-      SELECT s.*, sd.productoTipo, sd.distanciaKm, sd.provincia
+      SELECT s.*
       FROM solicitudes_servicio_postventa s
-      LEFT JOIN solicitudes_servicio_detalle sd ON sd.idSolicitud = s.idSolicitud
       WHERE s.idUsuario = ?
       ORDER BY s.fechaCreacion DESC
     `;
@@ -27,11 +24,9 @@ class ServicioRepository extends BaseRepository {
 
   async getById(idSolicitud) {
     const sql = `
-      SELECT s.*, u.nombre, u.apellido, u.email, c.telefono as clienteTelefono,
-             sd.productoTipo, sd.distanciaKm, sd.provincia
+      SELECT s.*, u.nombre, u.apellido, u.email, c.telefono as clienteTelefono
       FROM solicitudes_servicio_postventa s
       JOIN usuarios u ON s.idUsuario = u.idUsuario
-      LEFT JOIN solicitudes_servicio_detalle sd ON sd.idSolicitud = s.idSolicitud
       LEFT JOIN clientes c ON c.idUsuario = u.idUsuario
       WHERE s.idSolicitud = ?
       LIMIT 1
@@ -53,14 +48,7 @@ class ServicioRepository extends BaseRepository {
     `;
     const result = await this.db.query(sql, [idUsuario, tipoServicio, descripcion, direccion, telefono, fechaPreferida, horaPreferida]);
     const idSolicitud = result.insertId;
-    // Insertar detalle opcional si hay datos
-    if (productoTipo || distanciaKm !== undefined || provincia) {
-      const sqlDetalle = `
-        INSERT INTO solicitudes_servicio_detalle (idSolicitud, productoTipo, distanciaKm, provincia)
-        VALUES (?, ?, ?, ?)
-      `;
-      await this.db.query(sqlDetalle, [idSolicitud, productoTipo || null, distanciaKm !== undefined ? distanciaKm : null, provincia || null]);
-    }
+    // Nota: detalles de producto/distancia/provincia se omiten si la tabla de detalle no existe
     return idSolicitud;
   }
 

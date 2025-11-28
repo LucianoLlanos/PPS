@@ -70,6 +70,16 @@ export default function HomeProducts() {
     fetch();
   }, [location.search]);
 
+  // Listen for global product refresh events (e.g. after checkout)
+  useEffect(() => {
+    const onRefresh = (e) => {
+      // optional: could use e.detail to optimize
+      fetch();
+    };
+    window.addEventListener('products:refresh', onRefresh);
+    return () => window.removeEventListener('products:refresh', onRefresh);
+  }, []);
+
   // Listen for live search events from SearchSection to update query without routing
   useEffect(() => {
     const onLive = (e) => {

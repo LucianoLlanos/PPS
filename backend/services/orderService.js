@@ -3,6 +3,7 @@ const { AppError } = require('../core/errors');
 const { ClienteRepository } = require('../repositories/ClienteRepository');
 const { OrderRepository } = require('../repositories/OrderRepository');
 const { ProductRepository } = require('../repositories/ProductRepository');
+const { StockAdminRepository } = require('../repositories/admin/StockAdminRepository');
 const { Order } = require('../domain/Order');
 const { OrderItem } = require('../domain/OrderItem');
 
@@ -12,6 +13,7 @@ class OrderService {
     this.clienteRepo = new ClienteRepository(db);
     this.orderRepo = new OrderRepository(db);
     this.productRepo = new ProductRepository(db);
+    this.stockRepo = new StockAdminRepository(db);
     const { NotificationService } = require('./NotificationService');
     this.notif = new NotificationService(db);
   }
@@ -28,7 +30,7 @@ class OrderService {
   }
 
   async createOrder(user, payload) {
-    const { productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres } = payload;
+    const { productos, observaciones, metodoPago, cuotas, interes, descuento, totalConInteres, idSucursalOrigen } = payload;
     this.validateProductos(productos);
 
     const idUsuario = user.idUsuario;
@@ -51,6 +53,7 @@ class OrderService {
         interes: parsedInteres,
         descuento: parsedDescuento,
         totalConInteres,
+        idSucursalOrigen: Number(idSucursalOrigen) || 1,
       });
 
       let acumulado = 0;
@@ -66,6 +69,13 @@ class OrderService {
         if (isNaN(precioUnitario) || precioUnitario <= 0) {
           console.warn(`[OrderService] Precio unitario inválido para producto ${p.idProducto}:`, precioUnitario);
           throw AppError.badRequest(`Precio inválido para producto ${p.idProducto}`);
+        }
+
+        // Descontar stock en la sucursal seleccionada (si existe stock_sucursal suficiente)
+        const suc = Number(idSucursalOrigen) || 1;
+        const ok = await this.stockRepo.decrementStockIfAvailable({ idSucursal: suc, idProducto: p.idProducto, cantidad }, conn);
+        if (!ok) {
+          throw AppError.badRequest(`Stock insuficiente para producto ${p.idProducto} en la sucursal ${suc}`);
         }
 
         const subtotal = precioUnitario * cantidad;

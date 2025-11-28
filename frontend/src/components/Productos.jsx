@@ -214,6 +214,17 @@ function Productos() {
       .catch(() => {});
   }, [productsService, stockService, sucursalesService, success]);
 
+  // Escuchar eventos globales de refresco de productos/stock (p.ej. después de un pedido)
+  useEffect(() => {
+    const onRefresh = (e) => {
+      // Re-fetch stock rows and admin product list
+      stockService.listStockSucursal().then(setStockSucursal).catch(() => {});
+      productsService.listAdmin().then(setProductos).catch(() => {});
+    };
+    window.addEventListener('products:refresh', onRefresh);
+    return () => window.removeEventListener('products:refresh', onRefresh);
+  }, [stockService, productsService]);
+
   // Inicializar map de stock por sucursal para el formulario de agregar
   useEffect(() => {
     if (!sucursales || sucursales.length === 0) return;

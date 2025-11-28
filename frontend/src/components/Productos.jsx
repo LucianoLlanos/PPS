@@ -12,6 +12,10 @@ import HistoryIcon from '@mui/icons-material/History';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AddIcon from '@mui/icons-material/Add';
 import { formatCurrency } from '../utils/format';
+// Exportación (PDF / Excel)
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 // Memoized StockTable to avoid re-rendering stock tables on every parent render
 const StockTable = React.memo(function StockTable({ items, nombreSucursal, idSucursal, onEdit }) {
@@ -618,12 +622,125 @@ function Productos() {
 
   // NOTE: se usa el componente memoizado `StockTable` definido fuera del componente Productos
 
+  // =============================
+  // Exportar Inventario (PDF/Excel)
+  // =============================
+  const buildExportRows = () => {
+    // Usar todos los productos filtrados (ignorar paginación para exportar vista completa)
+    return productosFiltradosSorted.map(p => {
+      // Mapear stock por sucursal
+      const rowStock = {};
+      sucursalesList.forEach(s => { rowStock[s.nombreSucursal] = 0; });
+      stockSucursal.forEach(ss => {
+        if (Number(ss.idProducto) === Number(p.idProducto)) {
+          const suc = sucursalesList.find(s => s.idSucursal === ss.idSucursal);
+          if (suc) rowStock[suc.nombreSucursal] = Number(ss.stockDisponible || 0);
+        }
+      });
+      return {
+        ID: p.idProducto,
+        Nombre: p.nombre,
+        Descripcion: p.descripcion || '',
+        Precio: Number(p.precio || p.price || 0),
+        StockTotal: Number(p.stock || 0),
+        ...rowStock
+      };
+    });
+  };
+
+  const exportInventarioPDF = () => {
+    const rows = buildExportRows();
+    if (!rows || rows.length === 0) {
+      alert('No hay productos para exportar');
+      return;
+    }
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const fecha = new Date().toLocaleString();
+    doc.setFontSize(14);
+    doc.text('Inventario de Productos', 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Generado: ${fecha}`, 14, 22);
+    const head = [
+      [
+        'ID',
+        'Nombre',
+        'Descripción',
+        'Precio',
+        'Stock Total',
+        ...sucursalesList.map(s => `Stock ${s.nombreSucursal}`)
+      ]
+    ];
+    const body = rows.map(r => [
+      r.ID,
+      r.Nombre,
+      (r.Descripcion || '').length > 70 ? (r.Descripcion.substring(0, 67) + '…') : r.Descripcion || '',
+      formatCurrency(r.Precio),
+      r.StockTotal,
+      ...sucursalesList.map(s => r[s.nombreSucursal] ?? 0)
+    ]);
+    doc.autoTable({
+      head,
+      body,
+      startY: 26,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+    // Totales al final
+    const totalGlobal = rows.reduce((acc, r) => acc + Number(r.StockTotal || 0), 0);
+    doc.setFontSize(10);
+    doc.text(`Total global de unidades: ${totalGlobal}`, 14, doc.lastAutoTable.finalY + 8);
+    doc.save(`inventario_productos_${new Date().toISOString().substring(0,10)}.pdf`);
+  };
+
+  const exportInventarioExcel = () => {
+    const rows = buildExportRows();
+    if (!rows || rows.length === 0) {
+      alert('No hay productos para exportar');
+      return;
+    }
+    // Preparar hoja
+    const worksheetData = [];
+    worksheetData.push([
+      'ID', 'Nombre', 'Descripción', 'Precio', 'Stock Total', ...sucursalesList.map(s => `Stock ${s.nombreSucursal}`)
+    ]);
+    rows.forEach(r => {
+      worksheetData.push([
+        r.ID,
+        r.Nombre,
+        r.Descripcion || '',
+        Number(r.Precio || 0),
+        r.StockTotal,
+        ...sucursalesList.map(s => r[s.nombreSucursal] ?? 0)
+      ]);
+    });
+    // Crear workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+    // Ajuste simple de anchos
+    const colWidths = worksheetData[0].map(h => ({ wch: Math.min(30, Math.max(10, String(h).length + 2)) }));
+    ws['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.writeFile(wb, `inventario_productos_${new Date().toISOString().substring(0,10)}.xlsx`);
+  };
+
   return (
     <>
     <Box sx={{ width: '100%', py: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Productos</Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={exportInventarioPDF}
+            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 0.7 }}
+          >Exportar PDF</Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={exportInventarioExcel}
+            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600, px: 2.5, py: 0.7 }}
+          >Exportar Excel</Button>
           <Button
             startIcon={<AddIcon />}
             variant="contained"

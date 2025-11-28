@@ -5,6 +5,9 @@ import { SucursalesService } from '../services/SucursalesService';
 import { UsersAdminService } from '../services/UsersAdminService';
 import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack, Divider, InputAdornment, Skeleton
 } from '@mui/material';
@@ -124,6 +127,7 @@ function Pedidos() {
   const [sucursales, setSucursales] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [productosList, setProductosList] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   const loadingStartRef = useRef(0);
   const tableRef = useRef(null);
@@ -330,6 +334,65 @@ function Pedidos() {
     if (filterTotalMax && Number(p.total) > Number(filterTotalMax)) return false;
     return true;
   });
+
+  // Construir filas para exportación a partir de una lista de pedidos
+  const buildExportRows = (rows) => {
+    return (rows || []).map((p) => {
+      const totalUnidades = (p.productos || []).reduce((s, it) => s + Number(it.cantidad || 0), 0);
+      const productosResumen = (p.productos || []).map(pr => `${pr.nombre} x${pr.cantidad}`).join(' | ');
+      const d = p.fecha ? new Date(p.fecha) : null;
+      const fechaStr = d ? d.toLocaleDateString('es-AR') : '';
+      const horaStr = d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+      const metodoFromObs = extractMetodoFromObservaciones(p.observaciones);
+      const metodoRaw = p.metodoPago && String(p.metodoPago).trim() ? String(p.metodoPago).trim() : (metodoFromObs || 'No especificado');
+      const cuotasTxt = p.cuotas && Number(p.cuotas) > 1 ? `${p.cuotas} cuotas` : '';
+      const interesTxt = p.interes && Number(p.interes) > 0 ? `${p.interes}% int.` : '';
+      const descuentoTxt = p.descuento && Number(p.descuento) > 0 ? `${p.descuento}% desc.` : '';
+      const pagoDetalle = [metodoRaw, cuotasTxt, interesTxt || descuentoTxt].filter(Boolean).join(' · ');
+      return {
+        ID: p.idPedido,
+        Productos: productosResumen,
+        Usuario: `${p.nombreUsuario || ''} ${p.apellidoUsuario || ''}`.trim(),
+        Unidades: totalUnidades,
+        Fecha: `${fechaStr} ${horaStr}`.trim(),
+        Pago: pagoDetalle,
+        Total: Number(p.totalConInteres || p.total || 0),
+        Estado: p.estado || 'Pendiente'
+      };
+    });
+  };
+
+  const exportToPDF = async (useDisplayed = true) => {
+    try {
+      setExporting(true);
+      const rows = buildExportRows(useDisplayed ? displayedPedidos : pedidos);
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const title = `Pedidos (${useDisplayed ? 'según filtros' : 'todos'})`;
+      doc.setFontSize(14);
+      doc.text(title, 40, 40);
+      const head = [['ID', 'Productos', 'Usuario', 'Unidades', 'Fecha', 'Pago', 'Total', 'Estado']];
+      const body = rows.map(r => [r.ID, r.Productos, r.Usuario, String(r.Unidades), r.Fecha, r.Pago, formatCurrency(r.Total), r.Estado]);
+      doc.autoTable({ head, body, startY: 60, styles: { fontSize: 10, cellPadding: 4 }, headStyles: { fillColor: [240,240,240] } });
+      doc.save(`pedidos_${useDisplayed ? 'filtros' : 'todos'}.pdf`);
+    } catch (e) {
+      console.warn('Export PDF error', e);
+      setError('No se pudo exportar a PDF');
+    } finally { setExporting(false); }
+  };
+
+  const exportToExcel = async (useDisplayed = true) => {
+    try {
+      setExporting(true);
+      const rows = buildExportRows(useDisplayed ? displayedPedidos : pedidos);
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+      XLSX.writeFile(wb, `pedidos_${useDisplayed ? 'filtros' : 'todos'}.xlsx`);
+    } catch (e) {
+      console.warn('Export Excel error', e);
+      setError('No se pudo exportar a Excel');
+    } finally { setExporting(false); }
+  };
 
   // Helpers para renderizar estados (chips / items)
   const renderStatusValue = (value) => <StatusPill value={value} variant="inline" />;
@@ -565,6 +628,8 @@ function Pedidos() {
           >
             Registrar pedido
           </Button>
+          <Button variant="outlined" size="small" onClick={() => exportToPDF(true)} disabled={exporting} sx={{ textTransform: 'none' }}>Exportar PDF</Button>
+          <Button variant="outlined" size="small" onClick={() => exportToExcel(true)} disabled={exporting} sx={{ textTransform: 'none' }}>Exportar Excel</Button>
         </Stack>
       </Box>
       {activeFilters.length > 0 && (

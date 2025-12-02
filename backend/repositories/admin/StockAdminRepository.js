@@ -55,7 +55,9 @@ class StockAdminRepository extends BaseRepository {
 
   async recalcProductTotalFromSucursal(idProducto, conn) {
     const runner = conn ? conn.query.bind(conn) : this.db.query.bind(this.db);
-    const [rows] = await runner('SELECT COALESCE(SUM(stockDisponible),0) AS suma FROM stock_sucursal WHERE idProducto=?', [idProducto]);
+    const result = await runner('SELECT COALESCE(SUM(stockDisponible),0) AS suma FROM stock_sucursal WHERE idProducto=?', [idProducto]);
+    // Handle both mysql2 conn.query ([rows, fields]) and db.query (rows)
+    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
     const suma = rows && rows[0] ? Number(rows[0].suma || 0) : 0;
     await runner('UPDATE productos SET stockTotal = ? WHERE idProducto = ?', [suma, idProducto]);
     return suma;

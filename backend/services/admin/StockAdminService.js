@@ -32,15 +32,13 @@ class StockAdminService {
         throw err;
       }
       await this.stockRepo.updateStockEntry(idSucursal, idProducto, nuevoStock, conn);
+      // Recalcular el stock total del producto desde todas las sucursales
+      await this.stockRepo.recalcProductTotalFromSucursal(idProducto, conn);
+      // Registrar movimiento si hubo variación
       if (delta !== 0) {
-        // update global total
-        await this.stockRepo.incrementProductStockTotal(idProducto, delta, conn);
-        // record a movimiento of type 'ajuste' for the manual change
         try {
           await this.movementRepo.insertMovement({ idProducto, fromSucursal: null, toSucursal: idSucursal, cantidad: delta, tipo: 'ajuste', idUsuario: null, nota: 'Ajuste manual desde admin' }, conn);
-        } catch (e) {
-          // best-effort: do not fail the whole transaction if logging fails
-        }
+        } catch (e) {}
       }
     });
   }
@@ -66,6 +64,8 @@ class StockAdminService {
       }
       // record movement (transfer)
       await this.movementRepo.insertMovement({ idProducto, fromSucursal, toSucursal, cantidad, tipo: 'transfer', idUsuario, nota }, conn);
+      // Recalcular total por seguridad (debería permanecer constante, pero asegura consistencia)
+      await this.stockRepo.recalcProductTotalFromSucursal(idProducto, conn);
     });
   }
 
@@ -90,6 +90,8 @@ class StockAdminService {
         await this.stockRepo.incrementProductStockTotal(idProducto, delta, conn);
         await this.movementRepo.insertMovement({ idProducto, fromSucursal: null, toSucursal: idSucursal, cantidad: delta, tipo: 'ajuste', idUsuario, nota }, conn);
       }
+      // Recalcular total desde sucursales para asegurar consistencia
+      await this.stockRepo.recalcProductTotalFromSucursal(idProducto, conn);
     });
   }
 
@@ -108,6 +110,15 @@ class StockAdminService {
         }
       }
     }
+  }
+
+  async reconcileAllProducts() {
+    return this.db.withTransaction(async (conn) => {
+      const [rows] = await conn.query('SELECT idProducto FROM productos');
+      for (const r of (rows || [])) {
+        await this.stockRepo.recalcProductTotalFromSucursal(r.idProducto, conn);
+      }
+    });
   }
 
   async reconcileStockProducto(idProducto) {

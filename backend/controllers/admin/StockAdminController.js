@@ -7,6 +7,7 @@ class StockAdminController {
     this.actualizarStockSucursal = this.actualizarStockSucursal.bind(this);
     this.backfillStockSucursales = this.backfillStockSucursales.bind(this);
     this.reconcileStockProducto = this.reconcileStockProducto.bind(this);
+    this.reconcileAll = this.reconcileAll.bind(this);
     this.transferStock = this.transferStock.bind(this);
     this.adjustStock = this.adjustStock.bind(this);
     this.listMovimientos = this.listMovimientos.bind(this);
@@ -63,6 +64,15 @@ class StockAdminController {
     } catch (e) {
       if (e.status === 404) return res.status(404).json({ error: 'Producto no encontrado' });
       res.status(500).json({ error: 'Error al reconciliar stock' });
+    }
+  }
+
+  async reconcileAll(req, res) {
+    try {
+      await this.service.reconcileAllProducts();
+      res.json({ mensaje: 'Reconciliación global completada' });
+    } catch (e) {
+      res.status(500).json({ error: 'Error al reconciliar todo el stock' });
     }
   }
 

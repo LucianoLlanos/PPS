@@ -10,4 +10,5 @@ export class StockService {
   async reconcileProducto(idProducto) { return this.client.post(`/admin/productos/${idProducto}/reconcile`); }
   async listMovements(idProducto, limit = 100) { return this.client.get('/admin/stock/movimientos', { params: { idProducto, limit } }); }
   async transferStock(payload) { return this.client.post('/admin/stock/transfer', payload); }
+  async reconcileAll() { return this.client.post('/admin/stock/reconcile-all'); }
 }

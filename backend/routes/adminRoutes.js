@@ -66,6 +66,8 @@ router.put('/stock_sucursal/:idSucursal(\\d+)/:idProducto(\\d+)', StockAdminCont
 router.post('/stock_sucursal/backfill', StockAdminController.backfillStockSucursales);
 // Reconciliar stockTotal de un producto con stock_sucursal
 router.post('/productos/:idProducto(\\d+)/reconcile', StockAdminController.reconcileStockProducto);
+// Reconciliar todos los productos (global)
+router.post('/stock/reconcile-all', StockAdminController.reconcileAll);
 
 // Transferir stock entre sucursales
 router.post('/stock/transfer', StockAdminController.transferStock);

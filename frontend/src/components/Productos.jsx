@@ -729,6 +729,7 @@ function Productos() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, system-ui' }}>Productos</Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          
           <Button
             variant="outlined"
             color="primary"

@@ -33,7 +33,13 @@ class UsuarioAdminRepository extends BaseRepository {
   async findById(id, conn = null) {
     const sql = 'SELECT * FROM usuarios WHERE idUsuario=?';
     const runner = conn ? conn.query.bind(conn) : this.db.query.bind(this.db);
-    const rows = await runner(sql, [id]);
+    const result = await runner(sql, [id]);
+    // Normalize result: conn.query returns [rows, fields], this.db.query returns rows
+    let rows = result;
+    if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
+      // result is [rows, fields]
+      rows = result[0];
+    }
     return rows && rows[0] ? rows[0] : null;
   }
 

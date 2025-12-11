@@ -36,6 +36,13 @@ class AuthService {
     });
   }
 
+  // Validate mail configuration when using SendGrid
+  validateMailConfig() {
+    if (process.env.SENDGRID_API_KEY && !process.env.SENDGRID_FROM) {
+      console.warn('[WARN][AuthService] SENDGRID_API_KEY is set but SENDGRID_FROM is missing. Set SENDGRID_FROM to a verified sender.');
+    }
+  }
+
   async login({ email, password }) {
     if (!email || !password) throw AppError.badRequest('Faltan credenciales');
     const user = await this.userRepo.findByEmail(email);
@@ -138,6 +145,7 @@ class AuthService {
         };
         await sendgrid.send(msg);
         console.info('Password reset email sent via SendGrid to', user.email);
+        return { previewUrl: null };
       } else {
         const mailOptions = {
           from: fromAddress,
@@ -149,7 +157,14 @@ class AuthService {
         };
         const info = await this.mailer.sendMail(mailOptions);
         // If using Ethereal or similar test accounts, log preview URL
-        try { const preview = nodemailer.getTestMessageUrl(info); if (preview) console.info('Password reset email preview URL:', preview); } catch (e) {}
+        try {
+          const preview = nodemailer.getTestMessageUrl(info);
+          if (preview) {
+            console.info('Password reset email preview URL:', preview);
+            return { previewUrl: preview };
+          }
+        } catch (e) {}
+        return { previewUrl: null };
       }
     } catch (e) {
       console.error('Error sending reset email', e);

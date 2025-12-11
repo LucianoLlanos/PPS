@@ -36,9 +36,14 @@ class AuthController {
   async forgotPassword(req, res) {
     try {
       const { email } = req.body || {};
-      await this.service.requestPasswordReset(email, req.ip, req.get('User-Agent'));
+      const result = await this.service.requestPasswordReset(email, req.ip, req.get('User-Agent'));
       // Always return 200 for privacy (no enumeration)
-      res.json({ message: 'Si existe una cuenta, recibirás un correo con instrucciones para restablecer la contraseña.' });
+      const baseResp = { message: 'Si existe una cuenta, recibirás un correo con instrucciones para restablecer la contraseña.' };
+      // In non-production, if mail preview URL available (Ethereal), return it to help debugging
+      if (result && result.previewUrl && process.env.NODE_ENV !== 'production') {
+        return res.json({ ...baseResp, previewUrl: result.previewUrl });
+      }
+      return res.json(baseResp);
     } catch (err) {
       console.error('[auth] forgotPassword error:', err);
       res.status(500).json({ error: 'Error del servidor' });

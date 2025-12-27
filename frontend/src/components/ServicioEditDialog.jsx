@@ -44,7 +44,9 @@ export default function ServicioEditDialog({ open, onClose, servicio, onSaved })
           <>
             <Typography variant="caption">Nuevo estado</Typography>
             <Select fullWidth value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)} sx={{ mt: 1 }}>
-              {STATUSES.map(st => <MenuItem key={st.value} value={st.value}>{st.label}</MenuItem>)}
+              {STATUSES.filter(st => st.value !== 'enviado' && st.value !== 'entregado').map(st => (
+                <MenuItem key={st.value} value={st.value}>{st.label}</MenuItem>
+              ))}
             </Select>
             <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>Observaciones (opcional)</Typography>
             <TextField fullWidth multiline rows={3} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} sx={{ mt: 1 }} />

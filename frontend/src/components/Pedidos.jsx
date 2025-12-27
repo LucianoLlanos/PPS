@@ -6,7 +6,7 @@ import { UsersAdminService } from '../services/UsersAdminService';
 import { ProductsService } from '../services/ProductsService';
 import { formatCurrency } from '../utils/format';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Snackbar, Select, MenuItem, InputLabel, FormControl, IconButton, Tooltip, Popover, Chip, Stack, Divider, InputAdornment, Skeleton
@@ -372,7 +372,7 @@ function Pedidos() {
       doc.text(title, 40, 40);
       const head = [['ID', 'Productos', 'Usuario', 'Unidades', 'Fecha', 'Pago', 'Total', 'Estado']];
       const body = rows.map(r => [r.ID, r.Productos, r.Usuario, String(r.Unidades), r.Fecha, r.Pago, formatCurrency(r.Total), r.Estado]);
-      doc.autoTable({ head, body, startY: 60, styles: { fontSize: 10, cellPadding: 4 }, headStyles: { fillColor: [240,240,240] } });
+      autoTable(doc, { head, body, startY: 60, styles: { fontSize: 10, cellPadding: 4 }, headStyles: { fillColor: [240,240,240] } });
       doc.save(`pedidos_${useDisplayed ? 'filtros' : 'todos'}.pdf`);
     } catch (e) {
       console.warn('Export PDF error', e);

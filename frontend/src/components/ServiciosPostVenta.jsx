@@ -5,7 +5,7 @@ import ExpandableText from './ExpandableText';
 import useAuthStore from '../store/useAuthStore';
 import '../stylos/ServiciosPostVenta.css';
 import { getStatusInfo } from '../utils/statusColors';
-import { Container, Grid, Card, CardContent, CardActions, Typography, Tabs, Tab, TextField, Select, MenuItem, Button, Alert, Chip, Box, CircularProgress, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Container, Grid, Card, CardContent, CardActions, Typography, Tabs, Tab, TextField, Select, MenuItem, Button, Alert, Chip, Box, CircularProgress, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import SendIcon from '@mui/icons-material/Send';
 
@@ -329,18 +329,47 @@ export default function ServiciosPostVenta() {
 												<Box sx={{ mb: 2 }}>
 																										<TextField className="servicios-field" fullWidth value={formData.direccion} onChange={(e) => handleField('direccion', e.target.value)} placeholder="Dirección" variant="outlined" error={!!errors.direccion} helperText={errors.direccion || ''} />
 												</Box>
-												  <Grid container spacing={2} sx={{ mb: 2 }}>
-													<Grid item xs={12} md={6}>
-																											<TextField className="servicios-field" fullWidth type="date" value={formData.fechaPreferida} onChange={(e) => handleField('fechaPreferida', e.target.value)} inputProps={{ min: getMinDate() }} variant="outlined" error={!!errors.fechaPreferida} helperText={errors.fechaPreferida || 'No se atienden domingos'} />
-													</Grid>
-													<Grid item xs={12} md={6}>
-																											<Select className="servicios-field" fullWidth value={formData.horaPreferida} onChange={(e) => handleField('horaPreferida', e.target.value)} displayEmpty variant="outlined" error={!!errors.horaPreferida} open={openHora} onOpen={() => setOpenHora(true)} onClose={() => setOpenHora(false)} MenuProps={{ disableScrollLock: true }}>
-															<MenuItem value="">Seleccionar hora</MenuItem>
-															{['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'].map(h => <MenuItem key={h} value={h}>{h}</MenuItem>)}
-														</Select>
+																									<Grid container spacing={2} sx={{ mb: 2 }}>
+																										<Grid item xs={12} md={6}>
+																											<TextField
+																												className="servicios-field"
+																												fullWidth
+																												type="date"
+																												label="Fecha preferida"
+																												value={formData.fechaPreferida}
+																												onChange={(e) => handleField('fechaPreferida', e.target.value)}
+																												inputProps={{ min: getMinDate(), 'aria-label': 'Fecha preferida' }}
+																												InputLabelProps={{ shrink: true }}
+																												variant="outlined"
+																												error={!!errors.fechaPreferida}
+																												helperText={errors.fechaPreferida || 'No se atienden domingos'}
+																											/>
+																										</Grid>
+																										<Grid item xs={12} md={6}>
+																											<FormControl fullWidth variant="outlined" className="servicios-field" error={!!errors.horaPreferida}>
+																												<InputLabel id="label-hora-preferida" shrink>Hora preferida</InputLabel>
+																												<Select
+																													labelId="label-hora-preferida"
+																													label="Hora preferida"
+																													value={formData.horaPreferida}
+																													onChange={(e) => handleField('horaPreferida', e.target.value)}
+																													displayEmpty
+																													open={openHora}
+																													onOpen={() => setOpenHora(true)}
+																													onClose={() => setOpenHora(false)}
+																													inputProps={{ 'aria-label': 'Hora preferida' }}
+																													MenuProps={{ disableScrollLock: true }}
+																												>
+																													<MenuItem value="">
+																														<em>Seleccionar hora</em>
+																													</MenuItem>
+																													{['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00']
+																														.map(h => <MenuItem key={h} value={h}>{h}</MenuItem>)}
+																												</Select>
+																											</FormControl>
 																											{errors.horaPreferida && <Typography color="error" variant="caption">{errors.horaPreferida}</Typography>}
-													</Grid>
-												</Grid>
+																										</Grid>
+																									</Grid>
 
 																									{/* Estimación de costo */}
 																									{productoTipo && (

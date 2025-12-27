@@ -14,7 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { formatCurrency } from '../utils/format';
 // Exportación (PDF / Excel)
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // Memoized StockTable to avoid re-rendering stock tables on every parent render
@@ -678,7 +678,7 @@ function Productos() {
       r.StockTotal,
       ...sucursalesList.map(s => r[s.nombreSucursal] ?? 0)
     ]);
-    doc.autoTable({
+    autoTable(doc, {
       head,
       body,
       startY: 26,

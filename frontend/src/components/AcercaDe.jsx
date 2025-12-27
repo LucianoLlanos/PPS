@@ -39,7 +39,14 @@ export default function AcercaDe() {
       setError('');
     } catch (err) {
       console.error('Error al cargar información de la empresa:', err);
-      setError('Error al cargar la información de la empresa');
+      const status = err?.response?.status;
+      if (status === 404) {
+        // No hay información configurada: mostrar estado informativo sin error
+        setEmpresaInfo(null);
+        setError('');
+      } else {
+        setError('Error al cargar la información de la empresa');
+      }
     } finally {
       setLoading(false);
     }

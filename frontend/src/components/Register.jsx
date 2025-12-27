@@ -73,7 +73,20 @@ export default function Register() {
               <TextField label="Nombre" name="nombre" fullWidth required value={formData.nombre} onChange={handleChange} error={!!errors.nombre} helperText={errors.nombre} sx={{ mb: 2 }} />
               <TextField label="Apellido" name="apellido" fullWidth required value={formData.apellido} onChange={handleChange} error={!!errors.apellido} helperText={errors.apellido} sx={{ mb: 2 }} />
               <TextField label="Email" name="email" type="email" fullWidth required value={formData.email} onChange={handleChange} error={!!errors.email} helperText={errors.email} sx={{ mb: 2 }} />
-              <TextField label="Contraseña" name="password" type="password" fullWidth required value={formData.password} onChange={handleChange} error={!!errors.password} helperText={errors.password} sx={{ mb: 2 }} />
+              <TextField
+                label="Contraseña"
+                name="password"
+                type="password"
+                fullWidth
+                required
+                value={formData.password}
+                onChange={handleChange}
+                error={!!errors.password}
+                helperText={errors.password || 'Mínimo 6 caracteres'}
+                autoComplete="new-password"
+                inputProps={{ minLength: 6 }}
+                sx={{ mb: 2 }}
+              />
               <TextField label="Teléfono (opcional)" name="telefono" fullWidth value={formData.telefono} onChange={handleChange} error={!!errors.telefono} helperText={errors.telefono} sx={{ mb: 3 }} />
 
               <Button type="submit" variant="contained" fullWidth disabled={loading}>{loading ? 'Creando cuenta...' : 'Crear cuenta'}</Button>
